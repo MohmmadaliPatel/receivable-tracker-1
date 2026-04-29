@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { verifyCredentials, createSession } from '@/lib/simple-auth';
-import { sessionCookieSecure } from '@/lib/auth-public-url';
+import { sessionCookieSecureForRequest } from '@/lib/auth-public-url';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,16 +29,16 @@ export async function POST(request: NextRequest) {
     // Create session
     const sessionToken = await createSession(result.userId);
 
-    const response = NextResponse.json({ success: true });
-    response.cookies.set('session_token', sessionToken, {
+    const cookieStore = await cookies();
+    cookieStore.set('session_token', sessionToken, {
       httpOnly: true,
-      secure: sessionCookieSecure(),
+      secure: sessionCookieSecureForRequest(request),
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60, // 7 days
       path: '/',
     });
 
-    return response;
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(

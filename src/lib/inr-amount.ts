@@ -131,3 +131,23 @@ export function formatNetSignedAsDrCr(net: number | null): string {
   const dc = debitCreditLabel(net);
   return `${formatInrAmount(Math.abs(net))} ${dc}`;
 }
+
+/**
+ * Trade query page: the Amount column shows Dr/Cr with no minus sign (credit = negative in data).
+ * User enters the magnitude on that same side: e.g. 2000 on a credit line is stored as -2000.
+ * If the amount cannot be parsed, returns the trimmed input unchanged.
+ */
+export function signedBooksAmountStringForLine(
+  userInput: string | undefined,
+  lineCurrencyRaw: string | null | undefined
+): string | undefined {
+  const t = userInput?.trim();
+  if (!t) return undefined;
+  const mag = parseInrAmountString(t);
+  if (mag === null) return t;
+  const magnitude = Math.abs(mag);
+  const lineVal = parseInrAmountString(lineCurrencyRaw);
+  const isCreditLine = lineVal !== null && lineVal < 0;
+  const signed = isCreditLine ? -magnitude : magnitude;
+  return String(signed);
+}

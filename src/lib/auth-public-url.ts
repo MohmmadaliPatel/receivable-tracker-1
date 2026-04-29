@@ -41,3 +41,24 @@ export function sessionCookieSecure(): boolean {
     '';
   return base.startsWith('https://');
 }
+
+/**
+ * Prefer the request's effective scheme (reverse proxy) so session cookies match how the browser
+ * reached the app. Falls back to env-based {@link sessionCookieSecure} when proto is unknown.
+ */
+export function sessionCookieSecureForRequest(request: NextRequest): boolean {
+  const forwarded = request.headers
+    .get('x-forwarded-proto')
+    ?.split(',')[0]
+    ?.trim();
+  if (forwarded === 'https') return true;
+  if (forwarded === 'http') return false;
+  try {
+    const u = new URL(request.url);
+    if (u.protocol === 'https:') return true;
+    if (u.protocol === 'http:') return false;
+  } catch {
+    /* ignore */
+  }
+  return sessionCookieSecure();
+}

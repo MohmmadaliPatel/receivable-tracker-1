@@ -40,10 +40,12 @@ export default function LoginPage() {
         const u = sess.user;
         const dest = firstAllowedModuleHref(u) || '/';
         router.push(dest);
+        router.refresh();
       } else {
-        router.push('/trade-payables');
+        setError(
+          'Signed in but the session was not stored. Use the same URL as in NEXTAUTH_URL / NEXT_PUBLIC_APP_BASE_URL, and ensure your reverse proxy sends X-Forwarded-Proto when using HTTPS.'
+        );
       }
-      router.refresh();
     } catch (err) {
       setError('Network error. Please try again.');
     } finally {

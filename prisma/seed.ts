@@ -28,9 +28,9 @@ async function main() {
   });
 
   console.log('✅ Default user created:', user.username);
-  console.log('   Username: admin');
-  console.log('   Password: admin123');
-  console.log('   ⚠️  Please change the password after first login!');
+  console.log('   Username:', defaultUsername);
+  console.log('   Password:', defaultPassword);
+  console.log('   ⚠️  Change the password after first login!');
 }
 
 main()

@@ -2,7 +2,12 @@
 
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { formatDrCrAmountDisplay, formatNetSignedAsDrCr, parseInrAmountString } from '@/lib/inr-amount';
+import {
+  formatDrCrAmountDisplay,
+  formatNetSignedAsDrCr,
+  parseInrAmountString,
+  signedBooksAmountStringForLine,
+} from '@/lib/inr-amount';
 
 type Row = {
   id: string;
@@ -76,11 +81,15 @@ function QueryBody() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
+    const rowById = new Map((rows ?? []).map((r) => [r.id, r]));
     const lines = Object.entries(selected)
       .filter(([, v]) => v)
       .map(([recordId]) => ({
         recordId,
-        amountInBooks: amounts[recordId],
+        amountInBooks: signedBooksAmountStringForLine(
+          amounts[recordId],
+          rowById.get(recordId)?.currencyValue
+        ),
         note: notes[recordId],
       }));
     if (lines.length === 0) {
@@ -126,7 +135,9 @@ function QueryBody() {
       <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow border border-slate-200 p-6">
         <h1 className="text-xl font-semibold text-slate-900 mb-1">Have a query</h1>
         <p className="text-sm text-slate-600 mb-4">
-          Select <strong>only</strong> invoice lines where you have a query. Enter the amount per your books (optional) and a note (optional) for those lines.
+          Select <strong>only</strong> invoice lines where you have a query. For &quot;Amount in your books&quot;, enter
+          the figure on the <strong>same Debit or Credit side</strong> as the Amount column (we store credit as a negative
+          value—e.g. enter <strong>2000</strong> when the line is Credit to mean <strong>₹2,000 Credit</strong>).
         </p>
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 mb-6 space-y-2">
           <p className="font-medium">Important</p>
@@ -162,7 +173,12 @@ function QueryBody() {
                     <th className="p-3 text-center">Dr / Cr</th>
                     <th className="p-3 min-w-[120px]">Entity</th>
                     <th className="p-3">Bank / party</th>
-                    <th className="p-3">Amount in your books</th>
+                    <th className="p-3">
+                      Amount in your books
+                      <span className="block text-slate-500 text-xs font-normal mt-0.5">
+                        Same Dr/Cr side as Amount; no minus needed
+                      </span>
+                    </th>
                     <th className="p-3">Note</th>
                   </tr>
                 </thead>
@@ -195,7 +211,7 @@ function QueryBody() {
                           value={amounts[r.id] || ''}
                           onChange={(e) => setAmounts((m) => ({ ...m, [r.id]: e.target.value }))}
                           className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm"
-                          placeholder="—"
+                          placeholder="e.g. 2000"
                           disabled={!selected[r.id]}
                         />
                       </td>
