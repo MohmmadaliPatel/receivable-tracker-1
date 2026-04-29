@@ -1,0 +1,474 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  username      String    @unique
+  password      String    // Hashed password
+  name          String?
+  email         String?   @unique
+  role          String    @default("user") // "admin" | "user"
+  accessTradePayable       Boolean @default(true)
+  accessTradeReceivable    Boolean @default(true)
+  accessConfirmMsme       Boolean @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  emailConfigs  EmailConfig[]
+  senders       Sender[]
+  forwarders    Forwarder[]
+
+  @@map("users")
+}
+
+model EmailConfig {
+  id              String   @id @default(cuid())
+  name            String   // Configuration name (e.g., "Primary", "Backup")
+  type            String   @default("graph") // "graph" or "smtp" (only graph implemented)
+  msTenantId      String   // MS_TENANT_ID
+  msClientId      String   // MS_CLIENT_ID
+  msClientSecret  String   // MS_CLIENT_SECRET
+  fromEmail       String   // FROM_EMAIL
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailTrackings  EmailTracking[]
+  isActive        Boolean  @default(true)
+  cronEnabled     Boolean  @default(false) // Enable automatic fetching
+  cronIntervalMinutes Int  @default(10) // Interval in minutes (e.g., 10 = every 10 minutes)
+  reminderEnabled Boolean  @default(false) // Enable reminder emails
+  reminderDurationHours Int @default(24) // Send reminder if no reply within this duration
+  reminderDurationUnit String @default("hours") // "hours" or "minutes"
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("email_configs")
+}
+
+model Email {
+  id          String   @id @default(cuid())
+  to          String   // Recipient email
+  subject     String?
+  body        String?
+  htmlBody    String?
+  sentAt      DateTime @default(now())
+  status      String   @default("sent") // sent, failed, pending
+  errorMessage String?
+  emailConfigId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("emails")
+}
+
+model Sender {
+  id            String   @id @default(cuid())
+  email         String   @unique // Email address to track
+  name          String?  // Optional name
+  isActive      Boolean  @default(true)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailTrackings EmailTracking[]
+  forwardingRules ForwardingRule[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("senders")
+}
+
+model EmailTracking {
+  id              String   @id @default(cuid())
+  senderId        String
+  sender          Sender   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  
+  // Original email details
+  originalMessageId  String   @unique // Graph API message ID
+  originalSubject    String?
+  originalBody       String?
+  originalHtmlBody   String?
+  originalFromEmail  String
+  originalFromName   String?
+  originalReceivedAt DateTime
+  
+  // Forwarding details
+  isForwarded     Boolean  @default(false)
+  forwardedTo     String?  // Comma-separated list of emails
+  forwardedAt     DateTime?
+  forwardMessageId String? // Graph API message ID of forwarded email
+  autoForwarded   Boolean  @default(false) // Whether it was auto-forwarded via rule
+  
+  // Reply tracking
+  hasReplies      Boolean  @default(false)
+  lastReplyAt     DateTime?
+  replyCount      Int      @default(0)
+  
+  // Reminder tracking
+  reminderSent    Boolean  @default(false) // Whether reminder email has been sent
+  reminderSentAt  DateTime? // When reminder was sent
+  
+  // Attachments
+  hasAttachments  Boolean  @default(false)
+  attachmentIds   String?  // JSON array of attachment IDs
+  
+  // Status
+  status          String   @default("received") // received, forwarded, replied, error, reminder_sent
+  errorMessage    String?
+  
+  userId          String
+  emailConfigId   String?
+  emailConfig     EmailConfig? @relation(fields: [emailConfigId], references: [id], onDelete: SetNull)
+  replies         EmailReply[] // Replies to this forwarded email
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("email_trackings")
+}
+
+model EmailReply {
+  id              String   @id @default(cuid())
+  emailTrackingId String
+  emailTracking   EmailTracking @relation(fields: [emailTrackingId], references: [id], onDelete: Cascade)
+  
+  // Reply message details
+  messageId       String   @unique // Graph API message ID
+  subject         String?
+  body            String?
+  htmlBody        String?
+  bodyPreview     String?
+  fromEmail       String
+  fromName        String?
+  receivedAt      DateTime
+  
+  // Attachments
+  hasAttachments  Boolean  @default(false)
+  attachmentIds   String?  // JSON array of attachment info: [{id, name, contentType, size}]
+  
+  userId          String
+  emailConfigId   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("email_replies")
+}
+
+model ForwardingRule {
+  id              String   @id @default(cuid())
+  senderId        String
+  sender          Sender   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  
+  // Forward to emails (comma-separated or JSON array)
+  forwardToEmails String   // Comma-separated list of email addresses
+  
+  // Subject filter (optional - partial match)
+  subjectFilter   String?  // If provided, only forward emails whose subject contains this text (case-insensitive)
+  
+  // Configuration
+  isActive        Boolean  @default(true)
+  autoForward     Boolean  @default(true) // Automatically forward when email received
+  
+  userId          String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("forwarding_rules")
+}
+
+model Forwarder {
+  id            String   @id @default(cuid())
+  email         String   // Email address to send from/to
+  name          String?  // Optional name/description
+  subject       String?  // Default subject template
+  isActive      Boolean  @default(true)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("forwarders")
+}
+
+/// RT India workbook (Sheet1 + billing mails); TP / TR / MSME rows can FK for shared recipients
+model EntityContact {
+  id                String    @id @default(cuid())
+  sapCustomerCode   String?
+  projectName       String?
+  region            String?
+  payeeName         String?
+  billingCompany    String?
+  personName        String?
+  emailTo           String    @default("")
+  emailCc           String?
+  source            String    @default("rt_india_sheet1")
+
+  tradePayables     TradePayableConfirmation[]
+  tradeReceivables  TradeReceivableConfirmation[]
+  msmeConfirmations MsmeConfirmation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sapCustomerCode])
+  @@map("entity_contacts")
+}
+
+/// Trade Payables party master (vendor); key matches listing `custId` composite
+model VendorMaster {
+  id               String   @id @default(cuid())
+  normalizedKey    String   @unique
+  companyCode      String
+  partyName        String   @default("")
+  custId           String?
+  emailTo          String   @default("")
+  emailCc          String?
+  projectName      String?
+  region           String?
+  personName       String?
+  sapCustomerCode  String?
+  source           String   @default("listing")
+
+  tradePayables    TradePayableConfirmation[]
+  msmeConfirmations MsmeConfirmation[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([custId])
+  @@map("vendor_masters")
+}
+
+/// Trade Receivables party master (customer/supplier)
+model SupplierMaster {
+  id               String   @id @default(cuid())
+  normalizedKey    String   @unique
+  companyCode      String
+  partyName        String   @default("")
+  custId           String?
+  emailTo          String   @default("")
+  emailCc          String?
+  projectName      String?
+  region           String?
+  personName       String?
+  sapCustomerCode  String?
+  source           String   @default("listing")
+
+  tradeReceivables TradeReceivableConfirmation[]
+  msmeConfirmations MsmeConfirmation[]
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([custId])
+  @@map("supplier_masters")
+}
+
+model TradePayableConfirmation {
+  id                   String         @id @default(cuid())
+  entityContactId      String?
+  entityContact        EntityContact? @relation(fields: [entityContactId], references: [id], onDelete: SetNull)
+  vendorMasterId       String?
+  vendorMaster         VendorMaster? @relation(fields: [vendorMasterId], references: [id], onDelete: SetNull)
+  entityName           String
+  category             String         @default("Trade Payables")
+  bankName             String?
+  accountNumber        String?
+  custId               String?
+  documentDate         String?
+  documentNumber       String?
+  currencyValue        String?
+  emailThreadAnchorId  String?
+  emailThreadAnchor    TradePayableConfirmation? @relation("TpEmailAnchor", fields: [emailThreadAnchorId], references: [id], onDelete: SetNull)
+  tpAnchorLines        TradePayableConfirmation[] @relation("TpEmailAnchor")
+  emailTo              String
+  emailCc              String?
+  status               String         @default("not_sent")
+  sentAt               DateTime?
+  sentMessageId        String?
+  sentEmailFilePath    String?
+  followupSentAt       DateTime?
+  followupMessageId    String?
+  followupEmailFilePath String?
+  followupCount        Int            @default(0)
+  followupsJson        String?
+  responseReceivedAt      DateTime?
+  responseMessageId       String?
+  responseSubject         String?
+  responseBody            String?
+  responseHtmlBody        String?
+  responseFromEmail       String?
+  responseFromName        String?
+  responseEmailFilePath   String?
+  responseHasAttachments  Boolean       @default(false)
+  responseAttachmentsJson String?
+  responsesJson           String?
+  attachmentPath       String?
+  attachmentName       String?
+  emailsSentFolderPath String?
+  responsesFolderPath  String?
+  remarks              String?
+  emailActionNonce      String?
+  emailActionConsumedAt DateTime?
+  webConfirmedAt       DateTime?
+  respondentQueryJson   String?
+
+  userId               String
+  emailConfigId        String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@index([entityContactId])
+  @@index([vendorMasterId])
+  @@index([custId])
+  @@index([emailThreadAnchorId])
+  @@map("trade_payable_confirmations")
+}
+
+model TradeReceivableConfirmation {
+  id                   String         @id @default(cuid())
+  entityContactId      String?
+  entityContact        EntityContact? @relation(fields: [entityContactId], references: [id], onDelete: SetNull)
+  supplierMasterId     String?
+  supplierMaster       SupplierMaster? @relation(fields: [supplierMasterId], references: [id], onDelete: SetNull)
+  entityName           String
+  category             String         @default("Trade Receivables")
+  bankName             String?
+  accountNumber        String?
+  custId               String?
+  documentDate         String?
+  documentNumber       String?
+  currencyValue        String?
+  emailThreadAnchorId  String?
+  emailThreadAnchor    TradeReceivableConfirmation? @relation("TrEmailAnchor", fields: [emailThreadAnchorId], references: [id], onDelete: SetNull)
+  trAnchorLines        TradeReceivableConfirmation[] @relation("TrEmailAnchor")
+  emailTo              String
+  emailCc              String?
+  status               String         @default("not_sent")
+  sentAt               DateTime?
+  sentMessageId        String?
+  sentEmailFilePath    String?
+  followupSentAt       DateTime?
+  followupMessageId    String?
+  followupEmailFilePath String?
+  followupCount        Int            @default(0)
+  followupsJson        String?
+  responseReceivedAt      DateTime?
+  responseMessageId       String?
+  responseSubject         String?
+  responseBody            String?
+  responseHtmlBody        String?
+  responseFromEmail       String?
+  responseFromName        String?
+  responseEmailFilePath   String?
+  responseHasAttachments  Boolean       @default(false)
+  responseAttachmentsJson String?
+  responsesJson           String?
+  attachmentPath       String?
+  attachmentName       String?
+  emailsSentFolderPath String?
+  responsesFolderPath  String?
+  remarks              String?
+  emailActionNonce      String?
+  emailActionConsumedAt DateTime?
+  webConfirmedAt       DateTime?
+  respondentQueryJson   String?
+
+  userId               String
+  emailConfigId        String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@index([entityContactId])
+  @@index([supplierMasterId])
+  @@index([custId])
+  @@index([emailThreadAnchorId])
+  @@map("trade_receivable_confirmations")
+}
+
+model MsmeConfirmation {
+  id                   String         @id @default(cuid())
+  entityContactId      String?
+  entityContact        EntityContact? @relation(fields: [entityContactId], references: [id], onDelete: SetNull)
+  vendorMasterId       String?
+  vendorMaster         VendorMaster? @relation(fields: [vendorMasterId], references: [id], onDelete: SetNull)
+  supplierMasterId     String?
+  supplierMaster       SupplierMaster? @relation(fields: [supplierMasterId], references: [id], onDelete: SetNull)
+  entityName           String
+  category             String         @default("Confirm MSME")
+  bankName             String?
+  accountNumber        String?
+  custId               String?
+  emailTo              String
+  emailCc              String?
+  status               String         @default("not_sent")
+  sentAt               DateTime?
+  sentMessageId        String?
+  sentEmailFilePath    String?
+  followupSentAt       DateTime?
+  followupMessageId    String?
+  followupEmailFilePath String?
+  followupCount        Int            @default(0)
+  followupsJson        String?
+  responseReceivedAt      DateTime?
+  responseMessageId       String?
+  responseSubject         String?
+  responseBody            String?
+  responseHtmlBody        String?
+  responseFromEmail       String?
+  responseFromName        String?
+  responseEmailFilePath   String?
+  responseHasAttachments  Boolean       @default(false)
+  responseAttachmentsJson String?
+  responsesJson           String?
+  attachmentPath       String?
+  attachmentName       String?
+  emailsSentFolderPath String?
+  responsesFolderPath  String?
+  remarks              String?
+  emailActionNonce      String?
+  emailActionConsumedAt DateTime?
+  webConfirmedAt       DateTime?
+  respondentQueryJson   String?
+
+  msmeHasCertificate       Boolean?
+  msmeCertificateFilesJson String?
+
+  userId               String
+  emailConfigId        String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@index([entityContactId])
+  @@index([vendorMasterId])
+  @@index([supplierMasterId])
+  @@index([custId])
+  @@map("msme_confirmations")
+}
+
+model AppSettings {
+  id                        String   @id @default(cuid())
+  userId                    String   @unique
+  autoReplyCheck            Boolean  @default(true)   // Automatically check for replies on cron
+  replyCheckIntervalMinutes Int      @default(30)      // How often to check for replies
+  emailSaveBasePath         String   @default("emails") // Base folder path for saving emails
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@map("app_settings")
+}
