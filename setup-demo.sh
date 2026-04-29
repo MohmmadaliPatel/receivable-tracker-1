@@ -7,7 +7,7 @@ cat > .env << EOL
 DEMO_MODE=true
 
 # Next.js Configuration
-NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_URL=http://localhost:3002
 NEXTAUTH_SECRET=demo_secret_key_for_development_only
 
 # Database Configuration
@@ -18,7 +18,7 @@ echo "✅ .env file created for demo mode"
 echo "🚀 Starting the application..."
 echo ""
 echo "To login:"
-echo "1. Open http://localhost:3000"
+echo "1. Open http://localhost:3002"
 echo "2. Click 'Show Demo Login'"
 echo "3. Enter any email/password (e.g., demo@example.com / demo123)"
 echo ""

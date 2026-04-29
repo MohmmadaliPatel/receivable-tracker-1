@@ -7,7 +7,7 @@ echo # Demo Mode Configuration
 echo DEMO_MODE=true
 echo.
 echo # Next.js Configuration
-echo NEXTAUTH_URL=http://localhost:3000
+echo NEXTAUTH_URL=http://localhost:3002
 echo NEXTAUTH_SECRET=demo_secret_key_for_development_only
 echo.
 echo # Database Configuration
@@ -18,7 +18,7 @@ echo ✅ .env file created for demo mode
 echo 🚀 Starting the application...
 echo.
 echo To login:
-echo 1. Open http://localhost:3000
+echo 1. Open http://localhost:3002
 echo 2. Click 'Show Demo Login'
 echo 3. Enter any email/password (e.g., demo@example.com / demo123)
 echo.

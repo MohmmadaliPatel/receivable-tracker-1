@@ -43,7 +43,7 @@ echo Starting EMAIL-AUTO Server
 echo ===============================
 
 set NODE_ENV=production
-set PORT=3000
+set PORT=3002
 
 npm start
 
