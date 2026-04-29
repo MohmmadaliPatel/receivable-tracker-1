@@ -171,13 +171,6 @@ function msmeCertificateViewLinks(
 
 function confirmationKindCell(record: ConfirmationRecord, formatDate: (iso?: string | null) => string) {
   const k = record.confirmationKind;
-  const ch = record.responseChannel;
-  let sub: string | undefined;
-  if (k === 'confirmed') {
-    if (ch === 'both') sub = 'Web + email';
-    else if (ch === 'web') sub = 'Web';
-    else if (ch === 'email') sub = 'Email';
-  }
   if (k === 'queried') {
     return <span className="text-amber-800 font-medium">Queried</span>;
   }
@@ -185,7 +178,6 @@ function confirmationKindCell(record: ConfirmationRecord, formatDate: (iso?: str
     return (
       <span className="block">
         <span className="text-green-700 font-medium">Confirmed</span>
-        {sub ? <span className="block text-gray-500 text-[10px] mt-0.5">{sub}</span> : null}
         {record.emailActionConsumedAt ? (
           <span className="block text-gray-400 mt-0.5 text-[10px]">
             Link used {formatDate(record.emailActionConsumedAt)}
