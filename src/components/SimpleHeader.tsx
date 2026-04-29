@@ -13,7 +13,7 @@ export default function SimpleHeader() {
 
   const fetchUser = async () => {
     try {
-      const response = await fetch('/api/auth/session');
+      const response = await fetch('/api/auth/session', { credentials: 'include' });
       const data = await response.json();
       if (data.authenticated && data.user) {
         setUser(data.user);
@@ -25,7 +25,7 @@ export default function SimpleHeader() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
       router.push('/login');
       router.refresh();
     } catch (error) {

@@ -23,6 +23,7 @@ export default function LoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ username, password }),
       });
 
@@ -33,7 +34,7 @@ export default function LoginPage() {
         return;
       }
 
-      const sessRes = await fetch('/api/auth/session');
+      const sessRes = await fetch('/api/auth/session', { credentials: 'include' });
       const sess = await sessRes.json();
       if (sess.authenticated && sess.user) {
         const u = sess.user;
