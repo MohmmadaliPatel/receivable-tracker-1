@@ -20,12 +20,11 @@ const STATUS_OPTIONS = [
   { value: 'response_received', label: 'Response Received' },
 ];
 
-const RESPONSE_CHANNEL_OPTIONS: { value: string; label: string }[] = [
-  { value: 'all', label: 'All channels' },
-  { value: 'web', label: 'Web only' },
-  { value: 'email', label: 'Email (inbox) only' },
-  { value: 'both', label: 'Web + email' },
-  { value: 'none', label: 'No response yet' },
+const CONFIRMATION_KIND_OPTIONS: { value: string; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'queried', label: 'Queried' },
+  { value: 'none', label: 'Pending' },
 ];
 
 type SortField = 'entityName' | 'category' | 'status' | 'sentAt' | 'responseReceivedAt';
@@ -41,7 +40,7 @@ export default function ConfirmationsClient() {
   const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [responseChannelFilter, setResponseChannelFilter] = useState<string>('all');
+  const [confirmationKindFilter, setConfirmationKindFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
 
   const [sortField, setSortField] = useState<SortField>('entityName');
@@ -63,7 +62,7 @@ export default function ConfirmationsClient() {
       selectedCategories.forEach((c) => params.append('category', c));
       selectedStatuses.forEach((s) => params.append('status', s));
       if (search) params.set('search', search);
-      if (responseChannelFilter !== 'all') params.set('responseChannel', responseChannelFilter);
+      if (confirmationKindFilter !== 'all') params.set('confirmationKind', confirmationKindFilter);
       params.set('metadata', 'true');
 
       const res = await fetch(`/api/confirmations?${params.toString()}`);
@@ -73,7 +72,7 @@ export default function ConfirmationsClient() {
     } finally {
       setLoading(false);
     }
-  }, [selectedEntities, selectedCategories, selectedStatuses, search, responseChannelFilter]);
+  }, [selectedEntities, selectedCategories, selectedStatuses, search, confirmationKindFilter]);
 
   useEffect(() => {
     fetchRecords();
@@ -148,7 +147,7 @@ export default function ConfirmationsClient() {
     setSelectedCategories([]);
     setSelectedStatuses([]);
     setSearch('');
-    setResponseChannelFilter('all');
+    setConfirmationKindFilter('all');
   };
 
   const hasActiveFilters =
@@ -156,7 +155,7 @@ export default function ConfirmationsClient() {
     selectedCategories.length > 0 ||
     selectedStatuses.length > 0 ||
     search.length > 0 ||
-    responseChannelFilter !== 'all';
+    confirmationKindFilter !== 'all';
 
   return (
     <div className="flex flex-col h-screen">
@@ -276,14 +275,14 @@ export default function ConfirmationsClient() {
         />
 
         <label className="flex flex-col gap-0.5 text-xs text-gray-500">
-          <span className="sr-only md:not-sr-only">Response channel</span>
+          <span className="sr-only md:not-sr-only">Confirmation</span>
           <select
-            value={responseChannelFilter}
-            onChange={(e) => setResponseChannelFilter(e.target.value)}
+            value={confirmationKindFilter}
+            onChange={(e) => setConfirmationKindFilter(e.target.value)}
             className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[10rem]"
-            aria-label="Filter by response channel"
+            aria-label="Filter by confirmation status"
           >
-            {RESPONSE_CHANNEL_OPTIONS.map((o) => (
+            {CONFIRMATION_KIND_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>

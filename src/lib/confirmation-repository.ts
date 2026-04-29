@@ -10,6 +10,8 @@ import type { ModuleKey } from '@/lib/module-types';
 import { loadTradeGroupRows } from '@/lib/trade-email-group';
 import { normalizeTradeCustId } from '@/lib/trade-composite-cust';
 
+export type ConfirmationKind = 'queried' | 'confirmed' | 'none';
+
 /** API + UI shape — same as previous ConfirmationRecord JSON with explicit module */
 export type UnifiedConfirmationRecord = {
   id: string;
@@ -59,6 +61,8 @@ export type UnifiedConfirmationRecord = {
   updatedAt: Date | string;
   /** Derived for filters / table */
   responseChannel?: string;
+  /** Confirmed vs queried (magic link / email); see {@link deriveConfirmationKind} */
+  confirmationKind?: ConfirmationKind;
   hasWebResponse?: boolean;
   hasEmailResponse?: boolean;
   /** Trade-only: invoice columns from SAP listing */
@@ -169,6 +173,8 @@ function asJson(r: SourceRow, mod: ModuleKey): UnifiedConfirmationRecord {
   else if (hasEmail) base.responseChannel = 'email';
   else base.responseChannel = 'none';
 
+  base.confirmationKind = deriveConfirmationKind(base);
+
   return base;
 }
 
@@ -208,6 +214,46 @@ export function computeHasEmailResponse(r: {
   } catch {
     return false;
   }
+}
+
+export function hasNonEmptyRespondentQueryJson(respondentQueryJson: string | null | undefined): boolean {
+  const t = respondentQueryJson?.trim();
+  if (!t || t === '[]') return false;
+  try {
+    const j = JSON.parse(t) as unknown;
+    return Array.isArray(j) && j.length > 0;
+  } catch {
+    return true;
+  }
+}
+
+/** Queried takes precedence; then web confirm / MSME web / email reply. */
+export function deriveConfirmationKind(r: {
+  module: ModuleKey;
+  status: string;
+  webConfirmedAt?: Date | string | null;
+  respondentQueryJson?: string | null;
+  responseReceivedAt?: Date | string | null;
+  responsesJson?: string | null;
+  msmeHasCertificate?: boolean | null;
+  msmeCertificateFilesJson?: string | null;
+}): ConfirmationKind {
+  if (hasNonEmptyRespondentQueryJson(r.respondentQueryJson)) return 'queried';
+  if (r.webConfirmedAt != null && String(r.webConfirmedAt).trim() !== '') return 'confirmed';
+  if (r.module === 'confirm_msme') {
+    if (r.msmeHasCertificate === true || r.msmeHasCertificate === false) return 'confirmed';
+    const cf = r.msmeCertificateFilesJson?.trim();
+    if (cf && cf !== '[]') {
+      try {
+        const j = JSON.parse(cf) as unknown;
+        if (Array.isArray(j) && j.length > 0) return 'confirmed';
+      } catch {
+        return 'confirmed';
+      }
+    }
+  }
+  if (computeHasEmailResponse(r)) return 'confirmed';
+  return 'none';
 }
 
 export async function findConfirmationMetaById(
@@ -299,8 +345,8 @@ export type ListConfirmationFilter = {
   module?: string | string[];
   status?: string | string[];
   search?: string;
-  /** Filter by how the counterparty responded — server-side */
-  responseChannel?: ('all' | 'none' | 'web' | 'email' | 'both')[];
+  /** Filter by confirmation outcome — server-side */
+  confirmationKind?: ('all' | ConfirmationKind)[];
   /** Trade module workspace: one row per custId code with nested lines */
   listMode?: 'flat' | 'by_code';
   page?: number;
@@ -346,19 +392,20 @@ const TRADE_ANCHOR_CHANNEL_SELECT = {
   responsesJson: true,
 } as const;
 
-function deriveTradeResponseChannel(row: TradeAnchorMinimal, mod: 'trade_payable' | 'trade_receivable'): 'none' | 'web' | 'email' | 'both' {
-  const hasWeb = computeHasWebResponse({
+function tradeAnchorConfirmationKind(
+  row: TradeAnchorMinimal,
+  mod: 'trade_payable' | 'trade_receivable'
+): ConfirmationKind {
+  return deriveConfirmationKind({
     module: mod,
+    status: row.status,
     webConfirmedAt: row.webConfirmedAt,
     respondentQueryJson: row.respondentQueryJson,
+    responseReceivedAt: row.responseReceivedAt,
+    responsesJson: row.responsesJson,
     msmeHasCertificate: null,
     msmeCertificateFilesJson: null,
   });
-  const hasEmail = computeHasEmailResponse(row);
-  if (hasWeb && hasEmail) return 'both';
-  if (hasWeb) return 'web';
-  if (hasEmail) return 'email';
-  return 'none';
 }
 
 function buildWorkspaceStats(rows: TradeAnchorMinimal[]): WorkspaceStats {
@@ -371,12 +418,10 @@ function buildWorkspaceStats(rows: TradeAnchorMinimal[]): WorkspaceStats {
   };
 }
 
-function matchesResponseChannel(
-  u: UnifiedConfirmationRecord,
-  channels: ('none' | 'web' | 'email' | 'both')[]
-): boolean {
-  if (!channels.length) return true;
-  return channels.includes(u.responseChannel as 'none' | 'web' | 'email' | 'both');
+function matchesConfirmationKindFilter(u: UnifiedConfirmationRecord, kinds: ConfirmationKind[]): boolean {
+  if (!kinds.length) return true;
+  const k = u.confirmationKind ?? deriveConfirmationKind(u);
+  return kinds.includes(k);
 }
 
 export async function listUnifiedConfirmationRecords(filter: ListConfirmationFilter): Promise<ListUnifiedConfirmationResult> {
@@ -386,8 +431,8 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
       : ([filter.module] as ModuleKey[])
     : (['trade_payable', 'trade_receivable', 'confirm_msme'] as ModuleKey[]);
 
-  const channels = filter.responseChannel?.length
-    ? filter.responseChannel.filter((c) => c !== 'all')
+  const kinds = filter.confirmationKind?.length
+    ? (filter.confirmationKind.filter((c) => c !== 'all') as ConfirmationKind[])
     : [];
 
   const listMode = filter.listMode ?? 'flat';
@@ -440,9 +485,7 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
       })) as TradeAnchorMinimal[];
 
       const filtered =
-        channels.length > 0
-          ? minimal.filter((m) => channels.includes(deriveTradeResponseChannel(m, 'trade_payable')))
-          : minimal;
+        kinds.length > 0 ? minimal.filter((m) => kinds.includes(tradeAnchorConfirmationKind(m, 'trade_payable'))) : minimal;
 
       const stats = buildWorkspaceStats(filtered);
       const total = filtered.length;
@@ -476,9 +519,7 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
     })) as TradeAnchorMinimal[];
 
     const filtered =
-      channels.length > 0
-        ? minimal.filter((m) => channels.includes(deriveTradeResponseChannel(m, 'trade_receivable')))
-        : minimal;
+      kinds.length > 0 ? minimal.filter((m) => kinds.includes(tradeAnchorConfirmationKind(m, 'trade_receivable'))) : minimal;
 
     const stats = buildWorkspaceStats(filtered);
     const total = filtered.length;
@@ -526,15 +567,15 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
       });
       for (const row of msRows) {
         const u = applyVendorMasterToUnified(asJson(row, 'confirm_msme'), row.vendorMaster);
-        if (!channels.length) out.push(u);
-        else if (matchesResponseChannel(u, channels)) out.push(u);
+        if (!kinds.length) out.push(u);
+        else if (matchesConfirmationKindFilter(u, kinds)) out.push(u);
       }
       continue;
     }
     for (const row of rows) {
       const u = asJson(row, mod);
-      if (!channels.length) out.push(u);
-      else if (matchesResponseChannel(u, channels)) out.push(u);
+      if (!kinds.length) out.push(u);
+      else if (matchesConfirmationKindFilter(u, kinds)) out.push(u);
     }
   }
 
@@ -631,7 +672,13 @@ export async function patchConfirmationRaw(
 export type UpdateConfirmationData = Partial<
   Omit<
     UnifiedConfirmationRecord,
-    'id' | 'module' | 'responseChannel' | 'hasWebResponse' | 'hasEmailResponse' | 'tradeInvoiceLines'
+    | 'id'
+    | 'module'
+    | 'responseChannel'
+    | 'confirmationKind'
+    | 'hasWebResponse'
+    | 'hasEmailResponse'
+    | 'tradeInvoiceLines'
   >
 >;
 
@@ -643,6 +690,7 @@ export async function updateConfirmationRow(
   const strip = { ...data };
   delete (strip as Record<string, unknown>).module;
   delete (strip as Record<string, unknown>).responseChannel;
+  delete (strip as Record<string, unknown>).confirmationKind;
   delete (strip as Record<string, unknown>).hasWebResponse;
   delete (strip as Record<string, unknown>).hasEmailResponse;
   delete (strip as Record<string, unknown>).tradeInvoiceLines;

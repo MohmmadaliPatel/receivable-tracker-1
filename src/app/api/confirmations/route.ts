@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import {
   applyEntityContactToPayload,
   toUnifiedRecord,
+  type ConfirmationKind,
 } from '@/lib/confirmation-repository';
 import { listConfirmationRecords, getEntityNames, CATEGORIES } from '@/lib/confirmation-service';
 import { userCanAccessModule } from '@/lib/module-access';
@@ -35,11 +36,11 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get('search') || undefined;
   const includeMetadata = searchParams.get('metadata') === 'true';
   const moduleParam = searchParams.get('module');
-  const responseChannelRaw = searchParams.getAll('responseChannel');
-  const responseChannel =
-    responseChannelRaw.filter(Boolean).length > 0
-      ? responseChannelRaw.map((x) =>
-          ['all', 'none', 'web', 'email', 'both'].includes(x) ? (x as 'all' | 'none' | 'web' | 'email' | 'both') : 'all'
+  const confirmationKindRaw = searchParams.getAll('confirmationKind');
+  const confirmationKind =
+    confirmationKindRaw.filter(Boolean).length > 0
+      ? confirmationKindRaw.map((x) =>
+          ['all', 'none', 'queried', 'confirmed'].includes(x) ? (x as 'all' | ConfirmationKind) : 'all'
         )
       : undefined;
 
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
     module: moduleParam && isModuleKey(moduleParam) ? moduleParam : undefined,
     status: status.length ? status : undefined,
     search,
-    responseChannel,
+    confirmationKind,
     listMode: listModeVal,
     page,
     pageSize,

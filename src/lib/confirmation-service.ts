@@ -618,7 +618,7 @@ export async function listConfirmationRecords(filter: ConfirmationFilter): Promi
     module: mod,
     status: filter.status,
     search: filter.search,
-    responseChannel: filter.responseChannel,
+    confirmationKind: filter.confirmationKind,
     listMode: filter.listMode,
     page: filter.page,
     pageSize: filter.pageSize,

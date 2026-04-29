@@ -49,6 +49,7 @@ export interface ConfirmationRecord {
   msmeCertificateFilesJson?: string | null;
   /** Derived when listing from unified API */
   responseChannel?: 'none' | 'web' | 'email' | 'both';
+  confirmationKind?: 'queried' | 'confirmed' | 'none';
   hasWebResponse?: boolean;
   hasEmailResponse?: boolean;
   documentDate?: string | null;
@@ -73,7 +74,7 @@ interface ConfirmationTableProps {
   onOpenInvoiceLines?: (record: ConfirmationRecord) => void;
   /** MSME rows driven from TR master — hide edits that would diverge from entity contacts */
   msmeListingReadOnly?: boolean;
-  /** TP/TR workspace: split entity column, hide cust id, response channel column */
+  /** TP/TR workspace: split entity column, hide cust id; confirmation column */
   tradeListingLayout?: boolean;
   /** Header for party name column when `tradeListingLayout` (e.g. Supplier / Customer) */
   tradePartyColumnHeader?: string;
@@ -168,18 +169,41 @@ function msmeCertificateViewLinks(
   return out;
 }
 
-function responseChannelCellLabel(ch?: ConfirmationRecord['responseChannel']): string {
-  switch (ch) {
-    case 'web':
-      return 'Web only';
-    case 'email':
-      return 'Email (inbox) only';
-    case 'both':
-      return 'Web + email';
-    case 'none':
-    default:
-      return 'No response yet';
+function confirmationKindCell(record: ConfirmationRecord, formatDate: (iso?: string | null) => string) {
+  const k = record.confirmationKind;
+  const ch = record.responseChannel;
+  let sub: string | undefined;
+  if (k === 'confirmed') {
+    if (ch === 'both') sub = 'Web + email';
+    else if (ch === 'web') sub = 'Web';
+    else if (ch === 'email') sub = 'Email';
   }
+  if (k === 'queried') {
+    return <span className="text-amber-800 font-medium">Queried</span>;
+  }
+  if (k === 'confirmed') {
+    return (
+      <span className="block">
+        <span className="text-green-700 font-medium">Confirmed</span>
+        {sub ? <span className="block text-gray-500 text-[10px] mt-0.5">{sub}</span> : null}
+        {record.emailActionConsumedAt ? (
+          <span className="block text-gray-400 mt-0.5 text-[10px]">
+            Link used {formatDate(record.emailActionConsumedAt)}
+          </span>
+        ) : null}
+      </span>
+    );
+  }
+  return (
+    <span className="block">
+      <span className="text-gray-400">Pending</span>
+      {record.emailActionConsumedAt ? (
+        <span className="block text-gray-400 mt-0.5 text-[10px]">
+          Link used {formatDate(record.emailActionConsumedAt)}
+        </span>
+      ) : null}
+    </span>
+  );
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
@@ -393,7 +417,7 @@ export default function ConfirmationTable({
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Action</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[130px]">Status</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[118px]">
-                {tradeListingLayout ? 'Response channel' : 'Web'}
+                Confirmation
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">View</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[140px]">Remarks</th>
@@ -687,27 +711,9 @@ export default function ConfirmationTable({
                     )}
                   </td>
 
-                  {/* Web / response channel */}
+                  {/* Confirmation (web / email / queried) */}
                   <td className="px-4 py-3 text-xs text-gray-600 max-w-[130px] align-top">
-                    {tradeListingLayout ? (
-                      <span>{responseChannelCellLabel(record.responseChannel)}</span>
-                    ) : (
-                      <>
-                        {record.webConfirmedAt && <span className="block text-green-700">Confirmed (web)</span>}
-                        {record.respondentQueryJson && <span className="block text-amber-800">Query submitted</span>}
-                        {record.msmeHasCertificate === true && <span className="block text-indigo-800">MSME: cert</span>}
-                        {record.msmeHasCertificate === false && <span className="block text-slate-600">MSME: none</span>}
-                        {record.emailActionConsumedAt && (
-                          <span className="block text-gray-400 mt-0.5">
-                            Link used {formatDate(record.emailActionConsumedAt)}
-                          </span>
-                        )}
-                        {!record.webConfirmedAt &&
-                          !record.respondentQueryJson &&
-                          record.msmeHasCertificate == null &&
-                          !record.emailActionConsumedAt && <span className="text-gray-300">—</span>}
-                      </>
-                    )}
+                    {confirmationKindCell(record, (d) => formatDate(d) || '—')}
                   </td>
 
                   {/* View */}
