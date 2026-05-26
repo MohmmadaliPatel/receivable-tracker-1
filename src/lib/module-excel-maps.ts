@@ -1,6 +1,7 @@
 import type { ModuleKey } from '@/lib/module-types';
 import { categoryForModule } from '@/lib/module-types';
 import { buildTradeCompositeCustId } from '@/lib/trade-composite-cust';
+import { reportingFiscalFromDocumentDateString } from '@/lib/india-fiscal';
 
 /** First sheet as header-row objects (for simple MSME CSV-style spreadsheets). */
 export function spreadsheetToSimpleRowObjects(buffer: Buffer): Record<string, string>[] {
@@ -180,7 +181,25 @@ export type ExcelMappedRow = {
   remarks?: string | null;
 };
 
-export function baseCreatePayloadForExcel(mapped: ExcelMappedRow, module: ModuleKey, userId: string) {
+/** When set, uploaded rows use this FY/quarter instead of deriving from document date. */
+export type ExcelImportFiscalContext = {
+  listingUploadId: string;
+  reportingFiscalYear: number;
+  reportingFiscalQuarter: number;
+};
+
+export function baseCreatePayloadForExcel(
+  mapped: ExcelMappedRow,
+  module: ModuleKey,
+  userId: string,
+  fiscalCtx?: ExcelImportFiscalContext | null
+) {
+  const fiscal = reportingFiscalFromDocumentDateString(mapped.documentDate ?? null);
+  const useUpload =
+    fiscalCtx != null &&
+    Number.isFinite(fiscalCtx.reportingFiscalYear) &&
+    fiscalCtx.reportingFiscalQuarter >= 1 &&
+    fiscalCtx.reportingFiscalQuarter <= 4;
   return {
     entityName: mapped.entityName,
     category: categoryForModule(module),
@@ -190,6 +209,9 @@ export function baseCreatePayloadForExcel(mapped: ExcelMappedRow, module: Module
     documentDate: mapped.documentDate ?? null,
     documentNumber: mapped.documentNumber ?? null,
     currencyValue: mapped.currencyValue ?? null,
+    reportingFiscalYear: useUpload ? fiscalCtx!.reportingFiscalYear : fiscal?.reportingFiscalYear ?? null,
+    reportingFiscalQuarter: useUpload ? fiscalCtx!.reportingFiscalQuarter : fiscal?.reportingFiscalQuarter ?? null,
+    listingUploadId: useUpload ? fiscalCtx!.listingUploadId : null,
     emailTo: mapped.emailTo,
     emailCc: mapped.emailCc || null,
     remarks: mapped.remarks ?? null,

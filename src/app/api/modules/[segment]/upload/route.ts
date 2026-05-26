@@ -13,6 +13,8 @@ import {
   parseTradeListingFile,
 } from '@/lib/trade-listing-import';
 import { maybeHydrateMsmeFromPartyMasters } from '@/lib/masters-msme-hook';
+import { parseListingUploadFiscal } from '@/lib/listing-upload-fiscal';
+import { prisma } from '@/lib/prisma';
 
 import { parseModuleSegment } from '../../_utils';
 
@@ -88,13 +90,46 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid module for listing import' }, { status: 400 });
   }
 
-  const { imported } = await importTradeListingFromMapped({
-    moduleKey: key,
-    userId: user.userId,
-    mapped,
-    mode: replaceMode,
-    fkMap,
+  const fiscalParsed = parseListingUploadFiscal(formData);
+  if (!fiscalParsed.ok) {
+    return NextResponse.json({ error: fiscalParsed.error }, { status: 400 });
+  }
+
+  const upload = await prisma.tradeListingUpload.create({
+    data: {
+      userId: user.userId,
+      moduleKey: key,
+      originalFileName: file.name,
+      mode: replaceMode,
+      reportingFiscalYear: fiscalParsed.reportingFiscalYear,
+      reportingFiscalQuarter: fiscalParsed.reportingFiscalQuarter,
+      rowCountImported: 0,
+    },
   });
+
+  let imported = 0;
+  try {
+    const result = await importTradeListingFromMapped({
+      moduleKey: key,
+      userId: user.userId,
+      mapped,
+      mode: replaceMode,
+      fkMap,
+      listingFiscal: {
+        listingUploadId: upload.id,
+        reportingFiscalYear: fiscalParsed.reportingFiscalYear,
+        reportingFiscalQuarter: fiscalParsed.reportingFiscalQuarter,
+      },
+    });
+    imported = result.imported;
+    await prisma.tradeListingUpload.update({
+      where: { id: upload.id },
+      data: { rowCountImported: imported },
+    });
+  } catch (e) {
+    await prisma.tradeListingUpload.delete({ where: { id: upload.id } }).catch(() => {});
+    throw e;
+  }
 
   let msmeHydrated: { upserted: number; fromVendors: number } | null = null;
   if (key === 'trade_payable') {
@@ -104,6 +139,7 @@ export async function POST(
   return NextResponse.json({
     success: true,
     imported,
+    listingUploadId: upload.id,
     total: rows.length,
     skipped: rows.length - mapped.length,
     ...(msmeHydrated ? { msmeHydrated } : {}),

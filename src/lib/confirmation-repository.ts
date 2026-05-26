@@ -8,7 +8,7 @@ import type {
 } from '@prisma/client';
 import type { ModuleKey } from '@/lib/module-types';
 import { loadTradeGroupRows } from '@/lib/trade-email-group';
-import { normalizeTradeCustId } from '@/lib/trade-composite-cust';
+import { normalizeTradeCustId, TRADE_COMPOSITE_SEP } from '@/lib/trade-composite-cust';
 
 export type ConfirmationKind = 'queried' | 'confirmed' | 'none';
 
@@ -79,6 +79,9 @@ export type UnifiedConfirmationRecord = {
   vendorMasterPartyName?: string | null;
   vendorMasterSapCustomerCode?: string | null;
   vendorMasterSource?: string | null;
+  /** India FY start year (April); optional quarter 1–4 */
+  reportingFiscalYear?: number | null;
+  reportingFiscalQuarter?: number | null;
 };
 
 type SourceRow = TradePayableConfirmation | TradeReceivableConfirmation | MsmeConfirmation;
@@ -150,11 +153,16 @@ function asJson(r: SourceRow, mod: ModuleKey): UnifiedConfirmationRecord {
     base.documentNumber = t.documentNumber ?? null;
     base.currencyValue = t.currencyValue ?? null;
     base.emailThreadAnchorId = t.emailThreadAnchorId ?? null;
+    base.reportingFiscalYear = t.reportingFiscalYear ?? null;
+    base.reportingFiscalQuarter = t.reportingFiscalQuarter ?? null;
   } else {
     base.documentDate = undefined;
     base.documentNumber = undefined;
     base.currencyValue = undefined;
     base.emailThreadAnchorId = undefined;
+    const m = r as MsmeConfirmation;
+    base.reportingFiscalYear = m.reportingFiscalYear ?? null;
+    base.reportingFiscalQuarter = m.reportingFiscalQuarter ?? null;
   }
   if (mod === 'confirm_msme') {
     const m = r as MsmeConfirmation;
@@ -337,6 +345,22 @@ export function normalizeSapCode(raw: string): string {
   return String(raw).trim().replace(/\.0+$/, '');
 }
 
+/** Company code from SAP-style entity display (entityName "CODE · Party" or custId "CODE||Party"). */
+export function extractTradeCompanyCodeFromEntity(
+  entityName: string | null | undefined,
+  custId: string | null | undefined
+): string | null {
+  const en = entityName?.trim() || '';
+  if (en.includes(' · ')) {
+    return normalizeSapCode(en.slice(0, en.indexOf(' · ')));
+  }
+  const cid = custId?.trim();
+  if (cid && cid.includes(TRADE_COMPOSITE_SEP)) {
+    return normalizeSapCode(cid.slice(0, cid.indexOf(TRADE_COMPOSITE_SEP)));
+  }
+  return null;
+}
+
 /** List confirmations with filters; merges module tables when module omitted (admin). */
 export type ListConfirmationFilter = {
   userId?: string;
@@ -347,10 +371,20 @@ export type ListConfirmationFilter = {
   search?: string;
   /** Filter by confirmation outcome — server-side */
   confirmationKind?: ('all' | ConfirmationKind)[];
+  /** India FY start years (April); OR semantics when multiple */
+  reportingFiscalYears?: number[];
+  /** India fiscal quarters 1–4; OR semantics when multiple */
+  reportingFiscalQuarters?: number[];
+  /** Filter by vendor/supplier master or parsed trade company code */
+  companyCode?: string[];
   /** Trade module workspace: one row per custId code with nested lines */
   listMode?: 'flat' | 'by_code';
   page?: number;
   pageSize?: number;
+  /** Return all matching anchors (by_code) without pagination — for bulk send prep */
+  unpaged?: boolean;
+  /** Omit loading nested trade invoice lines (by_code) */
+  omitTradeLines?: boolean;
 };
 
 export type WorkspaceStats = {
@@ -378,7 +412,67 @@ type TradeAnchorMinimal = {
   respondentQueryJson: string | null;
   responseReceivedAt: Date | null;
   responsesJson: string | null;
+  vendorMaster?: { companyCode: string } | null;
+  supplierMaster?: { companyCode: string } | null;
 };
+
+function anchorMatchesCompanyCodes(
+  m: TradeAnchorMinimal,
+  mod: 'trade_payable' | 'trade_receivable',
+  codesNorm: string[]
+): boolean {
+  if (codesNorm.length === 0) return true;
+  const fromMaster =
+    mod === 'trade_payable' ? m.vendorMaster?.companyCode : m.supplierMaster?.companyCode;
+  if (fromMaster && codesNorm.includes(normalizeSapCode(fromMaster))) return true;
+  const extracted = extractTradeCompanyCodeFromEntity(m.entityName, m.custId);
+  return extracted != null && codesNorm.includes(extracted);
+}
+
+function tradeFlatRowMatchesCompany(
+  row: {
+    entityName: string;
+    custId: string | null;
+    vendorMaster?: { companyCode: string } | null;
+    supplierMaster?: { companyCode: string } | null;
+  },
+  mod: 'trade_payable' | 'trade_receivable',
+  codesNorm: string[]
+): boolean {
+  if (codesNorm.length === 0) return true;
+  return anchorMatchesCompanyCodes(
+    {
+      id: '',
+      custId: row.custId,
+      entityName: row.entityName,
+      createdAt: new Date(),
+      status: '',
+      webConfirmedAt: null,
+      respondentQueryJson: null,
+      responseReceivedAt: null,
+      responsesJson: null,
+      vendorMaster: row.vendorMaster,
+      supplierMaster: row.supplierMaster,
+    },
+    mod,
+    codesNorm
+  );
+}
+
+function msmeRowMatchesCompanyCodes(
+  row: {
+    vendorMaster?: { companyCode: string } | null;
+    supplierMaster?: { companyCode: string } | null;
+  },
+  codesNorm: string[]
+): boolean {
+  if (codesNorm.length === 0) return true;
+  const v = row.vendorMaster?.companyCode;
+  const s = row.supplierMaster?.companyCode;
+  if (v && codesNorm.includes(normalizeSapCode(v))) return true;
+  if (s && codesNorm.includes(normalizeSapCode(s))) return true;
+  return false;
+}
 
 const TRADE_ANCHOR_CHANNEL_SELECT = {
   id: true,
@@ -424,6 +518,12 @@ function matchesConfirmationKindFilter(u: UnifiedConfirmationRecord, kinds: Conf
   return kinds.includes(k);
 }
 
+function hasReportingFiscalFilter(filter: ListConfirmationFilter): boolean {
+  return (
+    (filter.reportingFiscalYears?.length ?? 0) > 0 || (filter.reportingFiscalQuarters?.length ?? 0) > 0
+  );
+}
+
 export async function listUnifiedConfirmationRecords(filter: ListConfirmationFilter): Promise<ListUnifiedConfirmationResult> {
   const mods = filter.module
     ? Array.isArray(filter.module)
@@ -455,13 +555,21 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
         { entityName: { contains: s } },
         { bankName: { contains: s } },
         { emailTo: { contains: s } },
-        { accountNumber: { contains: s } },
         { custId: { contains: s } },
       ];
     }
     if (listMode === 'flat' && tradeOnly === 'tp') w.emailThreadAnchorId = null;
     if (listMode === 'flat' && tradeOnly === 'tr') w.emailThreadAnchorId = null;
     return w;
+  };
+
+  const applyReportingFiscalToWhere = (w: Record<string, unknown>) => {
+    const years = (filter.reportingFiscalYears ?? []).filter((y) => Number.isFinite(y));
+    const quarters = (filter.reportingFiscalQuarters ?? []).filter((q) => q >= 1 && q <= 4);
+    if (years.length === 1) w.reportingFiscalYear = years[0];
+    else if (years.length > 1) w.reportingFiscalYear = { in: years };
+    if (quarters.length === 1) w.reportingFiscalQuarter = quarters[0];
+    else if (quarters.length > 1) w.reportingFiscalQuarter = { in: quarters };
   };
 
   /** Grouped by SAP code: one anchor per page with nested invoice lines */
@@ -472,24 +580,53 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
   ) {
     const mod = mods[0];
     const page = Math.max(1, filter.page ?? 1);
-    const pageSize = Math.min(200, Math.max(1, filter.pageSize ?? 25));
     const tradeKey = mod === 'trade_payable' ? 'tp' : 'tr';
-    const segment = buildWhereSegment(tradeKey);
+    const companyNorm = filter.companyCode?.length ? filter.companyCode.map(normalizeSapCode) : [];
 
     if (mod === 'trade_payable') {
-      const where = { ...segment, emailThreadAnchorId: null } as Prisma.TradePayableConfirmationWhereInput;
+      const segment = buildWhereSegment(tradeKey);
+      let anchorIdIn: string[] | undefined;
+      if (hasReportingFiscalFilter(filter)) {
+        const lineWhere = { ...segment } as Record<string, unknown>;
+        applyReportingFiscalToWhere(lineWhere);
+        const hits = await prisma.tradePayableConfirmation.findMany({
+          where: lineWhere as Prisma.TradePayableConfirmationWhereInput,
+          select: { id: true, emailThreadAnchorId: true },
+        });
+        anchorIdIn = [...new Set(hits.map((h) => h.emailThreadAnchorId ?? h.id))];
+        if (anchorIdIn.length === 0) {
+          const stats = buildWorkspaceStats([]);
+          return { records: [], total: 0, stats };
+        }
+      }
+      const where = {
+        ...segment,
+        emailThreadAnchorId: null,
+      } as Prisma.TradePayableConfirmationWhereInput;
+      if (anchorIdIn) {
+        where.id = { in: anchorIdIn };
+      } else {
+        applyReportingFiscalToWhere(where as unknown as Record<string, unknown>);
+      }
       const minimal = (await prisma.tradePayableConfirmation.findMany({
         where,
-        select: TRADE_ANCHOR_CHANNEL_SELECT,
+        select: {
+          ...TRADE_ANCHOR_CHANNEL_SELECT,
+          vendorMaster: { select: { companyCode: true } },
+        },
         orderBy: [{ custId: 'asc' }, { entityName: 'asc' }, { createdAt: 'asc' }],
       })) as TradeAnchorMinimal[];
 
-      const filtered =
+      let working =
         kinds.length > 0 ? minimal.filter((m) => kinds.includes(tradeAnchorConfirmationKind(m, 'trade_payable'))) : minimal;
+      if (companyNorm.length > 0) {
+        working = working.filter((m) => anchorMatchesCompanyCodes(m, 'trade_payable', companyNorm));
+      }
 
-      const stats = buildWorkspaceStats(filtered);
-      const total = filtered.length;
-      const slice = filtered.slice((page - 1) * pageSize, page * pageSize);
+      const stats = buildWorkspaceStats(working);
+      const total = working.length;
+      const pageSizeCap = filter.unpaged ? Math.max(total, 1) : Math.min(200, Math.max(1, filter.pageSize ?? 25));
+      const slice = filter.unpaged ? working : working.slice((page - 1) * pageSizeCap, page * pageSizeCap);
       const ids = slice.map((r) => r.id);
 
       if (ids.length === 0) {
@@ -503,7 +640,12 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
       const ordered = ids.map((id) => byId.get(id)!);
 
       const out: UnifiedConfirmationRecord[] = [];
+      const omitLines = filter.omitTradeLines === true;
       for (const anchor of ordered) {
+        if (omitLines) {
+          out.push({ ...asJson(anchor, mod), tradeInvoiceLines: [] });
+          continue;
+        }
         const rawLines = await loadTradeGroupRows(anchor.id, 'trade_payable');
         const lines = rawLines.map((r) => asJson(r, mod));
         out.push({ ...asJson(anchor, mod), tradeInvoiceLines: lines });
@@ -511,19 +653,49 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
       return { records: out, total, stats };
     }
 
-    const where = { ...segment, emailThreadAnchorId: null } as Prisma.TradeReceivableConfirmationWhereInput;
+    const segment = buildWhereSegment(tradeKey);
+    let anchorIdIn: string[] | undefined;
+    if (hasReportingFiscalFilter(filter)) {
+      const lineWhere = { ...segment } as Record<string, unknown>;
+      applyReportingFiscalToWhere(lineWhere);
+      const hits = await prisma.tradeReceivableConfirmation.findMany({
+        where: lineWhere as Prisma.TradeReceivableConfirmationWhereInput,
+        select: { id: true, emailThreadAnchorId: true },
+      });
+      anchorIdIn = [...new Set(hits.map((h) => h.emailThreadAnchorId ?? h.id))];
+      if (anchorIdIn.length === 0) {
+        const stats = buildWorkspaceStats([]);
+        return { records: [], total: 0, stats };
+      }
+    }
+    const where = {
+      ...segment,
+      emailThreadAnchorId: null,
+    } as Prisma.TradeReceivableConfirmationWhereInput;
+    if (anchorIdIn) {
+      where.id = { in: anchorIdIn };
+    } else {
+      applyReportingFiscalToWhere(where as unknown as Record<string, unknown>);
+    }
     const minimal = (await prisma.tradeReceivableConfirmation.findMany({
       where,
-      select: TRADE_ANCHOR_CHANNEL_SELECT,
+      select: {
+        ...TRADE_ANCHOR_CHANNEL_SELECT,
+        supplierMaster: { select: { companyCode: true } },
+      },
       orderBy: [{ custId: 'asc' }, { entityName: 'asc' }, { createdAt: 'asc' }],
     })) as TradeAnchorMinimal[];
 
-    const filtered =
+    let working =
       kinds.length > 0 ? minimal.filter((m) => kinds.includes(tradeAnchorConfirmationKind(m, 'trade_receivable'))) : minimal;
+    if (companyNorm.length > 0) {
+      working = working.filter((m) => anchorMatchesCompanyCodes(m, 'trade_receivable', companyNorm));
+    }
 
-    const stats = buildWorkspaceStats(filtered);
-    const total = filtered.length;
-    const slice = filtered.slice((page - 1) * pageSize, page * pageSize);
+    const stats = buildWorkspaceStats(working);
+    const total = working.length;
+    const pageSizeCap = filter.unpaged ? Math.max(total, 1) : Math.min(200, Math.max(1, filter.pageSize ?? 25));
+    const slice = filter.unpaged ? working : working.slice((page - 1) * pageSizeCap, page * pageSizeCap);
     const ids = slice.map((r) => r.id);
 
     if (ids.length === 0) {
@@ -537,7 +709,12 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
     const ordered = ids.map((id) => byId.get(id)!);
 
     const out: UnifiedConfirmationRecord[] = [];
+    const omitLines = filter.omitTradeLines === true;
     for (const anchor of ordered) {
+      if (omitLines) {
+        out.push({ ...asJson(anchor, mod), tradeInvoiceLines: [] });
+        continue;
+      }
       const rawLines = await loadTradeGroupRows(anchor.id, 'trade_receivable');
       const lines = rawLines.map((r) => asJson(r, mod));
       out.push({ ...asJson(anchor, mod), tradeInvoiceLines: lines });
@@ -545,35 +722,58 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
     return { records: out, total, stats };
   }
 
-  const whereTp = buildWhereSegment('tp') as Prisma.TradePayableConfirmationWhereInput;
-  const whereTr = buildWhereSegment('tr') as Prisma.TradeReceivableConfirmationWhereInput;
-  const whereMs = buildWhereSegment() as Prisma.MsmeConfirmationWhereInput;
+  const whereTpRaw = buildWhereSegment('tp') as Prisma.TradePayableConfirmationWhereInput;
+  applyReportingFiscalToWhere(whereTpRaw as unknown as Record<string, unknown>);
+  const whereTp = whereTpRaw;
+  const whereTrRaw = buildWhereSegment('tr') as Prisma.TradeReceivableConfirmationWhereInput;
+  applyReportingFiscalToWhere(whereTrRaw as unknown as Record<string, unknown>);
+  const whereTr = whereTrRaw;
+  const whereMsRaw = buildWhereSegment() as Prisma.MsmeConfirmationWhereInput;
+  applyReportingFiscalToWhere(whereMsRaw as unknown as Record<string, unknown>);
+  const whereMs = whereMsRaw;
 
   const orderBy = [{ entityName: 'asc' as const }, { category: 'asc' as const }];
 
   const out: UnifiedConfirmationRecord[] = [];
+  const companyNormFlat = filter.companyCode?.length ? filter.companyCode.map(normalizeSapCode) : [];
 
   for (const mod of mods) {
-    let rows: SourceRow[] = [];
     if (mod === 'trade_payable') {
-      rows = await prisma.tradePayableConfirmation.findMany({ where: whereTp, orderBy });
-    } else if (mod === 'trade_receivable') {
-      rows = await prisma.tradeReceivableConfirmation.findMany({ where: whereTr, orderBy });
-    } else {
-      const msRows = await prisma.msmeConfirmation.findMany({
-        where: whereMs,
+      const r = await prisma.tradePayableConfirmation.findMany({
+        where: whereTp,
         orderBy,
-        include: { vendorMaster: true },
+        include: { vendorMaster: { select: { companyCode: true } } },
       });
-      for (const row of msRows) {
-        const u = applyVendorMasterToUnified(asJson(row, 'confirm_msme'), row.vendorMaster);
+      for (const row of r) {
+        if (!tradeFlatRowMatchesCompany(row, 'trade_payable', companyNormFlat)) continue;
+        const u = asJson(row, mod);
         if (!kinds.length) out.push(u);
         else if (matchesConfirmationKindFilter(u, kinds)) out.push(u);
       }
       continue;
     }
-    for (const row of rows) {
-      const u = asJson(row, mod);
+    if (mod === 'trade_receivable') {
+      const r = await prisma.tradeReceivableConfirmation.findMany({
+        where: whereTr,
+        orderBy,
+        include: { supplierMaster: { select: { companyCode: true } } },
+      });
+      for (const row of r) {
+        if (!tradeFlatRowMatchesCompany(row, 'trade_receivable', companyNormFlat)) continue;
+        const u = asJson(row, mod);
+        if (!kinds.length) out.push(u);
+        else if (matchesConfirmationKindFilter(u, kinds)) out.push(u);
+      }
+      continue;
+    }
+    const msRows = await prisma.msmeConfirmation.findMany({
+      where: whereMs,
+      orderBy,
+      include: { vendorMaster: true, supplierMaster: { select: { companyCode: true } } },
+    });
+    for (const row of msRows) {
+      if (!msmeRowMatchesCompanyCodes(row, companyNormFlat)) continue;
+      const u = applyVendorMasterToUnified(asJson(row, 'confirm_msme'), row.vendorMaster);
       if (!kinds.length) out.push(u);
       else if (matchesConfirmationKindFilter(u, kinds)) out.push(u);
     }
@@ -586,6 +786,127 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
   });
 
   return { records: out, total: out.length };
+}
+
+export async function getDistinctReportingFiscalYears(module?: ModuleKey, userId?: string): Promise<number[]> {
+  const uw = userId ? { userId } : {};
+  const addYears = (rows: { reportingFiscalYear: number | null }[], into: Set<number>) => {
+    for (const r of rows) {
+      if (r.reportingFiscalYear != null) into.add(r.reportingFiscalYear);
+    }
+  };
+  if (!module) {
+    const [a, b, c] = await Promise.all([
+      prisma.tradePayableConfirmation.findMany({
+        where: uw,
+        select: { reportingFiscalYear: true },
+        distinct: ['reportingFiscalYear'],
+      }),
+      prisma.tradeReceivableConfirmation.findMany({
+        where: uw,
+        select: { reportingFiscalYear: true },
+        distinct: ['reportingFiscalYear'],
+      }),
+      prisma.msmeConfirmation.findMany({
+        where: uw,
+        select: { reportingFiscalYear: true },
+        distinct: ['reportingFiscalYear'],
+      }),
+    ]);
+    const set = new Set<number>();
+    addYears(a, set);
+    addYears(b, set);
+    addYears(c, set);
+    return [...set].sort((x, y) => y - x);
+  }
+  if (module === 'trade_payable') {
+    const rows = await prisma.tradePayableConfirmation.findMany({
+      where: uw,
+      select: { reportingFiscalYear: true },
+      distinct: ['reportingFiscalYear'],
+    });
+    const set = new Set<number>();
+    addYears(rows, set);
+    return [...set].sort((x, y) => y - x);
+  }
+  if (module === 'trade_receivable') {
+    const rows = await prisma.tradeReceivableConfirmation.findMany({
+      where: uw,
+      select: { reportingFiscalYear: true },
+      distinct: ['reportingFiscalYear'],
+    });
+    const set = new Set<number>();
+    addYears(rows, set);
+    return [...set].sort((x, y) => y - x);
+  }
+  const rows = await prisma.msmeConfirmation.findMany({
+    where: uw,
+    select: { reportingFiscalYear: true },
+    distinct: ['reportingFiscalYear'],
+  });
+  const set = new Set<number>();
+  addYears(rows, set);
+  return [...set].sort((x, y) => y - x);
+}
+
+export async function getDistinctCompanyCodes(module?: ModuleKey, userId?: string): Promise<string[]> {
+  const uw = userId ? { userId } : {};
+  const set = new Set<string>();
+  const add = (s: string | null | undefined) => {
+    const t = normalizeSapCode(String(s || ''));
+    if (t) set.add(t);
+  };
+
+  const ingestTp = async () => {
+    const vms = await prisma.vendorMaster.findMany({
+      where: { tradePayables: { some: uw } },
+      select: { companyCode: true },
+      distinct: ['companyCode'],
+    });
+    vms.forEach((r) => add(r.companyCode));
+    const rows = await prisma.tradePayableConfirmation.findMany({
+      where: uw,
+      select: { entityName: true, custId: true },
+    });
+    rows.forEach((r) => add(extractTradeCompanyCodeFromEntity(r.entityName, r.custId) ?? undefined));
+  };
+  const ingestTr = async () => {
+    const sms = await prisma.supplierMaster.findMany({
+      where: { tradeReceivables: { some: uw } },
+      select: { companyCode: true },
+      distinct: ['companyCode'],
+    });
+    sms.forEach((r) => add(r.companyCode));
+    const rows = await prisma.tradeReceivableConfirmation.findMany({
+      where: uw,
+      select: { entityName: true, custId: true },
+    });
+    rows.forEach((r) => add(extractTradeCompanyCodeFromEntity(r.entityName, r.custId) ?? undefined));
+  };
+  const ingestMsme = async () => {
+    const rows = await prisma.msmeConfirmation.findMany({
+      where: uw,
+      select: {
+        vendorMaster: { select: { companyCode: true } },
+        supplierMaster: { select: { companyCode: true } },
+      },
+    });
+    rows.forEach((r) => {
+      add(r.vendorMaster?.companyCode);
+      add(r.supplierMaster?.companyCode);
+    });
+  };
+
+  if (!module) {
+    await Promise.all([ingestTp(), ingestTr(), ingestMsme()]);
+  } else if (module === 'trade_payable') {
+    await ingestTp();
+  } else if (module === 'trade_receivable') {
+    await ingestTr();
+  } else {
+    await ingestMsme();
+  }
+  return [...set].sort();
 }
 
 export async function getDistinctEntityNames(module?: ModuleKey, userId?: string): Promise<string[]> {
@@ -679,6 +1000,8 @@ export type UpdateConfirmationData = Partial<
     | 'hasWebResponse'
     | 'hasEmailResponse'
     | 'tradeInvoiceLines'
+    | 'reportingFiscalYear'
+    | 'reportingFiscalQuarter'
   >
 >;
 
@@ -691,6 +1014,9 @@ export async function updateConfirmationRow(
   delete (strip as Record<string, unknown>).module;
   delete (strip as Record<string, unknown>).responseChannel;
   delete (strip as Record<string, unknown>).confirmationKind;
+  delete (strip as Record<string, unknown>).reportingFiscalYear;
+  delete (strip as Record<string, unknown>).reportingFiscalQuarter;
+  delete (strip as Record<string, unknown>).listingUploadId;
   delete (strip as Record<string, unknown>).hasWebResponse;
   delete (strip as Record<string, unknown>).hasEmailResponse;
   delete (strip as Record<string, unknown>).tradeInvoiceLines;

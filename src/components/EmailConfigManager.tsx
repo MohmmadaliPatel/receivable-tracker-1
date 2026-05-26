@@ -215,7 +215,7 @@ export default function EmailConfigManager() {
               reminderDurationUnit: 'hours',
             });
           }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
         >
           + Add Configuration
         </button>
@@ -228,7 +228,7 @@ export default function EmailConfigManager() {
       )}
 
       {success && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
+        <div className="mb-4 p-4 bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-lg">
           {success}
         </div>
       )}
@@ -436,7 +436,7 @@ export default function EmailConfigManager() {
             <div className="flex space-x-3">
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
               >
                 {editingConfig ? 'Update' : 'Create'}
               </button>
@@ -465,7 +465,7 @@ export default function EmailConfigManager() {
             <div
               key={config.id}
               className={`bg-white border rounded-lg p-4 ${
-                config.isActive ? 'border-green-500 bg-green-50' : 'border-gray-200'
+                config.isActive ? 'border-neutral-600 bg-neutral-50' : 'border-gray-200'
               }`}
             >
               <div className="flex justify-between items-start">
@@ -473,11 +473,11 @@ export default function EmailConfigManager() {
                   <div className="flex items-center space-x-2 mb-2">
                     <h3 className="text-lg font-semibold">{config.name}</h3>
                     {config.isActive && (
-                      <span className="px-2 py-1 bg-green-500 text-white text-xs rounded">
+                      <span className="px-2 py-1 bg-neutral-500 text-white text-xs rounded">
                         Active
                       </span>
                     )}
-                    <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
+                    <span className="px-2 py-1 bg-neutral-100 text-neutral-800 text-xs rounded">
                       {config.type.toUpperCase()}
                     </span>
                   </div>
@@ -496,13 +496,13 @@ export default function EmailConfigManager() {
                     {config.cronEnabled && (
                       <p className="mt-2">
                         <span className="font-medium">Auto Fetch:</span>{' '}
-                        <span className="text-green-600 font-semibold">Enabled</span> - Every {config.cronIntervalMinutes || 10} minutes
+                        <span className="text-emerald-800 font-semibold">Enabled</span> - Every {config.cronIntervalMinutes || 10} minutes
                       </p>
                     )}
                     {config.reminderEnabled && (
                       <p className="mt-2">
                         <span className="font-medium">Reminders:</span>{' '}
-                        <span className="text-blue-600 font-semibold">Enabled</span> - After {config.reminderDurationHours || 24} {config.reminderDurationUnit === 'minutes' ? 'minutes' : 'hours'}
+                        <span className="text-neutral-800 font-semibold">Enabled</span> - After {config.reminderDurationHours || 24} {config.reminderDurationUnit === 'minutes' ? 'minutes' : 'hours'}
                       </p>
                     )}
                   </div>
@@ -511,14 +511,14 @@ export default function EmailConfigManager() {
                   {!config.isActive && (
                     <button
                       onClick={() => handleActivate(config.id)}
-                      className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                      className="px-3 py-1 text-sm bg-neutral-900 text-white rounded hover:bg-neutral-800"
                     >
                       Activate
                     </button>
                   )}
                   <button
                     onClick={() => handleValidate(config.id)}
-                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                    className="px-3 py-1 text-sm bg-neutral-900 text-white rounded hover:bg-neutral-800"
                   >
                     Validate
                   </button>

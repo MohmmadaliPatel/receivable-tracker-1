@@ -1,6 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  defaultListingFiscalSelection,
+  listingUploadYearOptions,
+} from '@/lib/listing-upload-fiscal';
 
 type MasterRow = {
   id: string;
@@ -44,6 +48,12 @@ export default function PartyMasterWorkspaceClient({
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [listingMode, setListingMode] = useState<'append' | 'replace'>('append');
+  const fiscalYearChoices = useMemo(() => listingUploadYearOptions(), []);
+  const fiscalDefaults = useMemo(() => defaultListingFiscalSelection(), []);
+  const [listingFiscalYear, setListingFiscalYear] = useState(() => fiscalDefaults.reportingFiscalYear);
+  const [listingFiscalQuarter, setListingFiscalQuarter] = useState(
+    () => fiscalDefaults.reportingFiscalQuarter
+  );
   const [busyKind, setBusyKind] = useState<'listing' | 'rt' | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -89,6 +99,8 @@ export default function PartyMasterWorkspaceClient({
       const fd = new FormData();
       fd.append('file', f);
       fd.append('mode', listingMode);
+      fd.append('reportingFiscalYear', listingFiscalYear);
+      fd.append('reportingFiscalQuarter', listingFiscalQuarter);
       const res = await fetch(listingUploadUrl, { method: 'POST', body: fd });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -167,7 +179,7 @@ export default function PartyMasterWorkspaceClient({
           <label
             key={m}
             className={`flex items-center gap-2 cursor-pointer text-sm px-3 py-2 rounded-xl border ${
-              listingMode === m ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'
+              listingMode === m ? 'border-neutral-700 bg-neutral-50' : 'border-gray-200 bg-white'
             }`}
           >
             <input
@@ -185,12 +197,44 @@ export default function PartyMasterWorkspaceClient({
         ))}
       </div>
 
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
+        <label className="block">
+          <span className="text-xs font-medium text-gray-600">Listing FY (starts April)</span>
+          <select
+            value={listingFiscalYear}
+            onChange={(e) => setListingFiscalYear(e.target.value)}
+            disabled={busy}
+            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 disabled:opacity-50"
+          >
+            {fiscalYearChoices.map((y) => (
+              <option key={y} value={String(y)}>
+                FY {y}–{String(y + 1).slice(-2)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-xs font-medium text-gray-600">Listing quarter</span>
+          <select
+            value={listingFiscalQuarter}
+            onChange={(e) => setListingFiscalQuarter(e.target.value)}
+            disabled={busy}
+            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 disabled:opacity-50"
+          >
+            <option value="1">Q1 (Apr–Jun)</option>
+            <option value="2">Q2 (Jul–Sep)</option>
+            <option value="3">Q3 (Oct–Dec)</option>
+            <option value="4">Q4 (Jan–Mar)</option>
+          </select>
+        </label>
+      </div>
+
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <button
           type="button"
           disabled={busy}
           onClick={() => listingRef.current?.click()}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-blue-300 bg-blue-50 text-blue-950 text-sm font-medium hover:bg-blue-100 disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-neutral-300 bg-neutral-50 text-neutral-900 text-sm font-medium hover:bg-neutral-100 disabled:opacity-50"
         >
           {busyKind === 'listing' ? 'Uploading…' : `Upload ${variant === 'vendor' ? 'TP' : 'TR'} listing (.xlsx / .csv)`}
         </button>

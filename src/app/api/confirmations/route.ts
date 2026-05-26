@@ -6,6 +6,9 @@ import {
   applyEntityContactToPayload,
   toUnifiedRecord,
   type ConfirmationKind,
+  getDistinctReportingFiscalYears,
+  getDistinctCompanyCodes,
+  normalizeSapCode,
 } from '@/lib/confirmation-repository';
 import { listConfirmationRecords, getEntityNames, CATEGORIES } from '@/lib/confirmation-service';
 import { userCanAccessModule } from '@/lib/module-access';
@@ -51,6 +54,20 @@ export async function GET(request: NextRequest) {
   const pageSizeParam = parseInt(searchParams.get('pageSize') || '', 10);
   const page = Number.isFinite(pageParam) ? pageParam : undefined;
   const pageSize = Number.isFinite(pageSizeParam) ? pageSizeParam : undefined;
+  const fyRawList = searchParams.getAll('reportingFiscalYear');
+  const fqRawList = searchParams.getAll('reportingFiscalQuarter');
+  const reportingFiscalYearsParsed = fyRawList
+    .map((x) => parseInt(x, 10))
+    .filter((n) => Number.isFinite(n));
+  const reportingFiscalQuartersParsed = fqRawList
+    .map((x) => parseInt(x, 10))
+    .filter((n) => n >= 1 && n <= 4);
+  const reportingFiscalYears = reportingFiscalYearsParsed.length ? reportingFiscalYearsParsed : undefined;
+  const reportingFiscalQuarters = reportingFiscalQuartersParsed.length ? reportingFiscalQuartersParsed : undefined;
+  const companyParams = searchParams.getAll('company').map((c) => normalizeSapCode(c)).filter(Boolean);
+  const companyCode = companyParams.length ? companyParams : undefined;
+  const omitTradeLines = searchParams.get('omitTradeLines') === 'true';
+  const unpaged = searchParams.get('unpaged') === 'true';
   if (user.role !== 'admin') {
     if (!moduleParam || !isModuleKey(moduleParam)) {
       return NextResponse.json(
@@ -74,9 +91,14 @@ export async function GET(request: NextRequest) {
     status: status.length ? status : undefined,
     search,
     confirmationKind,
+    reportingFiscalYears,
+    reportingFiscalQuarters,
+    companyCode,
     listMode: listModeVal,
     page,
     pageSize,
+    unpaged: unpaged || undefined,
+    omitTradeLines: omitTradeLines || undefined,
   });
 
   if (includeMetadata) {
@@ -88,12 +110,22 @@ export async function GET(request: NextRequest) {
       moduleParam && isModuleKey(moduleParam)
         ? [categoryForModule(moduleParam)]
         : [...CATEGORIES];
+    const reportingFiscalYears = await getDistinctReportingFiscalYears(
+      moduleParam && isModuleKey(moduleParam) ? moduleParam : undefined,
+      user.role === 'admin' ? undefined : user.userId
+    );
+    const companyCodes = await getDistinctCompanyCodes(
+      moduleParam && isModuleKey(moduleParam) ? moduleParam : undefined,
+      user.role === 'admin' ? undefined : user.userId
+    );
     return NextResponse.json({
       records: result.records,
       total: result.total,
       ...(result.stats != null ? { stats: result.stats } : {}),
       entityNames,
       categories,
+      reportingFiscalYears,
+      companyCodes,
     });
   }
 

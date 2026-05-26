@@ -1,17 +1,55 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ConfirmationRecord } from './ConfirmationTable';
 import { emailHtmlEquals } from '@/lib/email-plain-text';
+import type { ModuleKey } from '@/lib/module-types';
+
+type TemplateChoice = {
+  id: string;
+  name: string;
+  category: string | null;
+  isDefault: boolean;
+  moduleKey: string | null;
+};
 
 interface SendConfirmModalProps {
   record: ConfirmationRecord;
   mode: 'send' | 'followup';
   onClose: () => void;
-  onConfirm: (overrides: { emailTo: string; emailCc: string; remarks: string; emailBody?: string }) => Promise<void>;
+  onConfirm: (overrides: {
+    emailTo: string;
+    emailCc: string;
+    remarks: string;
+    emailBody?: string;
+    emailBodyTemplateId?: string;
+  }) => Promise<void>;
+  /** When set (e.g. bulk send), preview/send use this template unless body is manually edited. */
+  syncTemplateId?: string;
 }
 
-export default function SendConfirmModal({ record, mode, onClose, onConfirm }: SendConfirmModalProps) {
+function moduleKeyFromRecord(record: ConfirmationRecord): ModuleKey | null {
+  if (
+    record.module === 'trade_payable' ||
+    record.module === 'trade_receivable' ||
+    record.module === 'confirm_msme'
+  ) {
+    return record.module;
+  }
+  const c = record.category?.toLowerCase() ?? '';
+  if (c.includes('trade payable')) return 'trade_payable';
+  if (c.includes('trade receivable')) return 'trade_receivable';
+  if (c.includes('msme') || c.includes('confirm msme')) return 'confirm_msme';
+  return null;
+}
+
+export default function SendConfirmModal({
+  record,
+  mode,
+  onClose,
+  onConfirm,
+  syncTemplateId,
+}: SendConfirmModalProps) {
   const [emailTo, setEmailTo] = useState(record.emailTo);
   const [emailCc, setEmailCc] = useState(record.emailCc || '');
   const [remarks, setRemarks] = useState(record.remarks || '');
@@ -22,14 +60,42 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
   const [previewSubject, setPreviewSubject] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [templateChoices, setTemplateChoices] = useState<TemplateChoice[]>([]);
+  const [templateChoicesLoading, setTemplateChoicesLoading] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const editorRef = useRef<HTMLDivElement>(null);
 
   const isFollowup = mode === 'followup';
+  const moduleKey = moduleKeyFromRecord(record);
+  const purpose = isFollowup ? 'followup' : 'initial';
 
   useEffect(() => {
+    setSelectedTemplateId(syncTemplateId?.trim() ?? '');
+  }, [syncTemplateId]);
+
+  useEffect(() => {
+    if (!moduleKey) {
+      setTemplateChoices([]);
+      return;
+    }
+    setTemplateChoicesLoading(true);
+    const q = new URLSearchParams({ moduleKey, purpose });
+    fetch(`/api/masters/email-body-templates?${q.toString()}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setTemplateChoices(Array.isArray(d.templates) ? d.templates : []);
+      })
+      .catch(() => setTemplateChoices([]))
+      .finally(() => setTemplateChoicesLoading(false));
+  }, [moduleKey, purpose]);
+
+  const loadPreview = useCallback(() => {
     setLoadingBody(true);
     setBodyMode('preview');
-    fetch(`/api/confirmations/${record.id}/preview?mode=${encodeURIComponent(mode)}`)
+    const params = new URLSearchParams({ mode });
+    const tid = (syncTemplateId?.trim() || selectedTemplateId.trim()) || '';
+    if (tid) params.set('emailBodyTemplateId', tid);
+    fetch(`/api/confirmations/${record.id}/preview?${params.toString()}`)
       .then((r) => r.json())
       .then((data) => {
         const html = data.html || '';
@@ -40,9 +106,12 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
       })
       .catch(() => {})
       .finally(() => setLoadingBody(false));
-  }, [record.id, mode]);
+  }, [record.id, mode, selectedTemplateId, syncTemplateId]);
 
-  // Sync contenteditable when opening the editor or after load (not on every keystroke — omit editedHtml from deps).
+  useEffect(() => {
+    loadPreview();
+  }, [loadPreview]);
+
   useEffect(() => {
     if (bodyMode !== 'edit' || loadingBody) return;
     const id = requestAnimationFrame(() => {
@@ -61,14 +130,16 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
     setSending(true);
     setError(null);
     try {
+      const tid = syncTemplateId?.trim() || selectedTemplateId.trim();
       await onConfirm({
         emailTo: emailTo.trim(),
         emailCc: emailCc.trim(),
         remarks: remarks.trim(),
         emailBody: emailHtmlEquals(editedHtml, baselineHtml) ? undefined : editedHtml,
+        emailBodyTemplateId: emailHtmlEquals(editedHtml, baselineHtml) && tid ? tid : undefined,
       });
-    } catch (err: any) {
-      setError(err.message || 'Failed to send');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to send');
       setSending(false);
     }
   };
@@ -79,10 +150,11 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
       ? `Reminder: ${record.entityName}: Balance Confirmations for the year ending 31 March 2026`
       : `${record.entityName}: Balance Confirmations for the year ending 31 March 2026`);
 
+  const effectiveTemplateId = syncTemplateId?.trim() || selectedTemplateId;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[92vh]">
-        {/* Header */}
         <div className="px-6 py-5 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-start justify-between">
             <div>
@@ -103,7 +175,6 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
         </div>
 
         <div className="px-6 py-5 space-y-4 overflow-y-auto flex-1">
-          {/* Email summary card */}
           <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
               <div>
@@ -132,7 +203,7 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
               <p className="text-gray-700 mt-0.5 text-xs leading-snug">{subject}</p>
             </div>
             {record.attachmentName && (
-              <div className="flex items-center gap-1.5 text-xs text-green-700 bg-green-50 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50 rounded-lg px-3 py-2 border border-emerald-200/80">
                 <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                 </svg>
@@ -141,7 +212,30 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
             )}
           </div>
 
-          {/* Editable fields */}
+          {moduleKey && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email template</label>
+              <select
+                value={effectiveTemplateId}
+                onChange={(e) => setSelectedTemplateId(e.target.value)}
+                disabled={templateChoicesLoading || !!syncTemplateId?.trim()}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 disabled:opacity-60"
+              >
+                <option value="">Automatic (match category / default)</option>
+                {templateChoices.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                    {t.isDefault ? ' · default' : ''}
+                    {t.category ? ` · ${t.category}` : ''}
+                  </option>
+                ))}
+              </select>
+              {syncTemplateId?.trim() && (
+                <p className="text-xs text-gray-500 mt-1">Using bulk send template selection.</p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -152,7 +246,7 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
                 value={emailTo}
                 onChange={(e) => setEmailTo(e.target.value)}
                 placeholder="recipient@example.com, another@example.com"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:border-transparent"
               />
               <p className="text-xs text-gray-400 mt-1">Comma-separate multiple addresses</p>
             </div>
@@ -164,7 +258,7 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
                 value={emailCc}
                 onChange={(e) => setEmailCc(e.target.value)}
                 placeholder="cc@example.com"
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:border-transparent"
               />
             </div>
 
@@ -175,12 +269,11 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
                 onChange={(e) => setRemarks(e.target.value)}
                 placeholder="Optional internal note for this record…"
                 rows={2}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:border-transparent resize-none"
               />
             </div>
           </div>
 
-          {/* Email Body Section */}
           <div className="border border-gray-200 rounded-xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
               <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Email Body</span>
@@ -190,7 +283,7 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
                   onClick={() => setBodyMode('preview')}
                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
                     bodyMode === 'preview'
-                      ? 'bg-blue-600 text-white font-medium'
+                      ? 'bg-neutral-900 text-white font-medium'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -201,7 +294,7 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
                   onClick={() => setBodyMode('edit')}
                   className={`px-3 py-1 text-xs rounded-md transition-colors ${
                     bodyMode === 'edit'
-                      ? 'bg-blue-600 text-white font-medium'
+                      ? 'bg-neutral-900 text-white font-medium'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -212,7 +305,7 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
 
             {loadingBody ? (
               <div className="flex items-center justify-center py-10">
-                <div className="animate-spin w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full" />
+                <div className="animate-spin w-6 h-6 border-2 border-neutral-900 border-t-transparent rounded-full" />
               </div>
             ) : bodyMode === 'preview' ? (
               <iframe
@@ -230,7 +323,7 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
                   aria-multiline
                   contentEditable
                   suppressContentEditableWarning
-                  className="w-full px-4 py-3 text-sm text-gray-800 border-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 min-h-[260px] max-h-[360px] overflow-y-auto [&_a]:text-blue-600 [&_a]:underline"
+                  className="w-full px-4 py-3 text-sm text-gray-800 border-none focus:outline-none focus:ring-2 focus:ring-inset focus:ring-neutral-900/25 min-h-[260px] max-h-[360px] overflow-y-auto [&_a]:text-neutral-800 [&_a]:underline"
                   style={{ minHeight: '260px' }}
                   onInput={(e) => setEditedHtml((e.currentTarget as HTMLDivElement).innerHTML)}
                 />
@@ -238,7 +331,7 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
                   <button
                     type="button"
                     onClick={() => setBodyMode('preview')}
-                    className="text-xs text-blue-600 hover:text-blue-800 bg-white border border-blue-200 rounded px-2 py-1 shadow-sm"
+                    className="text-xs text-neutral-800 hover:text-neutral-950 bg-white border border-neutral-200 rounded px-2 py-1 shadow-sm"
                   >
                     Preview changes
                   </button>
@@ -254,7 +347,6 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-gray-50 rounded-b-2xl flex-shrink-0">
           <p className="text-xs text-gray-400">
             {isFollowup
@@ -276,18 +368,10 @@ export default function SendConfirmModal({ record, mode, onClose, onConfirm }: S
               disabled={sending || !emailTo.trim()}
               className={`flex items-center gap-2 px-5 py-2 text-sm font-medium rounded-xl transition-colors disabled:opacity-50 shadow-sm ${
                 isFollowup
-                  ? 'bg-amber-500 text-white hover:bg-amber-600'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
+                  ? 'border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-50'
+                  : 'bg-neutral-900 text-white hover:bg-neutral-800'
               }`}
             >
-              {sending && (
-                <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              )}
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
               {sending ? 'Sending…' : isFollowup ? 'Send Follow-up' : 'Send Email'}
             </button>
           </div>

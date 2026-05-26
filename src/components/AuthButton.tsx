@@ -50,7 +50,7 @@ export default function AuthButton() {
   if (status === 'loading') {
     return (
       <div className="flex items-center space-x-3 px-4 py-2 bg-gray-50 rounded-xl">
-        <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+        <div className="animate-spin rounded-full h-5 w-5 border-2 border-neutral-900 border-t-transparent"></div>
         <span className="text-sm text-gray-600 font-medium">Loading...</span>
       </div>
     );
@@ -68,11 +68,11 @@ export default function AuthButton() {
                 className="w-9 h-9 rounded-full ring-2 ring-white shadow-md"
               />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white font-semibold text-sm shadow-md">
+              <div className="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center text-white font-semibold text-sm shadow-md">
                 {(session.user.name || session.user.email || 'U')[0].toUpperCase()}
               </div>
             )}
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full ring-2 ring-white"></div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full ring-2 ring-white"></div>
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-semibold text-gray-900">
@@ -111,7 +111,7 @@ export default function AuthButton() {
       <button
         onClick={handleAzureSignIn}
         disabled={isLoading}
-        className="group px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+        className="group px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-neutral-900 to-neutral-800 rounded-xl hover:from-neutral-800 hover:to-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
       >
         {isLoading ? (
           <div className="flex items-center justify-center space-x-2">

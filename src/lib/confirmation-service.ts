@@ -5,11 +5,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import type {
+  EmailBodyTemplate,
   EmailConfig,
   MsmeConfirmation,
   TradePayableConfirmation,
   TradeReceivableConfirmation,
 } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import puppeteer, { Browser } from 'puppeteer';
 import { signEmailActionToken } from './email-action-jwt';
 import { getAppBaseUrl } from './app-base-url';
@@ -93,11 +95,177 @@ function getBalanceRequestText(category: string): string {
 
 export type EmailMagicLinkContext = { baseUrl: string; token: string };
 
+function htmlEscapeForTemplate(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function applyTemplatePlaceholders(html: string, vars: Record<string, string>): string {
+  let out = html;
+  for (const [key, val] of Object.entries(vars)) {
+    out = out.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), val);
+  }
+  return out;
+}
+
+async function findEmailBodyTemplateRow(
+  moduleKey: ModuleKey | null,
+  category: string,
+  purpose: 'initial' | 'followup'
+): Promise<EmailBodyTemplate | null> {
+  const find = async (where: Prisma.EmailBodyTemplateWhereInput) =>
+    prisma.emailBodyTemplate.findFirst({ where, orderBy: { updatedAt: 'desc' } });
+  return (
+    (await find({ moduleKey, category, purpose })) ||
+    (await find({ moduleKey, category: null, purpose, isDefault: true })) ||
+    (await find({ moduleKey: null, category: null, purpose, isDefault: true }))
+  );
+}
+
+async function resolveEmailBodyTemplateRow(
+  mod: ModuleKey,
+  category: string,
+  purpose: 'initial' | 'followup',
+  explicitTemplateId?: string | null
+): Promise<EmailBodyTemplate | null> {
+  const id = explicitTemplateId?.trim();
+  if (id) {
+    const row = await prisma.emailBodyTemplate.findUnique({ where: { id } });
+    if (row && row.purpose === purpose && (row.moduleKey == null || row.moduleKey === mod)) {
+      return row;
+    }
+  }
+  return findEmailBodyTemplateRow(mod, category, purpose);
+}
+
+/** Bulk-send API: validate a template id matches module and purpose. */
+export async function isEmailBodyTemplateAllowedForPurpose(
+  templateId: string,
+  mod: ModuleKey,
+  purpose: 'initial' | 'followup'
+): Promise<boolean> {
+  const row = await prisma.emailBodyTemplate.findUnique({ where: { id: templateId } });
+  if (!row) return false;
+  if (row.purpose !== purpose) return false;
+  if (row.moduleKey != null && row.moduleKey !== mod) return false;
+  return true;
+}
+
+function buildCommonTemplateVars(
+  record: ConfirmationSourceRow,
+  invoiceTableHtml: string,
+  actionButtonsHtml: string,
+  balanceRequestHtml: string,
+  companyDisplayName: string,
+  originalSentDateHtml?: string
+): Record<string, string> {
+  const coPlain = companyDisplayName.trim();
+  const coEsc = htmlEscapeForTemplate(coPlain);
+  const vars: Record<string, string> = {
+    entityName: htmlEscapeForTemplate(record.entityName),
+    yearEnding: '31 March 2026',
+    category: htmlEscapeForTemplate(record.category),
+    invoiceTableHtml,
+    actionButtonsHtml,
+    balanceRequestHtml,
+    companyName: coEsc,
+    firmName: coEsc,
+  };
+  if (originalSentDateHtml !== undefined) {
+    vars.originalSentDate = originalSentDateHtml;
+  }
+  return vars;
+}
+
+async function composeInitialEmailHtml(
+  mod: ModuleKey,
+  record: ConfirmationSourceRow,
+  ctx: EmailMagicLinkContext | undefined,
+  invoiceTableHtml: string,
+  templateRow: EmailBodyTemplate | null,
+  companyDisplayName: string
+): Promise<string> {
+  if (!templateRow?.htmlBody?.trim()) {
+    if (mod === 'confirm_msme') return generateConfirmMsmeEmailHtml(record.entityName, ctx);
+    return generateEmailHtml(record.entityName, record.category, ctx, { invoiceTableHtml });
+  }
+  const actionButtonsHtml =
+    ctx == null ? '' : mod === 'confirm_msme' ? msmeActionButtonsHtml(ctx) : tradeActionButtonsHtml(ctx);
+  const balanceRequest = getBalanceRequestText(record.category);
+  const balanceRequestHtml = `<div class="balance-request">${balanceRequest}</div>`;
+  const vars = buildCommonTemplateVars(
+    record,
+    invoiceTableHtml,
+    actionButtonsHtml,
+    balanceRequestHtml,
+    companyDisplayName
+  );
+  return applyTemplatePlaceholders(templateRow.htmlBody, vars);
+}
+
+async function composeFollowupEmailHtml(
+  mod: ModuleKey,
+  record: ConfirmationSourceRow,
+  originalSentAt: Date,
+  ctx: EmailMagicLinkContext | undefined,
+  invoiceTableHtml: string,
+  templateRow: EmailBodyTemplate | null,
+  companyDisplayName: string
+): Promise<string> {
+  if (!templateRow?.htmlBody?.trim()) {
+    return generateFollowupEmailHtml(record.entityName, record.category, originalSentAt, ctx, {
+      invoiceTableHtml,
+    });
+  }
+  const actionButtonsHtml =
+    ctx == null ? '' : mod === 'confirm_msme' ? msmeActionButtonsHtml(ctx) : tradeActionButtonsHtml(ctx);
+  const originalSentDate = originalSentAt.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+  const balanceRequest = getBalanceRequestText(record.category);
+  const balanceRequestHtml = `<div class="balance-request">${balanceRequest}</div>`;
+  const vars = buildCommonTemplateVars(
+    record,
+    invoiceTableHtml,
+    actionButtonsHtml,
+    balanceRequestHtml,
+    companyDisplayName,
+    htmlEscapeForTemplate(originalSentDate)
+  );
+  return applyTemplatePlaceholders(templateRow.htmlBody, vars);
+}
+
+async function subjectFromResolvedRow(
+  purpose: 'initial' | 'followup',
+  row: EmailBodyTemplate | null,
+  entityName: string,
+  category: string,
+  baseSubject: string,
+  companyDisplayName: string
+): Promise<string> {
+  const subj = row?.subjectTemplate?.trim();
+  if (!subj) return purpose === 'followup' ? `Reminder: ${baseSubject}` : baseSubject;
+  const co = companyDisplayName.replace(/[\r\n]/g, ' ').trim();
+  const filled = applyTemplatePlaceholders(subj, {
+    entityName: entityName.replace(/[\r\n]/g, ' '),
+    yearEnding: '31 March 2026',
+    category: category.replace(/[\r\n]/g, ' '),
+    companyName: co,
+    firmName: co,
+  });
+  return purpose === 'followup' ? `Reminder: ${filled}` : filled;
+}
+
 function encodeTokenForUrl(token: string): string {
   return encodeURIComponent(token);
 }
 
-function tradeActionButtonsHtml(ctx: EmailMagicLinkContext): string {
+export function tradeActionButtonsHtml(ctx: EmailMagicLinkContext): string {
   const t = encodeTokenForUrl(ctx.token);
   const base = ctx.baseUrl.replace(/\/$/, '');
   const confirmUrl = `${base}/respond/trade/confirm?token=${t}`;
@@ -116,7 +284,7 @@ function tradeActionButtonsHtml(ctx: EmailMagicLinkContext): string {
 <p style="font-size:12px;color:#6b7280;margin-top:12px;">If the buttons do not work, copy the link into your browser or reply to this email.</p>`;
 }
 
-function msmeActionButtonsHtml(ctx: EmailMagicLinkContext): string {
+export function msmeActionButtonsHtml(ctx: EmailMagicLinkContext): string {
   const t = encodeTokenForUrl(ctx.token);
   const base = ctx.baseUrl.replace(/\/$/, '');
   const uploadUrl = `${base}/respond/msme/upload?token=${t}`;
@@ -347,6 +515,7 @@ export function generateFollowupEmailHtml(
 export async function buildConfirmationPreviewHtml(opts: {
   recordId: string;
   mode?: 'send' | 'followup';
+  emailBodyTemplateId?: string | null;
 }): Promise<{ html: string; subject: string } | null> {
   const mode = opts.mode ?? 'send';
   const meta = await findConfirmationMetaById(opts.recordId);
@@ -365,8 +534,26 @@ export async function buildConfirmationPreviewHtml(opts: {
   }
 
   const jwtRecordId = mod === 'trade_payable' || mod === 'trade_receivable' ? anchorId : record.id;
+  const settings = await getOrCreateSettings(record.userId);
+  const companyDN = settings.companyDisplayName || '';
+
+  const purpose = mode === 'followup' ? 'followup' : 'initial';
+  const templateRow = await resolveEmailBodyTemplateRow(
+    mod,
+    record.category,
+    purpose,
+    opts.emailBodyTemplateId ?? null
+  );
+
   const baseSubject = generateEmailSubject(record.entityName, record.category);
-  const subject = mode === 'followup' ? `Reminder: ${baseSubject}` : baseSubject;
+  const subject = await subjectFromResolvedRow(
+    purpose,
+    templateRow,
+    record.entityName,
+    record.category,
+    baseSubject,
+    companyDN
+  );
 
   let invoiceTableHtml = '';
   if (mod === 'trade_payable' || mod === 'trade_receivable') {
@@ -387,27 +574,31 @@ export async function buildConfirmationPreviewHtml(opts: {
       });
       const ctx: EmailMagicLinkContext = { baseUrl, token };
       if (mode === 'followup') {
-        return generateFollowupEmailHtml(
-          record.entityName,
-          record.category,
+        return await composeFollowupEmailHtml(
+          mod,
+          record,
           record.sentAt || new Date(),
           ctx,
-          { invoiceTableHtml }
+          invoiceTableHtml,
+          templateRow,
+          companyDN
         );
       }
-      return generateEmailHtml(record.entityName, record.category, ctx, { invoiceTableHtml });
+      return await composeInitialEmailHtml(mod, record, ctx, invoiceTableHtml, templateRow, companyDN);
     } catch (e) {
       console.warn('[Confirmation] Preview magic links disabled:', e);
       if (mode === 'followup') {
-        return generateFollowupEmailHtml(
-          record.entityName,
-          record.category,
+        return await composeFollowupEmailHtml(
+          mod,
+          record,
           record.sentAt || new Date(),
           undefined,
-          { invoiceTableHtml }
+          invoiceTableHtml,
+          templateRow,
+          companyDN
         );
       }
-      return generateEmailHtml(record.entityName, record.category, undefined, { invoiceTableHtml });
+      return await composeInitialEmailHtml(mod, record, undefined, invoiceTableHtml, templateRow, companyDN);
     }
   };
 
@@ -619,9 +810,14 @@ export async function listConfirmationRecords(filter: ConfirmationFilter): Promi
     status: filter.status,
     search: filter.search,
     confirmationKind: filter.confirmationKind,
+    reportingFiscalYears: filter.reportingFiscalYears,
+    reportingFiscalQuarters: filter.reportingFiscalQuarters,
+    companyCode: filter.companyCode,
     listMode: filter.listMode,
     page: filter.page,
     pageSize: filter.pageSize,
+    unpaged: filter.unpaged,
+    omitTradeLines: filter.omitTradeLines,
   });
 }
 
@@ -658,19 +854,16 @@ function buildAttachments(attachmentPath: string | null, attachmentName: string 
 async function fetchSentMessage(
   config: EmailConfig,
   subject: string,
-  _sentAfter: Date
+  sentAfter: Date
 ): Promise<{ messageId: string; conversationId: string } | null> {
   try {
     const accessToken = await GraphMailService.getAccessToken(config);
     const userPrincipal = encodeURIComponent(config.fromEmail);
 
-    // Use $search scoped to SentItems — avoids InefficientFilter errors that occur with
-    // combined $filter on subject + sentDateTime.  $search cannot be combined with $orderby,
-    // so we sort client-side.
     const searchTerm = subject.replace(/"/g, '').substring(0, 80);
     const url = `https://graph.microsoft.com/v1.0/users/${userPrincipal}/mailFolders/SentItems/messages`
       + `?$search="subject:${searchTerm}"`
-      + `&$top=5&$select=id,conversationId,subject,sentDateTime`;
+      + `&$top=40&$select=id,conversationId,subject,sentDateTime`;
 
     console.log('[Confirmation] fetchSentMessage $search URL:', url);
 
@@ -686,14 +879,28 @@ async function fetchSentMessage(
 
     const data = await res.json();
     const messages: any[] = data.value || [];
+    const targetTs = sentAfter.getTime();
 
-    // Pick the most recent one whose subject exactly matches
-    const exactMatch = messages.find((m: any) => m.subject === subject);
-    const msg = exactMatch || messages[0];
+    const ranked = messages
+      .filter((m: any) => m?.sentDateTime)
+      .map((m: any) => ({
+        msg: m,
+        dist: Math.abs(new Date(m.sentDateTime).getTime() - targetTs),
+        exactSubj: m.subject === subject,
+      }))
+      .sort((a, b) =>
+        Number(b.exactSubj) - Number(a.exactSubj) || a.dist - b.dist,
+      );
+
+    const msg = ranked[0]?.msg;
 
     if (!msg) {
       console.warn('[Confirmation] fetchSentMessage: no message found in SentItems for subject:', subject);
       return null;
+    }
+
+    if (messages.length >= 35) {
+      console.warn('[Confirmation] fetchSentMessage: large candidate pool — ambiguous match possible for:', subject.slice(0, 60));
     }
 
     console.log('[Confirmation] Captured sent message — id:', msg.id, 'conversationId:', msg.conversationId, 'subject:', msg.subject);
@@ -731,7 +938,8 @@ export async function sendConfirmation(
   recordId: string,
   userId: string,
   configId?: string,
-  customEmailBody?: string
+  customEmailBody?: string,
+  options?: { emailBodyTemplateId?: string | null }
 ): Promise<{ success: boolean; error?: string }> {
   const meta = await findConfirmationMetaById(recordId);
   if (!meta) return { success: false, error: 'Record not found' };
@@ -756,7 +964,24 @@ export async function sendConfirmation(
   if (!config) return { success: false, error: 'No active email configuration found' };
 
   const settings = await getOrCreateSettings(userId);
-  const subject = generateEmailSubject(record.entityName, record.category);
+  const companyDN = settings.companyDisplayName || '';
+
+  const templateRow = await resolveEmailBodyTemplateRow(
+    mod,
+    record.category,
+    'initial',
+    customEmailBody ? null : options?.emailBodyTemplateId
+  );
+
+  const baseSubject = generateEmailSubject(record.entityName, record.category);
+  const subject = await subjectFromResolvedRow(
+    'initial',
+    templateRow,
+    record.entityName,
+    record.category,
+    baseSubject,
+    companyDN
+  );
 
   let invoiceTableHtml = '';
   if (mod === 'trade_payable' || mod === 'trade_receivable') {
@@ -786,23 +1011,14 @@ export async function sendConfirmation(
           typ,
         });
         const ctx: EmailMagicLinkContext = { baseUrl, token };
-        if (mod === 'confirm_msme') {
-          htmlBody = generateConfirmMsmeEmailHtml(record.entityName, ctx);
-        } else {
-          htmlBody = generateEmailHtml(record.entityName, record.category, ctx, {
-            invoiceTableHtml,
-          });
-        }
+        htmlBody = await composeInitialEmailHtml(mod, record, ctx, invoiceTableHtml, templateRow, companyDN);
         nonceForSend = newNonce;
       } catch (e) {
         console.warn('[Confirmation] Email magic links disabled:', e);
-        htmlBody =
-          mod === 'trade_payable' || mod === 'trade_receivable'
-            ? generateEmailHtml(record.entityName, record.category, undefined, { invoiceTableHtml })
-            : generateEmailHtml(record.entityName, record.category);
+        htmlBody = await composeInitialEmailHtml(mod, record, undefined, invoiceTableHtml, templateRow, companyDN);
       }
     } else {
-      htmlBody = generateEmailHtml(record.entityName, record.category);
+      htmlBody = await composeInitialEmailHtml(mod, record, undefined, invoiceTableHtml, templateRow, companyDN);
     }
   }
 
@@ -896,7 +1112,8 @@ export async function sendConfirmation(
 export async function sendFollowup(
   recordId: string,
   userId: string,
-  customEmailBody?: string
+  customEmailBody?: string,
+  options?: { emailBodyTemplateId?: string | null }
 ): Promise<{ success: boolean; error?: string }> {
   const meta = await findConfirmationMetaById(recordId);
   if (!meta) return { success: false, error: 'Record not found' };
@@ -929,6 +1146,25 @@ export async function sendFollowup(
   if (!config) return { success: false, error: 'No active email configuration found' };
 
   const settings = await getOrCreateSettings(userId);
+  const companyDN = settings.companyDisplayName || '';
+
+  const templateRow = await resolveEmailBodyTemplateRow(
+    mod,
+    record.category,
+    'followup',
+    customEmailBody ? null : options?.emailBodyTemplateId
+  );
+
+  const baseSubjectFu = generateEmailSubject(record.entityName, record.category);
+  const followupSubject = await subjectFromResolvedRow(
+    'followup',
+    templateRow,
+    record.entityName,
+    record.category,
+    baseSubjectFu,
+    companyDN
+  );
+
   let invoiceTableHtml = '';
   if (mod === 'trade_payable' || mod === 'trade_receivable') {
     const grp = await loadTradeGroupRows(anchorId, mod);
@@ -942,6 +1178,7 @@ export async function sendFollowup(
     followupHtmlBody = customEmailBody;
   } else {
     const canMagic = mod === 'trade_payable' || mod === 'trade_receivable' || mod === 'confirm_msme';
+    const sentAt = record.sentAt || new Date();
     if (canMagic) {
       try {
         const newNonce = randomUUID();
@@ -954,31 +1191,37 @@ export async function sendFollowup(
           typ,
         });
         const ctx: EmailMagicLinkContext = { baseUrl, token };
-        followupHtmlBody = generateFollowupEmailHtml(
-          record.entityName,
-          record.category,
-          record.sentAt || new Date(),
+        followupHtmlBody = await composeFollowupEmailHtml(
+          mod,
+          record,
+          sentAt,
           ctx,
-          { invoiceTableHtml }
+          invoiceTableHtml,
+          templateRow,
+          companyDN
         );
         nonceForSend = newNonce;
       } catch (e) {
         console.warn('[Confirmation] Follow-up magic links disabled:', e);
-        followupHtmlBody = generateFollowupEmailHtml(
-          record.entityName,
-          record.category,
-          record.sentAt || new Date(),
+        followupHtmlBody = await composeFollowupEmailHtml(
+          mod,
+          record,
+          sentAt,
           undefined,
-          { invoiceTableHtml }
+          invoiceTableHtml,
+          templateRow,
+          companyDN
         );
       }
     } else {
-      followupHtmlBody = generateFollowupEmailHtml(
-        record.entityName,
-        record.category,
-        record.sentAt || new Date(),
+      followupHtmlBody = await composeFollowupEmailHtml(
+        mod,
+        record,
+        sentAt,
         undefined,
-        { invoiceTableHtml }
+        invoiceTableHtml,
+        templateRow,
+        companyDN
       );
     }
   }
@@ -1010,7 +1253,7 @@ export async function sendFollowup(
       });
     } else {
       // --- Fallback: new email if no prior message ID available ---
-      const subject = `Reminder: ${generateEmailSubject(record.entityName, record.category)}`;
+      const subject = followupSubject;
       console.log('[Confirmation] No prior message ID; sending follow-up as new email');
       await GraphMailService.sendMail(config, {
         to: toList,
@@ -1173,6 +1416,46 @@ export async function checkRepliesForConfirmations(): Promise<number> {
   return total;
 }
 
+/** Page Inbox folder so replies are discoverable beyond Graph's initial page boundary. */
+async function fetchInboxMessagesSinceGraph(
+  userPrincipalEncoded: string,
+  windowIso: string,
+  accessToken: string,
+  maxPages: number,
+  pageSize: number
+): Promise<any[]> {
+  const filter = encodeURIComponent(`receivedDateTime ge ${windowIso}`);
+  let nextUrl: string | null =
+    `https://graph.microsoft.com/v1.0/users/${userPrincipalEncoded}/mailFolders/Inbox/messages`
+    + `?$filter=${filter}`
+    + `&$orderby=receivedDateTime desc&$top=${pageSize}`
+    + `&$select=id,subject,from,sender,receivedDateTime,bodyPreview,hasAttachments,conversationId`;
+
+  const acc: any[] = [];
+  let pages = 0;
+  while (nextUrl && pages < maxPages) {
+    pages++;
+    const pageResp: Response = await fetch(nextUrl, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!pageResp.ok) {
+      console.error('[Confirmation] Inbox paginated HTTP', pageResp.status, (await pageResp.text()).slice(0, 500));
+      break;
+    }
+    const inboxDataUnknown: unknown = await pageResp.json();
+    const inboxData = inboxDataUnknown as {
+      value?: any[];
+      ['@odata.nextLink']?: string;
+    };
+    const batch = inboxData.value || [];
+    acc.push(...batch);
+    nextUrl = typeof inboxData['@odata.nextLink'] === 'string' ? inboxData['@odata.nextLink'] : null;
+    if (acc.length >= 4000 || batch.length === 0) break;
+  }
+  if (pages > 1) console.log('[Confirmation] Inbox pages fetched:', pages, '- messages buffered:', acc.length);
+  return acc;
+}
+
 async function checkRepliesForMailboxGroup(config: EmailConfig, pendingItems: ConfirmationWithModule[]): Promise<number> {
   let repliesFound = 0;
 
@@ -1195,26 +1478,14 @@ async function checkRepliesForMailboxGroup(config: EmailConfig, pendingItems: Co
 
   let inboxMessages: any[] = [];
   try {
-    const inboxUrl = `https://graph.microsoft.com/v1.0/users/${userPrincipal}/mailFolders/Inbox/messages`
-      + `?$filter=receivedDateTime ge ${windowIso}`
-      + `&$orderby=receivedDateTime desc&$top=100`
-      + `&$select=id,subject,from,sender,receivedDateTime,bodyPreview,hasAttachments,conversationId`;
-
     console.log('[Confirmation] Fetching inbox messages since', windowIso, 'for mailbox', config.fromEmail);
-    const inboxRes = await fetch(inboxUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
-
-    if (!inboxRes.ok) {
-      const errBody = await inboxRes.text();
-      console.error(`[Confirmation] Inbox fetch HTTP ${inboxRes.status}:`, errBody);
-    } else {
-      const inboxData = await inboxRes.json();
-      inboxMessages = inboxData.value || [];
-      console.log(`[Confirmation] Found ${inboxMessages.length} inbox message(s) since ${windowIso}`);
-
-      inboxMessages.slice(0, 5).forEach((m: any, i: number) => {
-        console.log(`  [${i}] subject="${m.subject}" from="${m.from?.emailAddress?.address}" convId=${m.conversationId?.substring(0, 20)}...`);
-      });
-    }
+    inboxMessages = await fetchInboxMessagesSinceGraph(userPrincipal, windowIso, accessToken, 20, 150);
+    console.log(`[Confirmation] Loaded ${inboxMessages.length} inbox message(s)`);
+    inboxMessages.slice(0, 5).forEach((m: any, i: number) => {
+      console.log(
+        `  [${i}] subject="${m.subject}" from="${m.from?.emailAddress?.address}" convId=${String(m.conversationId || '').slice(0, 20)}`
+      );
+    });
   } catch (err) {
     console.error('[Confirmation] Error fetching inbox messages:', err);
   }
@@ -1248,15 +1519,28 @@ async function checkRepliesForMailboxGroup(config: EmailConfig, pendingItems: Co
       let replyMsg: any = null;
 
       // ---------- Strategy 1: match by conversationId ----------
-      // sentMessageId stores "messageId::conversationId" (or legacy: just conversationId)
-      const sentParsed = parseSentMessageId(record.sentMessageId);
-      if (sentParsed?.conversationId) {
-        const conversationId = sentParsed.conversationId;
-        const matches = inboxMessages.filter((m: any) => m.conversationId === conversationId && isValidReply(m));
-        matches.sort(sortNewestFirst);
-        if (matches.length > 0) {
-          replyMsg = matches[0];
-          console.log(`[Confirmation] Strategy 1 hit for "${record.entityName}": conversationId match`);
+      /** Include both outbound root + latest follow-up so reply detection survives partial thread metadata. */
+      const conversationCandidates = new Set<string>();
+      for (const src of [record.sentMessageId, record.followupMessageId]) {
+        const parsed = parseSentMessageId(src);
+        const cid =
+          parsed?.conversationId?.trim().length ?
+            parsed.conversationId.trim()
+          : '';
+        if (cid) conversationCandidates.add(cid);
+      }
+
+      if (conversationCandidates.size > 0) {
+        for (const cid of conversationCandidates) {
+          const matches = inboxMessages.filter(
+            (m: any) => m.conversationId === cid && isValidReply(m),
+          );
+          matches.sort(sortNewestFirst);
+          if (matches.length > 0) {
+            replyMsg = matches[0];
+            console.log(`[Confirmation] Strategy 1 hit for "${record.entityName}": conversation ${cid.slice(0, 12)}…`);
+            break;
+          }
         }
       }
 
@@ -1472,6 +1756,7 @@ export async function updateSettings(userId: string, data: {
   autoReplyCheck?: boolean;
   replyCheckIntervalMinutes?: number;
   emailSaveBasePath?: string;
+  companyDisplayName?: string | null;
 }) {
   return prisma.appSettings.upsert({
     where: { userId },

@@ -26,7 +26,6 @@ export async function GET(request: NextRequest) {
     id: r.id,
     entityName: r.entityName,
     bankName: r.bankName,
-    accountNumber: r.accountNumber,
     custId: r.custId,
     emailTo: r.emailTo,
     documentDate: r.documentDate ?? null,

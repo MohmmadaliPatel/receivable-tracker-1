@@ -53,7 +53,7 @@ export default function EmailManager() {
       <div className="p-8">
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-neutral-900 border-t-transparent mx-auto mb-4"></div>
             <p className="text-lg font-medium text-gray-700">Loading your workspace...</p>
             <p className="text-sm text-gray-500 mt-1">Please wait while we set things up</p>
           </div>
@@ -67,7 +67,7 @@ export default function EmailManager() {
       <div className="p-8">
         <div className="text-center py-16">
           <div className="max-w-2xl mx-auto">
-            <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl">
+            <div className="w-20 h-20 bg-gradient-to-r from-neutral-900 to-neutral-800 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-2xl">
               <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
@@ -78,8 +78,8 @@ export default function EmailManager() {
             </p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-2xl border border-blue-100">
-                <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-4">
+              <div className="bg-gradient-to-br from-neutral-50 to-neutral-100 p-6 rounded-2xl border border-neutral-200">
+                <div className="w-12 h-12 bg-neutral-900 rounded-xl flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
                   </svg>
@@ -88,8 +88,8 @@ export default function EmailManager() {
                 <p className="text-gray-600 text-sm">Automatically fetch and organize emails from your Outlook inbox with intelligent filtering</p>
               </div>
               
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-2xl border border-green-100">
-                <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center mb-4">
+              <div className="bg-gradient-to-br from-neutral-50 to-neutral-100 p-6 rounded-2xl border border-neutral-200">
+                <div className="w-12 h-12 bg-neutral-800 rounded-xl flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
@@ -98,8 +98,8 @@ export default function EmailManager() {
                 <p className="text-gray-600 text-sm">Search and filter through your email history with powerful date and sender filters</p>
               </div>
               
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-100">
-                <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center mb-4">
+              <div className="bg-gradient-to-br from-neutral-50 to-neutral-100 p-6 rounded-2xl border border-neutral-200">
+                <div className="w-12 h-12 bg-neutral-900 rounded-xl flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -108,8 +108,8 @@ export default function EmailManager() {
                 <p className="text-gray-600 text-sm">Your data stays secure with enterprise-grade encryption and privacy protection</p>
               </div>
               
-              <div className="bg-gradient-to-br from-orange-50 to-yellow-50 p-6 rounded-2xl border border-orange-100">
-                <div className="w-12 h-12 bg-orange-600 rounded-xl flex items-center justify-center mb-4">
+              <div className="bg-gradient-to-br from-neutral-50 to-neutral-100 p-6 rounded-2xl border border-neutral-200">
+                <div className="w-12 h-12 bg-neutral-800 rounded-xl flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
@@ -203,15 +203,15 @@ export default function EmailManager() {
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-500">Total emails stored</p>
-            <p className="text-2xl font-bold text-blue-600">{totalEmails}</p>
+            <p className="text-2xl font-bold text-neutral-900">{totalEmails}</p>
           </div>
         </div>
       </div>
 
       {/* Fetch Emails Section */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl shadow-lg border border-blue-100 p-8 mb-8">
+      <div className="bg-gradient-to-r from-neutral-50 to-neutral-100 rounded-2xl shadow-lg border border-neutral-200 p-8 mb-8">
         <div className="flex items-center space-x-3 mb-6">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+          <div className="w-10 h-10 bg-neutral-900 rounded-xl flex items-center justify-center">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
             </svg>
@@ -229,7 +229,7 @@ export default function EmailManager() {
             </label>
             <input
               type="date"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm transition-all duration-200"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:border-transparent bg-white shadow-sm transition-all duration-200"
               value={fetchFilter.fromDate || ''}
               onChange={(e) => setFetchFilter(prev => ({ ...prev, fromDate: e.target.value }))}
             />
@@ -241,7 +241,7 @@ export default function EmailManager() {
             </label>
             <input
               type="date"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm transition-all duration-200"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:border-transparent bg-white shadow-sm transition-all duration-200"
               value={fetchFilter.toDate || ''}
               onChange={(e) => setFetchFilter(prev => ({ ...prev, toDate: e.target.value }))}
             />
@@ -254,7 +254,7 @@ export default function EmailManager() {
             <input
               type="text"
               placeholder="email1@example.com, email2@example.com"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm transition-all duration-200"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:border-transparent bg-white shadow-sm transition-all duration-200"
               value={fetchFilter.senders?.join(', ') || ''}
               onChange={(e) => setFetchFilter(prev => ({
                 ...prev,
@@ -271,7 +271,7 @@ export default function EmailManager() {
               type="number"
               min="1"
               max="1000"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm transition-all duration-200"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:border-transparent bg-white shadow-sm transition-all duration-200"
               value={fetchFilter.limit || 100}
               onChange={(e) => setFetchFilter(prev => ({ ...prev, limit: parseInt(e.target.value) || 100 }))}
             />
@@ -281,7 +281,7 @@ export default function EmailManager() {
         <button
           onClick={fetchEmailsFromOutlook}
           disabled={fetching}
-          className="px-8 py-4 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+          className="px-8 py-4 text-sm font-semibold text-white bg-gradient-to-r from-neutral-900 to-neutral-800 rounded-xl hover:from-neutral-800 hover:to-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
         >
           {fetching ? (
             <div className="flex items-center space-x-3">
@@ -300,9 +300,9 @@ export default function EmailManager() {
       </div>
 
       {/* Filter Section */}
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl shadow-lg border border-green-100 p-8 mb-8">
+      <div className="bg-gradient-to-r from-neutral-50 to-neutral-100 rounded-2xl shadow-lg border border-neutral-200 p-8 mb-8">
         <div className="flex items-center space-x-3 mb-6">
-          <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center">
+          <div className="w-10 h-10 bg-neutral-800 rounded-xl flex items-center justify-center">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -320,7 +320,7 @@ export default function EmailManager() {
             </label>
             <input
               type="date"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white shadow-sm transition-all duration-200"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:border-transparent bg-white shadow-sm transition-all duration-200"
               value={filter.fromDate || ''}
               onChange={(e) => setFilter(prev => ({ ...prev, fromDate: e.target.value }))}
             />
@@ -332,7 +332,7 @@ export default function EmailManager() {
             </label>
             <input
               type="date"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white shadow-sm transition-all duration-200"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:border-transparent bg-white shadow-sm transition-all duration-200"
               value={filter.toDate || ''}
               onChange={(e) => setFilter(prev => ({ ...prev, toDate: e.target.value }))}
             />
@@ -345,7 +345,7 @@ export default function EmailManager() {
             <input
               type="email"
               placeholder="Search by sender email"
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white shadow-sm transition-all duration-200"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:border-transparent bg-white shadow-sm transition-all duration-200"
               value={filter.senders?.[0] || ''}
               onChange={(e) => setFilter(prev => ({
                 ...prev,
@@ -360,7 +360,7 @@ export default function EmailManager() {
             setCurrentPage(1);
             loadEmails();
           }}
-          className="px-8 py-4 text-sm font-semibold text-white bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+          className="px-8 py-4 text-sm font-semibold text-white bg-gradient-to-r from-neutral-900 to-neutral-800 rounded-xl hover:from-neutral-800 hover:to-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:ring-offset-2 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
         >
           <div className="flex items-center space-x-3">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -376,7 +376,7 @@ export default function EmailManager() {
         <div className="p-8 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-neutral-900 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 009.586 13H7" />
                 </svg>
@@ -396,7 +396,7 @@ export default function EmailManager() {
 
         {loading ? (
           <div className="p-16 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-600 border-t-transparent mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-neutral-900 border-t-transparent mx-auto mb-4"></div>
             <p className="text-lg font-medium text-gray-700">Loading your emails...</p>
             <p className="text-sm text-gray-500 mt-1">Please wait while we fetch your data</p>
           </div>
@@ -412,7 +412,7 @@ export default function EmailManager() {
             <button
               onClick={fetchEmailsFromOutlook}
               disabled={fetching}
-              className="px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              className="px-6 py-3 text-sm font-semibold text-white bg-gradient-to-r from-neutral-900 to-neutral-800 rounded-xl hover:from-neutral-800 hover:to-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
               {fetching ? 'Fetching...' : 'Fetch Emails Now'}
             </button>
@@ -420,17 +420,17 @@ export default function EmailManager() {
         ) : (
           <div className="divide-y divide-gray-100">
             {emails.map((email, index) => (
-              <div key={email.id} className="p-6 hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50 transition-all duration-200 group">
+              <div key={email.id} className="p-6 hover:bg-gradient-to-r hover:from-gray-50 hover:to-neutral-50 transition-all duration-200 group">
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1 pr-4">
                     <div className="flex items-start space-x-3">
                       <div className="flex-shrink-0 mt-1">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm shadow-md">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-neutral-500 to-neutral-600 flex items-center justify-center text-white font-semibold text-sm shadow-md">
                           {(email.senderName || email.sender)[0].toUpperCase()}
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-700 transition-colors duration-200">
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-neutral-900 transition-colors duration-200">
                           {email.subject || '(No subject)'}
                         </h3>
                         <p className="text-sm text-gray-600 mt-1">
@@ -444,7 +444,7 @@ export default function EmailManager() {
                     <p className="text-sm text-gray-500 mb-2">{formatDate(email.receivedAt)}</p>
                     <div className="flex items-center space-x-2">
                       {email.hasAttachments && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700 font-medium">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-neutral-100 text-neutral-800 font-medium">
                           <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                           </svg>
@@ -452,8 +452,8 @@ export default function EmailManager() {
                         </span>
                       )}
                       {!email.isRead && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-700 font-medium">
-                          <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-emerald-50 text-emerald-800 border border-emerald-100 font-medium">
+                          <div className="w-2 h-2 bg-emerald-600 rounded-full mr-1"></div>
                           New
                         </span>
                       )}

@@ -29,12 +29,12 @@ function formatDate(iso?: string): string {
 // Detect file type from name and return badge config
 function fileTag(name: string): { label: string; bg: string; text: string } | null {
   const n = name.toUpperCase();
-  if (n.includes('_CONF')) return { label: 'CONF', bg: 'bg-blue-100', text: 'text-blue-700' };
+  if (n.includes('_CONF')) return { label: 'CONF', bg: 'bg-neutral-100', text: 'text-neutral-800' };
   const m = n.match(/_FU-(\d+)/);
-  if (m) return { label: `FU-${m[1]}`, bg: 'bg-amber-100', text: 'text-amber-700' };
-  if (n.includes('_RESP')) return { label: 'RESP', bg: 'bg-green-100', text: 'text-green-700' };
+  if (m) return { label: `FU-${m[1]}`, bg: 'bg-neutral-100', text: 'text-neutral-700' };
+  if (n.includes('_RESP')) return { label: 'RESP', bg: 'bg-emerald-50', text: 'text-emerald-800' };
   // Non-email files in the attachments subfolder
-  if (!n.endsWith('.PDF') && !n.endsWith('.HTML')) return { label: 'ATT', bg: 'bg-purple-100', text: 'text-purple-700' };
+  if (!n.endsWith('.PDF') && !n.endsWith('.HTML')) return { label: 'ATT', bg: 'bg-neutral-100', text: 'text-neutral-700' };
   return null;
 }
 
@@ -62,14 +62,14 @@ function TreeNode({
           onClick={() => setOpen((o) => !o)}
         >
           <span className="text-gray-400 text-xs w-3 text-center flex-shrink-0">{open ? '▾' : '▸'}</span>
-          <span className="text-amber-500 text-base flex-shrink-0">📁</span>
+          <span className="text-neutral-500 text-base flex-shrink-0">📁</span>
           <span className="truncate font-medium text-gray-700">{node.name}</span>
           {childFiles > 0 && (
             <span className="ml-1 text-[10px] text-gray-400">{childFiles}</span>
           )}
           <button
             title="Download folder as ZIP"
-            className="ml-auto opacity-0 group-hover:opacity-100 text-xs text-blue-600 hover:text-blue-800 px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100 rounded transition-all"
+            className="ml-auto opacity-0 group-hover:opacity-100 text-xs text-neutral-800 hover:text-neutral-950 px-1.5 py-0.5 bg-neutral-50 hover:bg-neutral-100 rounded transition-all"
             onClick={(e) => {
               e.stopPropagation();
               window.open(`/api/documents?action=zip&path=${encodeURIComponent(node.path)}`);
@@ -102,7 +102,7 @@ function TreeNode({
     <button
       className={`flex items-center gap-1.5 w-full text-left px-2 py-1.5 rounded-lg text-sm transition-colors ${
         isSelected
-          ? 'bg-blue-600 text-white'
+          ? 'bg-neutral-900 text-white'
           : 'hover:bg-gray-100 text-gray-600'
       }`}
       style={{ paddingLeft: `${8 + indent}px` }}
@@ -120,7 +120,7 @@ function TreeNode({
         {node.name}
       </span>
       {node.size && (
-        <span className={`text-[10px] flex-shrink-0 ${isSelected ? 'text-blue-200' : 'text-gray-400'}`}>
+        <span className={`text-[10px] flex-shrink-0 ${isSelected ? 'text-neutral-300' : 'text-gray-400'}`}>
           {formatSize(node.size)}
         </span>
       )}
@@ -207,9 +207,9 @@ export default function DocumentsClient() {
         <div className="w-72 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
           {/* Legend */}
           <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-3 flex-wrap">
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">CONF</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">FU-N</span>
-            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700">RESP</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-800">CONF</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-700">FU-N</span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-100">RESP</span>
             <span className="text-[10px] text-gray-400">= same folder = same thread</span>
           </div>
 
@@ -274,7 +274,7 @@ export default function DocumentsClient() {
                       const frame = document.getElementById('doc-iframe') as HTMLIFrameElement | null;
                       if (frame?.contentWindow) frame.contentWindow.print();
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-medium rounded-lg transition-colors"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />

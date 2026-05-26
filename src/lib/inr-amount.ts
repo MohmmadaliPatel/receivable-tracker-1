@@ -111,6 +111,13 @@ export function debitCreditLabel(signed: number): 'Debit' | 'Credit' {
   return signed >= 0 ? 'Debit' : 'Credit';
 }
 
+/** Pill/badge Tailwind classes for Dr/Cr cells — monochrome distinction. */
+export function drCrBadgeClassNames(label: string): string {
+  if (label === 'Debit') return 'bg-neutral-100 text-neutral-900 border border-neutral-300 font-medium';
+  if (label === 'Credit') return 'bg-neutral-50 text-neutral-700 border border-neutral-200';
+  return 'bg-neutral-100 text-neutral-500 border border-neutral-200';
+}
+
 export function formatDrCrAmountDisplay(raw: string | null | undefined): {
   amountText: string;
   dcLabel: string;

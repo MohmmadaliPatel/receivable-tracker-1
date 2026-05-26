@@ -9,6 +9,8 @@ import {
   parseTradeListingFile,
 } from '@/lib/trade-listing-import';
 import { maybeHydrateMsmeFromPartyMasters } from '@/lib/masters-msme-hook';
+import { parseListingUploadFiscal } from '@/lib/listing-upload-fiscal';
+import { prisma } from '@/lib/prisma';
 
 async function auth() {
   const cookieStore = await cookies();
@@ -55,19 +57,54 @@ export async function POST(request: NextRequest) {
   }
 
   const fkMap = await buildEntityContactFkMap();
-  const { imported } = await importTradeListingFromMapped({
-    moduleKey: 'trade_payable',
-    userId: user.userId,
-    mapped,
-    mode,
-    fkMap,
+
+  const fiscalParsed = parseListingUploadFiscal(formData);
+  if (!fiscalParsed.ok) {
+    return NextResponse.json({ error: fiscalParsed.error }, { status: 400 });
+  }
+
+  const upload = await prisma.tradeListingUpload.create({
+    data: {
+      userId: user.userId,
+      moduleKey: 'trade_payable',
+      originalFileName: file.name,
+      mode,
+      reportingFiscalYear: fiscalParsed.reportingFiscalYear,
+      reportingFiscalQuarter: fiscalParsed.reportingFiscalQuarter,
+      rowCountImported: 0,
+    },
   });
+
+  let imported = 0;
+  try {
+    const result = await importTradeListingFromMapped({
+      moduleKey: 'trade_payable',
+      userId: user.userId,
+      mapped,
+      mode,
+      fkMap,
+      listingFiscal: {
+        listingUploadId: upload.id,
+        reportingFiscalYear: fiscalParsed.reportingFiscalYear,
+        reportingFiscalQuarter: fiscalParsed.reportingFiscalQuarter,
+      },
+    });
+    imported = result.imported;
+    await prisma.tradeListingUpload.update({
+      where: { id: upload.id },
+      data: { rowCountImported: imported },
+    });
+  } catch (e) {
+    await prisma.tradeListingUpload.delete({ where: { id: upload.id } }).catch(() => {});
+    throw e;
+  }
 
   const msmeHydrated = await maybeHydrateMsmeFromPartyMasters(user);
 
   return NextResponse.json({
     success: true,
     imported,
+    listingUploadId: upload.id,
     skipped: rows.length - mapped.length,
     totalRows: rows.length,
     msmeHydrated,

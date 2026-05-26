@@ -142,14 +142,14 @@ export default function EntityAttachmentModal({
                   onClick={() => setMode(opt.key)}
                   className={`flex-1 p-3 rounded-xl border-2 text-left transition-colors ${
                     mode === opt.key
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-neutral-900 bg-neutral-50'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <p className={`text-sm font-medium ${mode === opt.key ? 'text-blue-700' : 'text-gray-700'}`}>
+                  <p className={`text-sm font-medium ${mode === opt.key ? 'text-neutral-900' : 'text-gray-700'}`}>
                     {opt.label}
                   </p>
-                  <p className={`text-xs mt-0.5 ${mode === opt.key ? 'text-blue-600' : 'text-gray-400'}`}>
+                  <p className={`text-xs mt-0.5 ${mode === opt.key ? 'text-neutral-600' : 'text-gray-400'}`}>
                     {opt.desc}
                   </p>
                 </button>
@@ -164,7 +164,7 @@ export default function EntityAttachmentModal({
                     <select
                       value={selectedEntity}
                       onChange={(e) => setSelectedEntity(e.target.value)}
-                      className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 bg-white"
                     >
                       <option value="">— Choose entity —</option>
                       {entityNames.map((e) => (
@@ -181,8 +181,8 @@ export default function EntityAttachmentModal({
                       onDragLeave={() => setDragOver(null)}
                       onClick={() => entityFileRef.current?.click()}
                       className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-                        dragOver === 'entity' ? 'border-blue-500 bg-blue-50' :
-                        entityFile ? 'border-green-400 bg-green-50' :
+                        dragOver === 'entity' ? 'border-neutral-900 bg-neutral-50' :
+                        entityFile ? 'border-emerald-300/80 bg-emerald-50/80' :
                         'border-gray-300 hover:border-gray-400'
                       }`}
                     >
@@ -194,8 +194,8 @@ export default function EntityAttachmentModal({
                       />
                       {entityFile ? (
                         <div className="flex flex-col items-center gap-1.5">
-                          <p className="text-sm font-medium text-green-700">{entityFile.name}</p>
-                          <p className="text-xs text-green-600">{(entityFile.size / 1024).toFixed(1)} KB</p>
+                          <p className="text-sm font-medium text-emerald-800">{entityFile.name}</p>
+                          <p className="text-xs text-emerald-700">{(entityFile.size / 1024).toFixed(1)} KB</p>
                           <button
                             onClick={(e) => { e.stopPropagation(); setEntityFile(null); }}
                             className="text-xs text-red-500 underline mt-1"
@@ -211,14 +211,14 @@ export default function EntityAttachmentModal({
                   </div>
 
                   {selectedEntity && (
-                    <p className="text-xs text-gray-500 bg-blue-50 border border-blue-200 rounded-xl px-3 py-2">
+                    <p className="text-xs text-gray-500 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2">
                       This file will be applied to <strong>all rows</strong> (all categories) for entity: <strong>{selectedEntity}</strong>
                     </p>
                   )}
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex items-start gap-2.5 px-3 py-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
+                  <div className="flex items-start gap-2.5 px-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-xs text-neutral-700">
                     <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -240,15 +240,15 @@ export default function EntityAttachmentModal({
                           onDragOver={(e) => { e.preventDefault(); setDragOver(category); }}
                           onDragLeave={() => setDragOver(null)}
                           className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                            dragOver === category ? 'border-blue-400 bg-blue-50' :
-                            file ? 'border-green-300 bg-green-50' :
+                            dragOver === category ? 'border-neutral-700 bg-neutral-50' :
+                            file ? 'border-emerald-200 bg-emerald-50/70' :
                             'border-gray-200 hover:border-gray-300'
                           }`}
                         >
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-800 truncate">{category}</p>
                             {file ? (
-                              <p className="text-xs text-green-600 mt-0.5 truncate">{file.name}</p>
+                              <p className="text-xs text-emerald-700 mt-0.5 truncate">{file.name}</p>
                             ) : (
                               <p className="text-xs text-gray-400 mt-0.5">No file</p>
                             )}
@@ -273,7 +273,7 @@ export default function EntityAttachmentModal({
                                 };
                                 input.click();
                               }}
-                              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs text-neutral-800 border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
                             >
                               Upload
                             </button>
@@ -282,7 +282,7 @@ export default function EntityAttachmentModal({
                       );
                     })}
                     {catAssignedCount > 0 && (
-                      <p className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-xl px-3 py-2 mt-2">
+                      <p className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200/80 rounded-xl px-3 py-2 mt-2">
                         {catAssignedCount} {catAssignedCount === 1 ? 'category' : 'categories'} ready — will update <strong>all entities</strong> in {catAssignedCount === 1 ? 'that category' : 'those categories'}
                       </p>
                     )}
@@ -300,7 +300,7 @@ export default function EntityAttachmentModal({
               <button
                 onClick={handleUpload}
                 disabled={!canUpload || uploading}
-                className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-800 transition-colors disabled:opacity-50"
               >
                 {uploading && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                 {uploading ? 'Uploading…' : mode === 'entity' ? 'Apply to Entity' : `Apply to ${catAssignedCount} ${catAssignedCount === 1 ? 'Category' : 'Categories'} (All Entities)`}
@@ -314,9 +314,9 @@ export default function EntityAttachmentModal({
                 <p className="text-2xl font-bold text-gray-800">{results.length}</p>
                 <p className="text-xs text-gray-500 mt-1">Uploads</p>
               </div>
-              <div className="bg-green-50 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-green-700">{totalUpdated}</p>
-                <p className="text-xs text-green-600 mt-1">Records updated</p>
+              <div className="bg-emerald-50 rounded-xl p-4 text-center border border-emerald-100">
+                <p className="text-2xl font-bold text-emerald-900">{totalUpdated}</p>
+                <p className="text-xs text-emerald-800 mt-1">Records updated</p>
               </div>
               <div className={`${failed > 0 ? 'bg-red-50' : 'bg-gray-50'} rounded-xl p-4 text-center`}>
                 <p className={`text-2xl font-bold ${failed > 0 ? 'text-red-600' : 'text-gray-400'}`}>{failed}</p>
@@ -327,9 +327,9 @@ export default function EntityAttachmentModal({
             <div className="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
               {results.map((r, i) => (
                 <div key={i} className={`flex items-center px-4 py-3 ${r.success ? '' : 'bg-red-50'}`}>
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mr-3 ${r.success ? 'bg-green-100' : 'bg-red-100'}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mr-3 ${r.success ? 'bg-emerald-100' : 'bg-red-100'}`}>
                     {r.success ? (
-                      <svg className="w-3 h-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     ) : (
@@ -353,7 +353,7 @@ export default function EntityAttachmentModal({
             <div className="flex justify-end mt-auto">
               <button
                 onClick={onSuccess}
-                className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors"
+                className="px-5 py-2 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-800 transition-colors"
               >Done</button>
             </div>
           </div>

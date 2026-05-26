@@ -21,9 +21,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!gate.ok) return NextResponse.json({ error: gate.status === 404 ? 'Not found' : 'Forbidden' }, { status: gate.status });
 
   const body = await request.json().catch(() => ({}));
-  const { configId, emailBody } = body;
+  const { configId, emailBody, emailBodyTemplateId } = body;
+  const templateId =
+    typeof emailBodyTemplateId === 'string' && emailBodyTemplateId.trim()
+      ? emailBodyTemplateId.trim()
+      : null;
 
-  const result = await sendConfirmation(id, user.userId, configId, emailBody || undefined);
+  const result = await sendConfirmation(id, user.userId, configId, emailBody || undefined, {
+    emailBodyTemplateId: emailBody ? null : templateId,
+  });
 
   if (!result.success) {
     return NextResponse.json({ error: result.error }, { status: 400 });

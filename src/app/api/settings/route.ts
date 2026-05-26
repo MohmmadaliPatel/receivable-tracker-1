@@ -25,16 +25,23 @@ export async function PUT(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json();
-  const { autoReplyCheck, replyCheckIntervalMinutes, emailSaveBasePath } = body;
+  const { autoReplyCheck, replyCheckIntervalMinutes, emailSaveBasePath, companyDisplayName } = body;
 
   const clampedInterval = replyCheckIntervalMinutes !== undefined
     ? Math.max(30, Math.min(360, Number(replyCheckIntervalMinutes) || 30))
     : undefined;
 
+  let normalizedCompany: string | null | undefined;
+  if (companyDisplayName !== undefined) {
+    const t = typeof companyDisplayName === 'string' ? companyDisplayName.trim() : '';
+    normalizedCompany = t.length ? t : null;
+  }
+
   const settings = await updateSettings(user.userId, {
     ...(autoReplyCheck !== undefined && { autoReplyCheck }),
     ...(clampedInterval !== undefined && { replyCheckIntervalMinutes: clampedInterval }),
     ...(emailSaveBasePath !== undefined && { emailSaveBasePath }),
+    ...(normalizedCompany !== undefined && { companyDisplayName: normalizedCompany }),
   });
 
   return NextResponse.json({ settings });

@@ -22,7 +22,6 @@ export default function EditRecordModal({ record, onClose, onSaved }: EditRecord
   const [entityName, setEntityName] = useState(record.entityName);
   const [category, setCategory] = useState(record.category);
   const [bankName, setBankName] = useState(record.bankName || '');
-  const [accountNumber, setAccountNumber] = useState(record.accountNumber || '');
   const [custId, setCustId] = useState(record.custId || '');
   const [emailTo, setEmailTo] = useState(record.emailTo);
   const [emailCc, setEmailCc] = useState(record.emailCc || '');
@@ -52,7 +51,6 @@ export default function EditRecordModal({ record, onClose, onSaved }: EditRecord
           entityName: entityName.trim(),
           category: categoryOut,
           bankName: isMsmeModule ? null : (bankName.trim() || null),
-          accountNumber: allowAccountCust ? (accountNumber.trim() || null) : null,
           custId: isMsmeModule || allowAccountCust ? (custId.trim() || null) : null,
           emailTo: emailTo.trim(),
           emailCc: emailCc.trim() || null,
@@ -105,7 +103,7 @@ export default function EditRecordModal({ record, onClose, onSaved }: EditRecord
 
           {/* Category */}
           {isMsmeModule ? (
-            <div className="rounded-xl border border-gray-100 bg-slate-50 px-3 py-2.5 text-sm text-gray-700">
+            <div className="rounded-xl border border-gray-100 bg-neutral-50 px-3 py-2.5 text-sm text-gray-700">
               <span className="text-gray-500">Category: </span>
               <span className="font-semibold text-gray-900">Confirm MSME</span>
             </div>
@@ -146,34 +144,19 @@ export default function EditRecordModal({ record, onClose, onSaved }: EditRecord
               />
             </Field>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <Field
-                label="Account / Loan No."
-                hint={!allowAccountCust ? 'Not applicable for this category' : undefined}
-              >
-                <input
-                  type="text"
-                  value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.target.value)}
-                  disabled={!allowAccountCust}
-                  className={`${inputCls} ${!allowAccountCust ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
-                  placeholder={allowAccountCust ? (isTradeCategory ? 'Account no.' : 'ACCT-001') : 'N/A'}
-                />
-              </Field>
-              <Field
-                label="Cust ID"
-                hint={!allowAccountCust ? 'Not applicable for this category' : undefined}
-              >
-                <input
-                  type="text"
-                  value={custId}
-                  onChange={(e) => setCustId(e.target.value)}
-                  disabled={!allowAccountCust}
-                  className={`${inputCls} ${!allowAccountCust ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
-                  placeholder={allowAccountCust ? (isTradeCategory ? 'SAP customer code' : 'CUST-001') : 'N/A'}
-                />
-              </Field>
-            </div>
+            <Field
+              label="Cust ID"
+              hint={!allowAccountCust ? 'Not applicable for this category' : undefined}
+            >
+              <input
+                type="text"
+                value={custId}
+                onChange={(e) => setCustId(e.target.value)}
+                disabled={!allowAccountCust}
+                className={`${inputCls} ${!allowAccountCust ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
+                placeholder={allowAccountCust ? (isTradeCategory ? 'SAP customer code' : 'CUST-001') : 'N/A'}
+              />
+            </Field>
           )}
 
           {/* Email To */}
@@ -211,7 +194,7 @@ export default function EditRecordModal({ record, onClose, onSaved }: EditRecord
 
           {/* Status note */}
           {record.status !== 'not_sent' && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-700">
+            <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl text-xs text-neutral-700">
               <strong>Note:</strong> This record has already been sent (status: <em>{record.status.replace(/_/g, ' ')}</em>).
               Editing contact details here will only affect future sends and follow-ups, not emails already delivered.
             </div>
@@ -236,7 +219,7 @@ export default function EditRecordModal({ record, onClose, onSaved }: EditRecord
           <button
             onClick={handleSave}
             disabled={saving || !entityName.trim() || (!isMsmeModule && !emailTo.trim())}
-            className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-sm"
+            className="flex items-center gap-2 px-5 py-2 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-800 transition-colors disabled:opacity-50 shadow-sm"
           >
             {saving && (
               <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,7 +235,7 @@ export default function EditRecordModal({ record, onClose, onSaved }: EditRecord
 }
 
 const inputCls =
-  'w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white';
+  'w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:border-transparent bg-white';
 
 function Field({
   label,

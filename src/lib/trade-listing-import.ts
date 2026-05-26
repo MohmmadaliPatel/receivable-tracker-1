@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import type { ExcelMappedRow } from '@/lib/module-excel-maps';
+import type { ExcelMappedRow, ExcelImportFiscalContext } from '@/lib/module-excel-maps';
 import { baseCreatePayloadForExcel, excelSheetToRowObjects } from '@/lib/module-excel-maps';
 import type { ModuleKey } from '@/lib/module-types';
 import { normalizeSapCode } from '@/lib/confirmation-repository';
@@ -43,8 +43,10 @@ export async function importTradeListingFromMapped(args: {
   mapped: ExcelMappedRow[];
   mode: 'append' | 'replace';
   fkMap: Map<string, string>;
+  /** User-selected India FY + quarter for this upload batch (required from HTTP uploads). */
+  listingFiscal?: ExcelImportFiscalContext | null;
 }): Promise<{ imported: number }> {
-  const { moduleKey, userId, mapped, mode, fkMap } = args;
+  const { moduleKey, userId, mapped, mode, fkMap, listingFiscal } = args;
 
   if (mode === 'replace') {
     if (moduleKey === 'trade_payable') {
@@ -88,7 +90,7 @@ export async function importTradeListingFromMapped(args: {
 
   if (moduleKey === 'trade_payable') {
     const data = mapped.map((m) => {
-      const p = baseCreatePayloadForExcel(m, key, userId);
+      const p = baseCreatePayloadForExcel(m, key, userId, listingFiscal ?? undefined);
       const norm = p.custId ? normalizeTradeCustId(String(p.custId)) : '';
       const mid = norm ? masterIdByNorm.get(norm) ?? null : null;
       let emailTo = (p.emailTo ?? '').trim();
@@ -112,7 +114,7 @@ export async function importTradeListingFromMapped(args: {
   }
 
   const data = mapped.map((m) => {
-    const p = baseCreatePayloadForExcel(m, key, userId);
+    const p = baseCreatePayloadForExcel(m, key, userId, listingFiscal ?? undefined);
     const norm = p.custId ? normalizeTradeCustId(String(p.custId)) : '';
     const mid = norm ? masterIdByNorm.get(norm) ?? null : null;
     let emailTo = (p.emailTo ?? '').trim();

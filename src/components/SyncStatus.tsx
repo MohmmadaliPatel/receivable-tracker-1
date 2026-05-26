@@ -74,12 +74,12 @@ export default function SyncStatus() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'syncing':
-        return 'text-yellow-600 bg-yellow-100';
+        return 'text-neutral-800 bg-neutral-100 border border-neutral-200';
       case 'error':
         return 'text-red-600 bg-red-100';
       case 'idle':
       default:
-        return 'text-green-600 bg-green-100';
+        return 'text-emerald-800 bg-emerald-50 border border-emerald-100';
     }
   };
 
@@ -127,7 +127,7 @@ export default function SyncStatus() {
         <button
           onClick={resetSync}
           disabled={resetting}
-          className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-900/25 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {resetting ? 'Resetting...' : 'Reset Sync'}
         </button>

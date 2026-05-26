@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/simple-auth';
+import {
+  enrichReportRecords,
+  buildExecutiveThreads,
+  type ReportFlatRecord,
+} from '@/lib/report-thread-resolver';
+import {
+  stringifyDetailCsvRows,
+  stringifyExecutiveCsvRows,
+  stringifyBusinessThreadCsvRows,
+  type BuildWebSummary,
+} from '@/lib/report-csv';
+import {
+  fmtReportDate,
+  stripReportHtml,
+  buildReportWebSummary,
+  isAttemptedOutbound,
+} from '@/lib/report-format';
 
 async function getAuthUser() {
   const cookieStore = await cookies();
@@ -10,68 +27,32 @@ async function getAuthUser() {
   return await getSession(token);
 }
 
-function fmtDt(d: Date | string | null | undefined): string {
-  if (!d) return '';
-  return new Date(d).toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
-}
-
-function stripHtml(raw: string): string {
-  let s = raw.replace(/<[^>]+>/g, ' ');
-  s = s
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'");
-  return s.replace(/\s+/g, ' ').trim();
-}
+const fmtDt = fmtReportDate;
+const stripHtml = stripReportHtml;
+const webSummaryBinder: BuildWebSummary = buildReportWebSummary;
 
 type ReportRow =
   | (Awaited<ReturnType<typeof prisma.tradePayableConfirmation.findMany>>[0] & { module: string })
   | (Awaited<ReturnType<typeof prisma.tradeReceivableConfirmation.findMany>>[0] & { module: string })
   | (Awaited<ReturnType<typeof prisma.msmeConfirmation.findMany>>[0] & { module: string });
 
-/** One-line summary from existing columns (no new DB fields). */
-function buildWebResponseSummary(r: ReportRow): string {
-  const parts: string[] = [];
-  if (r.webConfirmedAt) {
-    parts.push(`Confirmed via web ${fmtDt(r.webConfirmedAt)}`);
-  }
-  const q = r.respondentQueryJson?.trim();
-  if (q && q !== '[]') {
-    try {
-      const arr = JSON.parse(q) as Array<{ recordId?: string; amountInBooks?: string; note?: string }>;
-      if (Array.isArray(arr) && arr.length > 0) {
-        const n = arr.filter((x) => x.recordId).length || arr.length;
-        const hints = arr.slice(0, 4).map((line) => {
-          const bits = [line.amountInBooks?.trim(), line.note?.trim()?.slice(0, 48)].filter(Boolean);
-          return bits.join(': ') || null;
-        }).filter(Boolean) as string[];
-        parts.push(
-          `Query: ${n} line(s)${hints.length > 0 ? ` — ${hints.join(' | ')}` : ''}`
-        );
-      } else {
-        parts.push('Query submitted');
-      }
-    } catch {
-      parts.push('Query submitted');
-    }
-  }
-  if (r.emailActionConsumedAt) {
-    parts.push(`Magic link used ${fmtDt(r.emailActionConsumedAt)}`);
-  }
-  return parts.join(' · ');
+function prismaRowAsFlat(r: ReportRow): ReportFlatRecord {
+  const anchor =
+    'emailThreadAnchorId' in r ?
+      ((r as { emailThreadAnchorId: string | null }).emailThreadAnchorId ?? null)
+    : null;
+  return {
+    ...(r as unknown as ReportFlatRecord),
+    emailThreadAnchorId: anchor,
+  };
 }
 
-async function loadReportRecords(user: { role: string; accessTradePayable: boolean; accessTradeReceivable: boolean; accessConfirmMsme: boolean }): Promise<ReportRow[]> {
+async function loadReportRecords(user: {
+  role: string;
+  accessTradePayable: boolean;
+  accessTradeReceivable: boolean;
+  accessConfirmMsme: boolean;
+}): Promise<ReportRow[]> {
   const orderBy = [
     { entityName: 'asc' as const },
     { category: 'asc' as const },
@@ -82,15 +63,15 @@ async function loadReportRecords(user: { role: string; accessTradePayable: boole
     const out: ReportRow[] = [];
     if (include.has('trade_payable')) {
       const rows = await prisma.tradePayableConfirmation.findMany({ orderBy });
-      out.push(...rows.map((r) => ({ ...r, module: 'trade_payable' as const }) as ReportRow));
+      out.push(...rows.map((x) => ({ ...x, module: 'trade_payable' as const }) as ReportRow));
     }
     if (include.has('trade_receivable')) {
       const rows = await prisma.tradeReceivableConfirmation.findMany({ orderBy });
-      out.push(...rows.map((r) => ({ ...r, module: 'trade_receivable' as const }) as ReportRow));
+      out.push(...rows.map((x) => ({ ...x, module: 'trade_receivable' as const }) as ReportRow));
     }
     if (include.has('confirm_msme')) {
       const rows = await prisma.msmeConfirmation.findMany({ orderBy });
-      out.push(...rows.map((r) => ({ ...r, module: 'confirm_msme' as const }) as ReportRow));
+      out.push(...rows.map((x) => ({ ...x, module: 'confirm_msme' as const }) as ReportRow));
     }
     return out;
   }
@@ -106,108 +87,92 @@ async function loadReportRecords(user: { role: string; accessTradePayable: boole
   return unionAll(include);
 }
 
-// GET /api/reports  →  all confirmation records with full detail for the logged-in user
+function parseCsvIdSet(raw: string | null): Set<string> | null {
+  if (!raw?.trim()) return null;
+  const ids = raw.split(',').map((x) => x.trim()).filter(Boolean);
+  return ids.length ? new Set(ids) : null;
+}
+
+/** Strip heavy nested payloads for REST JSON */
+function threadWireFormat(t: ReturnType<typeof buildExecutiveThreads>[number]) {
+  const { enrichedLines: _omit, ...rest } = t;
+  return rest;
+}
+
+// GET /api/reports  →  enrichment + optional executive rollup for UI and CSV downloads
 export async function GET(req: NextRequest) {
   const user = await getAuthUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const format = req.nextUrl.searchParams.get('format');
+  const variant = (req.nextUrl.searchParams.get('variant') || 'business').toLowerCase();
+  const attemptedOnly = req.nextUrl.searchParams.get('attemptedOnly') !== '0';
 
-  const records = await loadReportRecords(user);
+  const recordFilter = parseCsvIdSet(req.nextUrl.searchParams.get('filterIds'));
+
+  const prismaRows = await loadReportRecords(user);
+  const flattened = prismaRows.map(prismaRowAsFlat);
+  let enrichedAll = enrichReportRecords(flattened);
+  if (attemptedOnly) {
+    enrichedAll = enrichedAll.filter(isAttemptedOutbound);
+  }
+
+  let enrichedForCsv = enrichedAll;
+  let threadsAll = buildExecutiveThreads(enrichedAll);
+  let threadsForExecutiveCsv = threadsAll;
+
+  if (recordFilter) {
+    enrichedForCsv = enrichedAll.filter((r) => recordFilter.has(r.id));
+    threadsForExecutiveCsv = threadsAll.filter((thread) =>
+      thread.lineIds.some((id) => recordFilter.has(id)),
+    );
+  }
 
   if (format === 'csv') {
-    const cols = [
-      'Entity Name',
-      'Category',
-      'Module',
-      'Bank/Party',
-      'Account Number',
-      'Customer ID',
-      'Email To',
-      'Email CC',
-      'Remarks',
-      'Status',
-      'Sent At',
-      'Follow-up Count',
-      'Last Follow-up At',
-      'Response Received At',
-      'Response From Name',
-      'Response From Email',
-      'Response',
-      'Has Attachments',
-      'Web Confirmed At',
-      'Magic Link Used At',
-      'Web / Query Summary',
-      'Document Date',
-      'Document No.',
-      'Currency Value',
-      'Created At',
-    ];
+    const deps = {
+      fmtDt,
+      stripHtml,
+      buildWebSummary: webSummaryBinder,
+    };
+    const slug =
+      variant === 'executive' ? `executive-threads-report`
+      : variant === 'detail' ? `detail-lines-report`
+      : `outreach-threads-report`;
 
-    function esc(v: unknown): string {
-      if (v === null || v === undefined) return '';
-      const s = String(v).replace(/"/g, '""');
-      return `"${s}"`;
-    }
+    const csvBody =
+      variant === 'executive' ? stringifyExecutiveCsvRows(threadsForExecutiveCsv, deps)
+      : variant === 'detail' ? stringifyDetailCsvRows(enrichedForCsv, deps)
+      : stringifyBusinessThreadCsvRows(threadsForExecutiveCsv, deps);
 
-    const rows = records.map((r) => {
-      const responseText = r.responseBody
-        ? stripHtml(r.responseBody)
-        : r.responseHtmlBody
-          ? stripHtml(r.responseHtmlBody)
-          : '';
-      const webSum = buildWebResponseSummary(r);
-      const isTrade = r.module === 'trade_payable' || r.module === 'trade_receivable';
-      const docDate =
-        isTrade && 'documentDate' in r && r.documentDate ? fmtDt(r.documentDate) : '';
-      const docNo = isTrade && 'documentNumber' in r ? String(r.documentNumber ?? '') : '';
-      const currVal = isTrade && 'currencyValue' in r ? String(r.currencyValue ?? '') : '';
-      return [
-        r.entityName,
-        r.category,
-        r.module,
-        r.bankName ?? '',
-        r.accountNumber ?? '',
-        r.custId ?? '',
-        r.emailTo,
-        r.emailCc ?? '',
-        r.remarks ?? '',
-        r.status,
-        fmtDt(r.sentAt),
-        r.followupCount,
-        fmtDt(r.followupSentAt),
-        fmtDt(r.responseReceivedAt),
-        r.responseFromName ?? '',
-        r.responseFromEmail ?? '',
-        responseText.slice(0, 2000),
-        r.responseHasAttachments ? 'Yes' : 'No',
-        r.webConfirmedAt ? fmtDt(r.webConfirmedAt) : '',
-        r.emailActionConsumedAt ? fmtDt(r.emailActionConsumedAt) : '',
-        webSum,
-        docDate,
-        docNo,
-        currVal,
-        fmtDt(r.createdAt),
-      ]
-        .map(esc)
-        .join(',');
-    });
-
-    const csv = [cols.map(esc).join(','), ...rows].join('\n');
-    return new NextResponse(csv, {
+    return new NextResponse(csvBody, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="confirmation-report-${new Date().toISOString().slice(0, 10)}.csv"`,
+        'Content-Disposition': `attachment; filename="${slug}-${new Date().toISOString().slice(0, 10)}.csv"`,
       },
     });
   }
 
-  const jsonRecords = records.map((r) => ({
-    ...r,
-    responseBody: r.responseBody ?? null,
-    responseHtmlBody: r.responseHtmlBody ?? null,
-    webResponseSummary: buildWebResponseSummary(r),
+  const enrichedJson = enrichedAll.map((rec) => ({
+    ...rec,
+    webResponseSummary: webSummaryBinder({
+      webConfirmedAt: rec.canonicalComm.webConfirmedAt ?? rec.webConfirmedAt,
+      respondentQueryJson: rec.canonicalComm.respondentQueryJson ?? rec.respondentQueryJson,
+      emailActionConsumedAt: rec.canonicalComm.emailActionConsumedAt ?? rec.emailActionConsumedAt,
+    }),
   }));
 
-  return NextResponse.json({ records: jsonRecords });
+  const threadsJson = threadsAll.map(threadWireFormat);
+
+  return NextResponse.json({
+    records: enrichedJson,
+    threads: threadsJson,
+    meta: {
+      variantPresets: {
+        csvBusiness: '?format=csv&variant=business&attemptedOnly=1',
+        csvDetail: '?format=csv&variant=detail&attemptedOnly=0',
+        csvExecutive: '?format=csv&variant=executive&attemptedOnly=0',
+      },
+      attemptedOnly,
+    },
+  });
 }

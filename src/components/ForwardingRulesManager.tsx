@@ -202,7 +202,7 @@ export default function ForwardingRulesManager() {
             setSelectedForwarderEmails([]);
             setForwarderDropdownValue('');
           }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
         >
           + Add Rule
         </button>
@@ -215,7 +215,7 @@ export default function ForwardingRulesManager() {
       )}
 
       {success && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
+        <div className="mb-4 p-4 bg-neutral-50 border border-neutral-200 text-neutral-800 rounded-lg">
           {success}
         </div>
       )}
@@ -283,13 +283,13 @@ export default function ForwardingRulesManager() {
                       return (
                         <span
                           key={email}
-                          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200"
+                          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-neutral-100 text-neutral-900 border border-neutral-200"
                         >
                           {forwarder?.name ? `${forwarder.name} (${email})` : email}
                           <button
                             type="button"
                             onClick={() => handleRemoveForwarder(email)}
-                            className="ml-2 text-blue-600 hover:text-blue-800 focus:outline-none font-bold"
+                            className="ml-2 text-neutral-800 hover:text-neutral-950 focus:outline-none font-bold"
                             title="Remove"
                           >
                             ×
@@ -359,7 +359,7 @@ export default function ForwardingRulesManager() {
             <div className="flex space-x-3">
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
               >
                 {editingRule ? 'Update' : 'Create'}
               </button>
@@ -398,7 +398,7 @@ export default function ForwardingRulesManager() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by sender name, email, or forward-to emails..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-neutral-900/25 focus:border-neutral-400"
             />
           </div>
           <div className="md:w-48">
@@ -408,7 +408,7 @@ export default function ForwardingRulesManager() {
             <select
               value={filterActive}
               onChange={(e) => setFilterActive(e.target.value as 'all' | 'active' | 'inactive')}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-neutral-900/25 focus:border-neutral-400"
             >
               <option value="all">All Rules</option>
               <option value="active">Active Only</option>
@@ -457,7 +457,7 @@ export default function ForwardingRulesManager() {
         ) : (
           <>
             {searchQuery || filterActive !== 'all' ? (
-              <div className="mb-4 text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="mb-4 text-sm text-gray-600 bg-neutral-50 border border-neutral-200 rounded-lg p-3">
                 Showing {filteredRules.length} of {rules.length} rule(s)
               </div>
             ) : null}
@@ -465,7 +465,7 @@ export default function ForwardingRulesManager() {
               <div
                 key={rule.id}
                 className={`bg-white border rounded-lg p-5 ${
-                  rule.isActive ? 'border-green-200 bg-green-50' : 'border-gray-200'
+                  rule.isActive ? 'border-neutral-200 bg-neutral-50' : 'border-gray-200'
                 }`}
               >
                 <div className="flex justify-between items-start">
@@ -475,7 +475,7 @@ export default function ForwardingRulesManager() {
                         {rule.sender.name || rule.sender.email}
                       </h3>
                     {rule.isActive && (
-                      <span className="px-2 py-1 bg-green-500 text-white text-xs rounded">
+                      <span className="px-2 py-1 bg-neutral-500 text-white text-xs rounded">
                         Active
                       </span>
                     )}
@@ -485,7 +485,7 @@ export default function ForwardingRulesManager() {
                       </span>
                     )}
                     {rule.autoForward && (
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
+                      <span className="px-2 py-1 bg-neutral-100 text-neutral-800 text-xs rounded">
                         Auto-Forward
                       </span>
                     )}
@@ -505,7 +505,7 @@ export default function ForwardingRulesManager() {
                 <div className="flex space-x-2 ml-4">
                   <button
                     onClick={() => handleEdit(rule)}
-                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                    className="px-3 py-1 text-sm bg-neutral-900 text-white rounded hover:bg-neutral-800"
                   >
                     Edit
                   </button>
@@ -603,17 +603,17 @@ function EmailInput({ emails, onChange }: EmailInputProps) {
 
   return (
     <div>
-      <div className="flex flex-wrap gap-2 p-3 min-h-[50px] border border-gray-300 rounded-lg bg-white focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
+      <div className="flex flex-wrap gap-2 p-3 min-h-[50px] border border-gray-300 rounded-lg bg-white focus-within:ring-2 focus-within:ring-neutral-900/25 focus-within:border-neutral-700">
         {emails.map((email, index) => (
           <span
             key={index}
-            className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+            className="inline-flex items-center gap-1 px-3 py-1 bg-neutral-100 text-neutral-900 rounded-full text-sm font-medium"
           >
             {email}
             <button
               type="button"
               onClick={() => handleRemoveEmail(email)}
-              className="ml-1 text-blue-600 hover:text-blue-800 focus:outline-none"
+              className="ml-1 text-neutral-800 hover:text-neutral-950 focus:outline-none"
               aria-label={`Remove ${email}`}
             >
               <svg

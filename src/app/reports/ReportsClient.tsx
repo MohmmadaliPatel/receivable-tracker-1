@@ -1,6 +1,28 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { Fragment, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import {
+  buildExecutiveThreads,
+  enrichReportRecords,
+  type ExecutiveReportThread,
+  type ReportFlatRecord,
+  type EnrichedReportRecord,
+} from '@/lib/report-thread-resolver';
+import {
+  stringifyBusinessThreadCsvRows,
+  stringifyDetailCsvRows,
+  stringifyExecutiveCsvRows,
+} from '@/lib/report-csv';
+import {
+  fmtReportDate,
+  stripReportHtml,
+  buildReportWebSummary,
+  isAttemptedOutbound,
+} from '@/lib/report-format';
+import EmailViewDrawer from '@/components/EmailViewDrawer';
+import type { ConfirmationRecord } from '@/components/ConfirmationTable';
+
+type AnyDt = Date | string | null | undefined;
 
 interface FollowupEntry {
   followupNumber: number;
@@ -22,115 +44,180 @@ interface ResponseEntry {
   hasAttachments: boolean;
 }
 
-interface ReportRecord {
-  id: string;
-  module?: string;
-  entityName: string;
-  category: string;
-  bankName: string | null;
-  accountNumber: string | null;
-  custId: string | null;
-  emailTo: string;
-  emailCc: string | null;
-  remarks: string | null;
-  status: string;
-  sentAt: string | null;
+interface CanonicalCommWire {
+  sentMessageId?: string | null;
+  sentAt?: AnyDt;
+  sentEmailFilePath?: string | null;
+  followupSentAt?: AnyDt;
+  followupMessageId?: string | null;
   followupCount: number;
-  followupSentAt: string | null;
-  followupsJson: string | null;
-  responseReceivedAt: string | null;
-  responseFromName: string | null;
-  responseFromEmail: string | null;
-  responseHtmlBody: string | null;
-  responseBody: string | null;
+  followupsJson?: string | null;
+  responseReceivedAt?: AnyDt;
+  responseFromName?: string | null;
+  responseFromEmail?: string | null;
+  responseBody?: string | null;
+  responseHtmlBody?: string | null;
   responseHasAttachments: boolean;
-  responsesJson: string | null;
-  createdAt: string;
-  webConfirmedAt?: string | null;
-  emailActionConsumedAt?: string | null;
+  responsesJson?: string | null;
+  webConfirmedAt?: AnyDt;
+  emailActionConsumedAt?: AnyDt;
   respondentQueryJson?: string | null;
-  documentDate?: string | null;
-  documentNumber?: string | null;
-  currencyValue?: string | null;
-  emailThreadAnchorId?: string | null;
-  msmeHasCertificate?: boolean | null;
-  webResponseSummary?: string;
+  status: string;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; dot: string }> = {
-  not_sent:          { label: 'Not Sent',         bg: 'bg-gray-100',   text: 'text-gray-600',  dot: 'bg-gray-400'  },
-  sent:              { label: 'Sent',              bg: 'bg-blue-100',   text: 'text-blue-700',  dot: 'bg-blue-500'  },
-  followup_sent:     { label: 'Follow-up Sent',      bg: 'bg-amber-100',  text: 'text-amber-700', dot: 'bg-amber-500' },
-  response_received: { label: 'Response Received', bg: 'bg-green-100',  text: 'text-green-700', dot: 'bg-green-500' },
+export interface ApiReportRecord extends Omit<
+  ReportFlatRecord,
+  | 'sentAt'
+  | 'followupSentAt'
+  | 'responseReceivedAt'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'webConfirmedAt'
+  | 'emailActionConsumedAt'
+> {
+  canonicalComm: CanonicalCommWire;
+  effectiveConversationIds: string[];
+  effectiveInboundCount: number;
+  effectiveOutboundFollowupCount: number;
+  threadRootId: string;
+  threadRole: 'anchor' | 'invoice_line' | 'standalone';
+  canonicalRecordId: string;
+  isThreadCanonical: boolean;
+  displayEmailTo?: string;
+  msmeHasCertificate?: boolean | null;
+  listingUploadId?: string | null;
+  webResponseSummary?: string;
+  createdAt: string | Date;
+  updatedAt?: string | Date;
+  sentAt: string | Date | null;
+  followupSentAt: string | Date | null;
+  responseReceivedAt: string | Date | null;
+  webConfirmedAt: string | Date | null;
+  emailActionConsumedAt: string | Date | null;
+}
+
+type ThreadWire = Omit<ExecutiveReportThread<ReportFlatRecord>, 'enrichedLines'> & {
+  firstLineCreatedAt?: AnyDt;
+  lastActivityAt?: AnyDt;
 };
 
-function fmtDt(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleString(undefined, {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  });
+const MODULE_LABELS: Record<string, string> = {
+  trade_payable: 'Trade Payables',
+  trade_receivable: 'Trade Receivables',
+  confirm_msme: 'Confirm MSME',
+};
+
+const STATUS_UI: Record<string, { label: string; dot: string; pill: string }> = {
+  not_sent: { label: 'Not sent', dot: 'bg-zinc-400', pill: 'bg-zinc-100 text-zinc-800 ring-zinc-200' },
+  sent: { label: 'Sent · awaiting reply', dot: 'bg-amber-500', pill: 'bg-amber-50 text-amber-950 ring-amber-200/80' },
+  followup_sent: { label: 'Follow-up sent', dot: 'bg-sky-500', pill: 'bg-sky-50 text-sky-950 ring-sky-200/80' },
+  response_received: { label: 'Email response captured', dot: 'bg-emerald-600', pill: 'bg-emerald-50 text-emerald-950 ring-emerald-200/80' },
+};
+
+function fmtDtShort(v: AnyDt): string {
+  if (v === null || v === undefined || v === '') return '—';
+  if (v instanceof Date) return fmtReportDate(v.toISOString());
+  return fmtReportDate(v);
 }
 
-function stripHtml(raw: string): string {
-  let s = raw.replace(/<[^>]+>/g, ' ');
-  s = s
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'");
-  return s.replace(/\s+/g, ' ').trim();
+function downloadCsv(name: string, body: string) {
+  const blob = new Blob([body], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${name}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
-function ResponseBodyCell({ html, text }: { html: string | null; text: string | null }) {
-  const [open, setOpen] = useState(false);
-  const content = html || text;
-  if (!content) return <span className="text-gray-400 text-xs">—</span>;
-  const preview = stripHtml(text || html || '').slice(0, 80) || '(HTML response)';
+function ChannelBadgesExec({ thread }: { thread: ThreadWire }) {
   return (
-    <div>
-      <button
-        onClick={() => setOpen(true)}
-        className="text-xs text-blue-600 hover:underline text-left max-w-[160px] truncate block"
+    <div className="flex flex-wrap items-center gap-1">
+      <span
+        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+          thread.hasEmailInbound ? 'bg-emerald-600 text-white' : 'bg-zinc-100 text-zinc-400'
+        }`}
+        title="Inbox reply"
       >
-        {preview}…
-      </button>
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setOpen(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[85vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900">Response Content</h3>
-              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
-            </div>
-            {html ? (
-              <iframe srcDoc={html} className="w-full min-h-[28rem] h-[50vh] border border-gray-200 rounded" sandbox="allow-same-origin" />
-            ) : (
-              <pre className="whitespace-pre-wrap text-sm text-gray-800 bg-gray-50 p-4 rounded">{text}</pre>
-            )}
-          </div>
-        </div>
-      )}
+        Inbox
+      </span>
+      <span
+        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+          thread.hasWebConfirmed ? 'bg-violet-600 text-white' : 'bg-zinc-100 text-zinc-400'
+        }`}
+        title="Web confirmation or secure link used"
+      >
+        Web
+      </span>
+      <span
+        className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+          thread.hasRespondentQuery ? 'bg-orange-600 text-white' : 'bg-zinc-100 text-zinc-400'
+        }`}
+        title="Counterparty query"
+      >
+        Query
+      </span>
     </div>
   );
 }
 
-// Column definition for advanced filter
+function displayEmailForRecord(record: ApiReportRecord): string {
+  const enriched = record as ApiReportRecord & { displayEmailTo?: string };
+  return enriched.displayEmailTo?.trim() || record.emailTo?.trim() || '—';
+}
+
+function apiRecordToDrawerRecord(r: ApiReportRecord): ConfirmationRecord {
+  const canon = r.canonicalComm;
+  const mod =
+    r.module === 'trade_payable' || r.module === 'trade_receivable' || r.module === 'confirm_msme'
+      ? r.module
+      : undefined;
+  return {
+    id: r.canonicalRecordId,
+    module: mod,
+    entityName: r.entityName,
+    category: r.category,
+    bankName: r.bankName,
+    custId: r.custId,
+    emailTo: r.emailTo,
+    emailCc: r.emailCc,
+    status: canon.status,
+    sentAt: canon.sentAt != null ? String(canon.sentAt) : r.sentAt != null ? String(r.sentAt) : null,
+    followupSentAt: canon.followupSentAt != null ? String(canon.followupSentAt) : null,
+    followupCount: canon.followupCount,
+    followupsJson: canon.followupsJson,
+    responsesJson: canon.responsesJson,
+    responseReceivedAt: canon.responseReceivedAt != null ? String(canon.responseReceivedAt) : null,
+    responseFromEmail: canon.responseFromEmail,
+    responseFromName: canon.responseFromName,
+    responseBody: canon.responseBody,
+    responseHtmlBody: canon.responseHtmlBody,
+    responseHasAttachments: canon.responseHasAttachments,
+    webConfirmedAt: canon.webConfirmedAt != null ? String(canon.webConfirmedAt) : null,
+    respondentQueryJson: canon.respondentQueryJson,
+    msmeHasCertificate: r.msmeHasCertificate,
+    documentDate: r.documentDate,
+    documentNumber: r.documentNumber,
+    currencyValue: r.currencyValue,
+    remarks: r.remarks,
+  };
+}
+
+// Column definitions for advanced filter
 interface ColDef {
-  key: keyof ReportRecord | 'followupCount_range' | 'responsesCount';
+  key: keyof ApiReportRecord | 'followupCount_range' | 'responsesCount';
   label: string;
   type: 'text' | 'select' | 'date' | 'number';
 }
 
 const FILTER_COLS: ColDef[] = [
-  { key: 'entityName',    label: 'Entity Name',    type: 'text'   },
-  { key: 'category',      label: 'Category',       type: 'select' },
-  { key: 'bankName',      label: 'Bank / Party',   type: 'text'   },
-  { key: 'emailTo',       label: 'Email To',       type: 'text'   },
-  { key: 'status',        label: 'Status',         type: 'select' },
-  { key: 'sentAt',        label: 'Sent After',     type: 'date'   },
-  { key: 'followupCount', label: 'Follow-ups ≥',     type: 'number' },
+  { key: 'entityName', label: 'Entity Name', type: 'text' },
+  { key: 'category', label: 'Category', type: 'select' },
+  { key: 'bankName', label: 'Bank / Party', type: 'text' },
+  { key: 'emailTo', label: 'Email To', type: 'text' },
+  { key: 'status', label: 'Row status', type: 'select' },
+  { key: 'sentAt', label: 'Sent After', type: 'date' },
+  { key: 'followupCount', label: 'Follow-ups ≥', type: 'number' },
 ];
 
 interface ActiveFilter {
@@ -140,199 +227,57 @@ interface ActiveFilter {
 }
 
 const ALL_CATEGORIES = [
-  'Bank Balances and FDs', 'Borrowings', 'Trade Receivables',
-  'Trade Payables', 'Other Receivables', 'Other Payables',
+  'Bank Balances and FDs',
+  'Borrowings',
+  'Trade Receivables',
+  'Trade Payables',
+  'Other Receivables',
+  'Other Payables',
 ];
 
-function ExpandedRow({ record }: { record: ReportRecord }) {
-  const followups: FollowupEntry[] = useMemo(() => {
-    try { return JSON.parse(record.followupsJson ?? '[]'); } catch { return []; }
-  }, [record.followupsJson]);
-
-  const responses: ResponseEntry[] = useMemo(() => {
-    try { return JSON.parse(record.responsesJson ?? '[]'); } catch { return []; }
-  }, [record.responsesJson]);
-
-  const queryPretty = useMemo(() => {
-    const raw = record.respondentQueryJson?.trim();
-    if (!raw || raw === '[]') return '';
-    try {
-      return JSON.stringify(JSON.parse(raw), null, 2);
-    } catch {
-      return raw;
-    }
-  }, [record.respondentQueryJson]);
-
-  const isTrade = record.module === 'trade_payable' || record.module === 'trade_receivable';
-
-  return (
-    <tr className="bg-blue-50/40 border-b border-gray-200">
-      <td colSpan={14} className="px-6 py-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm">
-
-          {/* Original email */}
-          <div className="bg-white rounded-lg p-3 border border-blue-200">
-            <h4 className="text-blue-700 font-semibold mb-2 text-xs uppercase tracking-wide flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Original Confirmation
-            </h4>
-            <dl className="space-y-1 text-xs">
-              {record.module && (
-                <div className="flex gap-2">
-                  <dt className="text-gray-400 w-24 flex-shrink-0">Module</dt>
-                  <dd className="text-gray-700 font-mono">{record.module}</dd>
-                </div>
-              )}
-              <div className="flex gap-2"><dt className="text-gray-400 w-24 flex-shrink-0">Sent At</dt><dd className="text-gray-700">{fmtDt(record.sentAt)}</dd></div>
-              <div className="flex gap-2"><dt className="text-gray-400 w-24 flex-shrink-0">To</dt><dd className="text-gray-700 break-all">{record.emailTo}</dd></div>
-              {record.emailCc && <div className="flex gap-2"><dt className="text-gray-400 w-24 flex-shrink-0">CC</dt><dd className="text-gray-700 break-all">{record.emailCc}</dd></div>}
-              {record.remarks && <div className="flex gap-2"><dt className="text-gray-400 w-24 flex-shrink-0">Remarks</dt><dd className="text-gray-700">{record.remarks}</dd></div>}
-              {record.accountNumber && <div className="flex gap-2"><dt className="text-gray-400 w-24 flex-shrink-0">Account</dt><dd className="text-gray-700">{record.accountNumber}</dd></div>}
-              {record.custId && <div className="flex gap-2"><dt className="text-gray-400 w-24 flex-shrink-0">Cust ID</dt><dd className="text-gray-700">{record.custId}</dd></div>}
-              {isTrade && record.documentDate && (
-                <div className="flex gap-2"><dt className="text-gray-400 w-24 flex-shrink-0">Doc date</dt><dd className="text-gray-700">{record.documentDate}</dd></div>
-              )}
-              {isTrade && record.documentNumber && (
-                <div className="flex gap-2"><dt className="text-gray-400 w-24 flex-shrink-0">Doc no.</dt><dd className="text-gray-700 font-mono">{record.documentNumber}</dd></div>
-              )}
-              {isTrade && record.currencyValue && (
-                <div className="flex gap-2"><dt className="text-gray-400 w-24 flex-shrink-0">Amount</dt><dd className="text-gray-700 tabular-nums">{record.currencyValue}</dd></div>
-              )}
-              {record.emailThreadAnchorId != null && record.emailThreadAnchorId !== '' && (
-                <div className="flex gap-2"><dt className="text-gray-400 w-24 flex-shrink-0">Thread</dt><dd className="text-gray-500 font-mono text-[10px] break-all">{record.emailThreadAnchorId}</dd></div>
-              )}
-              {record.msmeHasCertificate != null && (
-                <div className="flex gap-2"><dt className="text-gray-400 w-24 flex-shrink-0">MSME</dt><dd className="text-gray-700">{record.msmeHasCertificate ? 'Certificate provided' : 'No certificate / not MSME'}</dd></div>
-              )}
-            </dl>
-          </div>
-
-          {/* Follow-up history */}
-          <div className="bg-white rounded-lg p-3 border border-amber-200">
-            <h4 className="text-amber-700 font-semibold mb-2 text-xs uppercase tracking-wide flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Follow-up History ({record.followupCount})
-            </h4>
-            {followups.length === 0 ? (
-              <p className="text-gray-400 text-xs">No follow-ups sent.</p>
-            ) : (
-              <ul className="space-y-2">
-                {followups.map((fu) => (
-                  <li key={fu.followupNumber} className="text-xs border-l-2 border-amber-400 pl-2">
-                    <div className="font-semibold text-amber-700">Follow-up #{fu.followupNumber}</div>
-                    <div className="text-gray-600">{fu.subject}</div>
-                    <div className="text-gray-500">{fmtDt(fu.sentAt)}</div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* Email thread responses */}
-          <div className="bg-white rounded-lg p-3 border border-green-200">
-            <h4 className="text-green-700 font-semibold mb-2 text-xs uppercase tracking-wide flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> Inbox / email responses ({responses.length || (record.status === 'response_received' ? 1 : 0)})
-            </h4>
-            {responses.length > 0 ? (
-              <ul className="space-y-3">
-                {responses.map((r, i) => (
-                  <li key={r.messageId ?? i} className="border-l-2 border-green-400 pl-2 text-xs">
-                    <div className="font-semibold text-green-700">Response #{i + 1}</div>
-                    <div className="text-gray-500">{fmtDt(r.receivedAt)}</div>
-                    <div className="text-gray-600">{r.fromName || r.fromEmail}</div>
-                    {r.subject && <div className="text-gray-500 italic">{r.subject}</div>}
-                    {(r.htmlBody || r.body) && (
-                      <ResponseBodyCell html={r.htmlBody} text={r.body} />
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : record.status === 'response_received' ? (
-              <div className="text-xs">
-                <div className="text-gray-500">{fmtDt(record.responseReceivedAt)}</div>
-                <div className="text-gray-600">{record.responseFromName} &lt;{record.responseFromEmail}&gt;</div>
-                <ResponseBodyCell html={record.responseHtmlBody} text={record.responseBody} />
-              </div>
-            ) : (
-              <p className="text-gray-400 text-xs">No inbox response captured.</p>
-            )}
-            {record.responseHasAttachments && (
-              <p className="text-xs text-green-800 mt-2">Has attachments (see stored files)</p>
-            )}
-          </div>
-
-          {/* Web / magic link / query */}
-          <div className="bg-white rounded-lg p-3 border border-violet-200">
-            <h4 className="text-violet-800 font-semibold mb-2 text-xs uppercase tracking-wide flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-violet-500 inline-block" /> Web / magic link / query
-            </h4>
-            <dl className="space-y-1 text-xs mb-2">
-              <div className="flex gap-2">
-                <dt className="text-gray-400 w-28 flex-shrink-0">Web confirmed</dt>
-                <dd className="text-gray-800">{record.webConfirmedAt ? fmtDt(record.webConfirmedAt) : '—'}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="text-gray-400 w-28 flex-shrink-0">Link used</dt>
-                <dd className="text-gray-800">{record.emailActionConsumedAt ? fmtDt(record.emailActionConsumedAt) : '—'}</dd>
-              </div>
-            </dl>
-            {record.webResponseSummary?.trim() ? (
-              <p className="text-xs text-violet-950 bg-violet-50 border border-violet-100 rounded-lg p-2 mb-2">
-                <span className="font-semibold text-violet-900">Summary: </span>
-                {record.webResponseSummary}
-              </p>
-            ) : (
-              <p className="text-gray-400 text-xs mb-2">No web or query activity recorded on this row.</p>
-            )}
-            {queryPretty ? (
-              <div>
-                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Query payload (JSON)</p>
-                <pre className="text-[11px] leading-snug bg-slate-50 border border-slate-200 rounded-lg p-2 max-h-48 overflow-auto font-mono">
-                  {queryPretty}
-                </pre>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </td>
-    </tr>
-  );
+function coerceEnriched(api: ApiReportRecord): EnrichedReportRecord<ReportFlatRecord> {
+  return api as unknown as EnrichedReportRecord<ReportFlatRecord>;
 }
 
 export default function ReportsClient() {
-  const [records, setRecords] = useState<ReportRecord[]>([]);
+  const [records, setRecords] = useState<ApiReportRecord[]>([]);
+  const [threadsApi, setThreadsApi] = useState<ThreadWire[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'executive' | 'lines'>('executive');
+  const [expandedExecutive, setExpandedExecutive] = useState<Set<string>>(new Set());
+  const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set());
   const [globalSearch, setGlobalSearch] = useState('');
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [sentFrom, setSentFrom] = useState('');
   const [sentTo, setSentTo] = useState('');
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [showNotSent, setShowNotSent] = useState(false);
+  const [viewDrawerRecord, setViewDrawerRecord] = useState<ConfirmationRecord | null>(null);
+  const [showAdvancedExport, setShowAdvancedExport] = useState(false);
   const nextFilterId = useRef(1);
 
   useEffect(() => {
     fetch('/api/reports')
       .then((r) => r.json())
-      .then((d) => { setRecords(d.records ?? []); setLoading(false); })
+      .then((d: { records?: ApiReportRecord[]; threads?: ThreadWire[] }) => {
+        setRecords(d.records ?? []);
+        setThreadsApi(d.threads ?? []);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 
-  function addFilter() {
-    setActiveFilters((f) => [...f, { id: String(nextFilterId.current++), col: 'entityName', value: '' }]);
-  }
+  const addFilter = () => setActiveFilters((f) => [...f, { id: String(nextFilterId.current++), col: 'entityName', value: '' }]);
 
-  function removeFilter(id: string) {
-    setActiveFilters((f) => f.filter((x) => x.id !== id));
-  }
+  const removeFilter = (id: string) => setActiveFilters((f) => f.filter((x) => x.id !== id));
 
-  function updateFilter(id: string, patch: Partial<ActiveFilter>) {
+  const updateFilter = (id: string, patch: Partial<ActiveFilter>) =>
     setActiveFilters((f) => f.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-  }
 
-  const toggleStatus = (s: string) => {
-    setSelectedStatuses((prev) =>
-      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
-    );
-  };
+  const toggleStatus = useCallback((s: string) => {
+    setSelectedStatuses((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+  }, []);
 
   const clearFilters = () => {
     setSelectedStatuses([]);
@@ -340,382 +285,880 @@ export default function ReportsClient() {
     setSentTo('');
     setGlobalSearch('');
     setActiveFilters([]);
+    setShowNotSent(false);
   };
 
-  const hasActiveFilters = selectedStatuses.length > 0 || sentFrom || sentTo || globalSearch.trim() || activeFilters.length > 0;
+  const hasActiveFilters =
+    selectedStatuses.length > 0 ||
+    !!sentFrom ||
+    !!sentTo ||
+    !!globalSearch.trim() ||
+    activeFilters.length > 0 ||
+    showNotSent;
 
-  const filtered = useMemo(() => {
-    let r = records;
+  const filteredRecords = useMemo(() => {
+    let result = [...records];
+    if (!showNotSent) {
+      result = result.filter((x) => isAttemptedOutbound(x));
+    }
 
-    if (selectedStatuses.length > 0) r = r.filter((x) => selectedStatuses.includes(x.status));
+    if (selectedStatuses.length > 0) {
+      result = result.filter((x) =>
+        selectedStatuses.includes(x.canonicalComm?.status ?? x.status) ||
+        selectedStatuses.includes(x.status),
+      );
+    }
 
     if (sentFrom) {
       const from = new Date(sentFrom);
-      r = r.filter((x) => x.sentAt && new Date(x.sentAt) >= from);
+      result = result.filter((x) => {
+        const at = x.canonicalComm.sentAt ?? x.sentAt;
+        return at && new Date(String(at)) >= from;
+      });
     }
     if (sentTo) {
       const to = new Date(sentTo + 'T23:59:59');
-      r = r.filter((x) => x.sentAt && new Date(x.sentAt) <= to);
+      result = result.filter((x) => {
+        const at = x.canonicalComm.sentAt ?? x.sentAt;
+        return at && new Date(String(at)) <= to;
+      });
     }
 
     if (globalSearch.trim()) {
       const q = globalSearch.toLowerCase();
-      r = r.filter((x) =>
-        x.entityName.toLowerCase().includes(q) ||
-        x.category.toLowerCase().includes(q) ||
-        (x.bankName ?? '').toLowerCase().includes(q) ||
-        x.emailTo.toLowerCase().includes(q) ||
-        (x.remarks ?? '').toLowerCase().includes(q) ||
-        (x.webResponseSummary ?? '').toLowerCase().includes(q)
+      result = result.filter(
+        (x) =>
+          x.entityName.toLowerCase().includes(q) ||
+          x.category.toLowerCase().includes(q) ||
+          (x.bankName ?? '').toLowerCase().includes(q) ||
+          x.emailTo.toLowerCase().includes(q) ||
+          (x.remarks ?? '').toLowerCase().includes(q) ||
+          (x.custId ?? '').toLowerCase().includes(q) ||
+          x.threadRootId.toLowerCase().includes(q) ||
+          (x.webResponseSummary ?? '').toLowerCase().includes(q) ||
+          (x.effectiveConversationIds ?? []).some((cid) => cid.toLowerCase().includes(q)),
       );
     }
 
     for (const f of activeFilters) {
       if (!f.value.trim()) continue;
       const val = f.value.toLowerCase().trim();
-      r = r.filter((x) => {
+      result = result.filter((x) => {
         const raw = (x as unknown as Record<string, unknown>)[f.col];
-        if (f.col === 'sentAt') return raw && new Date(raw as string) >= new Date(f.value);
-        if (f.col === 'followupCount') return (x.followupCount ?? 0) >= Number(f.value);
+        if (f.col === 'sentAt') {
+          const at = x.canonicalComm.sentAt ?? x.sentAt;
+          return at && new Date(String(at)) >= new Date(f.value);
+        }
+        if (f.col === 'followupCount')
+          return (x.effectiveOutboundFollowupCount ?? x.followupCount ?? 0) >= Number(f.value);
         return String(raw ?? '').toLowerCase().includes(val);
       });
     }
 
-    return r;
-  }, [records, selectedStatuses, sentFrom, sentTo, globalSearch, activeFilters]);
+    return result;
+  }, [records, showNotSent, selectedStatuses, sentFrom, sentTo, globalSearch, activeFilters]);
 
-  function toggleExpand(id: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
+  const threadsFilteredSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of filteredRecords) s.add(`${r.module}:${r.threadRootId}`);
+    return s;
+  }, [filteredRecords]);
+
+  /** Full rollup objects from authoritative workspace — filtered by intersect with current facet */
+  const displayThreadsExecutive = useMemo(() => {
+    const built = threadsApi.filter((t) => threadsFilteredSet.has(t.threadKey));
+    return built.slice().sort((a, b) => {
+      const en = a.entityName.localeCompare(b.entityName);
+      if (en !== 0) return en;
+      return a.threadRootId.localeCompare(b.threadRootId);
     });
-  }
+  }, [threadsApi, threadsFilteredSet]);
 
-  function exportFiltered() {
-    const cols = [
-      'Entity Name', 'Category', 'Bank / Party', 'Account Number', 'Customer ID',
-      'Email To', 'Email CC', 'Remarks', 'Status',
-      'Sent At', 'Follow-up Count', 'Last Follow-up At',
-      'Response Received At', 'Response From', 'Response Email', 'Response',
-    ];
-    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const rows = filtered.map((r) => {
-      const responseText = r.responseBody
-        ? stripHtml(r.responseBody)
-        : r.responseHtmlBody
-          ? stripHtml(r.responseHtmlBody)
-          : '';
-      return [
-        r.entityName, r.category, r.bankName ?? '', r.accountNumber ?? '', r.custId ?? '',
-        r.emailTo, r.emailCc ?? '', r.remarks ?? '', r.status,
-        fmtDt(r.sentAt),
-        r.followupCount,
-        fmtDt(r.followupSentAt),
-        fmtDt(r.responseReceivedAt),
-        r.responseFromName || r.responseFromEmail || '',
-        r.responseFromEmail ?? '',
-        responseText.slice(0, 500),
-      ].map(esc).join(',');
+  const csvDeps = useMemo(
+    () => ({
+      fmtDt: fmtReportDate,
+      stripHtml: stripReportHtml,
+      buildWebSummary: buildReportWebSummary,
+    }),
+    [],
+  );
+
+  const exportDetailFiltered = () => {
+    const rows = enrichReportRecords(
+      filteredRecords as unknown as ReportFlatRecord[],
+    );
+    const csv = stringifyDetailCsvRows(rows, csvDeps);
+    downloadCsv('detail-lines-report-filtered', csv);
+  };
+
+  const exportBusinessFiltered = () => {
+    const enrichedAll = records.map(coerceEnriched);
+    const threadsBuilt = buildExecutiveThreads(enrichedAll);
+    const idSet = new Set(filteredRecords.map((x) => x.id));
+    const threadsOut = threadsBuilt.filter((t) => t.lineIds.some((id) => idSet.has(id)));
+    const csv = stringifyBusinessThreadCsvRows(threadsOut, csvDeps);
+    downloadCsv('outreach-threads-report', csv);
+  };
+
+  const exportExecutiveFiltered = () => {
+    const enrichedAll = records.map(coerceEnriched);
+    const threadsBuilt = buildExecutiveThreads(enrichedAll);
+    const idSet = new Set(filteredRecords.map((x) => x.id));
+    const threadsOut = threadsBuilt.filter((t) => t.lineIds.some((id) => idSet.has(id)));
+    const csv = stringifyExecutiveCsvRows(threadsOut, csvDeps);
+    downloadCsv('executive-threads-report-audit', csv);
+  };
+
+  const kpisExecutive = useMemo(() => {
+    const tlist = displayThreadsExecutive;
+    return {
+      attempted: tlist.length,
+      awaiting: tlist.filter(
+        (x) =>
+          (x.canonicalComm.status === 'sent' || x.canonicalComm.status === 'followup_sent') &&
+          !x.hasEmailInbound &&
+          !x.hasWebConfirmed,
+      ).length,
+      responded: tlist.filter(
+        (x) => x.canonicalComm.status === 'response_received' || x.hasWebConfirmed,
+      ).length,
+      overdue: tlist.filter(
+        (x) => !x.hasEmailInbound && (x.daysSinceSent ?? 0) > 14 && !!(x.canonicalComm.sentAt),
+      ).length,
+      followups: tlist.reduce((sum, x) => sum + (x.effectiveFollowupCount ?? 0), 0),
+    };
+  }, [displayThreadsExecutive]);
+
+  const kpisLines = useMemo(() => {
+    const agg = filteredRecords;
+    const totalInbound = agg.reduce((sum, x) => sum + (x.effectiveInboundCount ?? 0), 0);
+    return {
+      rows: agg.length,
+      awaiting: agg.filter(
+        (x) =>
+          (x.canonicalComm.status === 'sent' || x.canonicalComm.status === 'followup_sent') &&
+          !(x.effectiveInboundCount > 0),
+      ).length,
+      totalInbound,
+    };
+  }, [filteredRecords]);
+
+  const toggleExecExpand = (k: string) =>
+    setExpandedExecutive((prev) => {
+      const n = new Set(prev);
+      n.has(k) ? n.delete(k) : n.add(k);
+      return n;
     });
-    const csv = [cols.map(esc).join(','), ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `report-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
 
-  const summary = useMemo(() => ({
-    total: records.length,
-    notSent: records.filter((r) => r.status === 'not_sent').length,
-    sent: records.filter((r) => r.status === 'sent').length,
-    followup: records.filter((r) => r.status === 'followup_sent').length,
-    responded: records.filter((r) => r.status === 'response_received').length,
-    totalFollowups: records.reduce((s, r) => s + (r.followupCount ?? 0), 0),
-  }), [records]);
+  const toggleLineExpand = (id: string) =>
+    setExpandedLines((prev) => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+
+  const openViewThread = useCallback(
+    (tw: ThreadWire) => {
+      const anchor =
+        records.find((r) => r.id === tw.canonicalRecordId) ??
+        records.find((r) => r.threadRootId === tw.threadRootId && r.module === tw.module);
+      if (anchor) setViewDrawerRecord(apiRecordToDrawerRecord(anchor));
+    },
+    [records],
+  );
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
-      {/* Header bar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-5 flex items-center justify-between flex-shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Audit confirmation tracker — complete activity log</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={exportFiltered}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Export CSV {filtered.length < records.length && `(${filtered.length})`}
-          </button>
-          <a
-            href="/api/reports?format=csv"
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors"
-          >
-            Export All
-          </a>
-        </div>
-      </div>
-
-      {/* Summary cards */}
-      <div className="px-6 py-4 flex gap-3 flex-shrink-0 flex-wrap bg-white border-b border-gray-200">
-        {[
-          { label: 'Total', value: summary.total, cls: 'border-gray-300 text-gray-700' },
-          { label: 'Not Sent', value: summary.notSent, cls: 'border-gray-300 text-gray-500' },
-          { label: 'Sent', value: summary.sent, cls: 'border-blue-400 text-blue-700' },
-          { label: 'Follow-up', value: summary.followup, cls: 'border-amber-400 text-amber-700' },
-          { label: 'Responded', value: summary.responded, cls: 'border-green-400 text-green-700' },
-          { label: 'Total Follow-ups', value: summary.totalFollowups, cls: 'border-purple-400 text-purple-700' },
-        ].map((c) => (
-          <div key={c.label} className={`border-2 ${c.cls} bg-white rounded-xl px-4 py-2.5 min-w-[90px] text-center`}>
-            <div className="text-xl font-bold">{c.value}</div>
-            <div className="text-xs text-gray-500 mt-0.5">{c.label}</div>
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-zinc-100 via-zinc-50 to-white text-zinc-900">
+      <header className="border-b border-zinc-200/80 bg-white/90 backdrop-blur-md px-8 py-6 flex-shrink-0">
+        <div className="max-w-[1800px] mx-auto flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-500">Outreach</p>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-950 mt-1">Reports</h1>
+            <p className="text-sm text-zinc-600 mt-2 max-w-2xl leading-relaxed">
+              Counterparties where a confirmation email was attempted. Track status, proof channels, and follow-up effort.
+            </p>
           </div>
-        ))}
-      </div>
+          <div className="flex flex-wrap items-start gap-2">
+            <div className="inline-flex rounded-xl bg-zinc-100 p-1 ring-1 ring-zinc-200/70">
+              <button
+                type="button"
+                onClick={() => setViewMode('executive')}
+                className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+                  viewMode === 'executive'
+                    ? 'bg-white shadow-sm text-zinc-950'
+                    : 'text-zinc-500 hover:text-zinc-700'
+                }`}
+              >
+                By counterparty
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('lines')}
+                className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+                  viewMode === 'lines'
+                    ? 'bg-white shadow-sm text-zinc-950'
+                    : 'text-zinc-500 hover:text-zinc-700'
+                }`}
+              >
+                By line
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => exportBusinessFiltered()}
+              className="rounded-xl bg-zinc-950 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-zinc-800"
+            >
+              Export CSV ({displayThreadsExecutive.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAdvancedExport((v) => !v)}
+              className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-50"
+            >
+              {showAdvancedExport ? 'Hide audit exports' : 'Audit exports'}
+            </button>
+            {showAdvancedExport && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => exportDetailFiltered()}
+                  className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Detail lines ({filteredRecords.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => exportExecutiveFiltered()}
+                  className="rounded-xl border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  Full threads ({displayThreadsExecutive.length})
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
 
-      {/* Filters */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3 flex-shrink-0">
-        {/* Row 1: search + status chips + date range + advanced */}
-        <div className="flex flex-col gap-2">
+      <section className="px-8 py-4 border-b border-zinc-200/60 bg-white/70">
+        <div className="max-w-[1800px] mx-auto grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          {viewMode === 'executive' ?
+            <>
+              <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+                <p className="text-[10px] uppercase tracking-wide font-semibold text-zinc-500">Attempted</p>
+                <p className="text-3xl font-bold tabular-nums text-zinc-950">{kpisExecutive.attempted}</p>
+              </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3">
+                <p className="text-[10px] uppercase tracking-wide font-semibold text-amber-900">Awaiting reply</p>
+                <p className="text-3xl font-bold tabular-nums text-amber-950">{kpisExecutive.awaiting}</p>
+              </div>
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
+                <p className="text-[10px] uppercase tracking-wide font-semibold text-emerald-800">Responded</p>
+                <p className="text-3xl font-bold tabular-nums text-emerald-950">{kpisExecutive.responded}</p>
+              </div>
+              <div className="rounded-xl border border-red-100 bg-red-50/70 px-4 py-3">
+                <p className="text-[10px] uppercase tracking-wide font-semibold text-red-900">Overdue &gt;14d</p>
+                <p className="text-3xl font-bold tabular-nums text-red-950">{kpisExecutive.overdue}</p>
+              </div>
+              <div className="rounded-xl border border-sky-100 bg-sky-50/70 px-4 py-3">
+                <p className="text-[10px] uppercase tracking-wide font-semibold text-sky-900">Follow-ups sent</p>
+                <p className="text-3xl font-bold tabular-nums text-sky-950">{kpisExecutive.followups}</p>
+              </div>
+            </>
+          : <>
+              <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+                <p className="text-[10px] uppercase font-semibold text-zinc-500">Exposure lines</p>
+                <p className="text-3xl font-bold">{kpisLines.rows}</p>
+              </div>
+              <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 sm:col-span-2 lg:col-span-3">
+                <p className="text-[10px] uppercase font-semibold text-amber-900">Rows still awaiting verifiable counterpart signal</p>
+                <p className="text-3xl font-bold">{kpisLines.awaiting}</p>
+              </div>
+              <div className="rounded-xl border border-zinc-200 bg-white px-4 py-3 sm:col-span-2 lg:col-span-2">
+                <p className="text-[10px] uppercase font-semibold text-zinc-500">Captured email exchanges (canonical)</p>
+                <p className="text-3xl font-bold">{kpisLines.totalInbound}</p>
+              </div>
+            </>
+          }
+        </div>
+      </section>
+
+      <section className="px-8 py-3 border-b border-zinc-200/60 bg-zinc-50/60">
+        <div className="max-w-[1800px] mx-auto flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <input
               type="text"
-              placeholder="Search entity, category, bank, email, remarks…"
+              placeholder="Search counterparties, identifiers, invoices, inbox conversation ids…"
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
-              className="flex-1 min-w-[200px] px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400"
+              className="flex-1 min-w-[260px] rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none placeholder:text-zinc-400 focus:ring-2 focus:ring-zinc-950/30"
             />
             <button
+              type="button"
               onClick={() => setShowFilterPanel((p) => !p)}
-              className={`flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${
+              className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors ${
                 activeFilters.length > 0
-                  ? 'border-blue-400 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  ? 'border-zinc-400 bg-white text-zinc-900 shadow-sm'
+                  : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300'
               }`}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
-              </svg>
-              More Filters
-              {activeFilters.length > 0 && (
-                <span className="bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                  {activeFilters.length}
-                </span>
-              )}
+              Advanced filters {activeFilters.length > 0 && `(${activeFilters.length})`}
             </button>
             {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1"
-              >
-                Clear All
+              <button type="button" onClick={clearFilters} className="text-sm font-semibold text-red-600 hover:text-red-700">
+                Clear all
               </button>
             )}
           </div>
-
-          {/* Status multi-select chips */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-gray-500 font-medium mr-1">Status:</span>
-            {(['not_sent', 'sent', 'followup_sent', 'response_received'] as const).map((s) => {
-              const cfg = STATUS_CONFIG[s];
-              const active = selectedStatuses.includes(s);
+          <label className="inline-flex items-center gap-2 text-xs text-zinc-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showNotSent}
+              onChange={(e) => setShowNotSent(e.target.checked)}
+              className="rounded border-zinc-300"
+            />
+            Show not sent (never attempted)
+          </label>
+          <div className="flex flex-wrap gap-1 items-center">
+            <span className="text-[11px] font-semibold text-zinc-500 mr-2">Status</span>
+            {(['not_sent', 'sent', 'followup_sent', 'response_received'] as const)
+              .filter((code) => showNotSent || code !== 'not_sent')
+              .map((code) => {
+              const cfg = STATUS_UI[code] ?? STATUS_UI.sent;
+              const active = selectedStatuses.includes(code);
               return (
                 <button
-                  key={s}
-                  onClick={() => toggleStatus(s)}
-                  className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                  type="button"
+                  key={code}
+                  onClick={() => toggleStatus(code)}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
                     active
-                      ? `${cfg.bg} ${cfg.text} border-current`
-                      : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                      ? `ring-1 ring-offset-2 ring-offset-transparent ${cfg.pill}`
+                      : 'border-zinc-200 text-zinc-500 hover:border-zinc-300 bg-white'
                   }`}
                 >
-                  <span className={`w-1.5 h-1.5 rounded-full ${active ? cfg.dot : 'bg-gray-300'}`} />
+                  <span className={`inline-block size-2 rounded-full ${cfg.dot}`} />
                   {cfg.label}
-                  {active && <span className="ml-0.5">&times;</span>}
+                  {active && <span>×</span>}
                 </button>
               );
             })}
           </div>
-
-          {/* Date range */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-gray-500 font-medium">Sent between:</span>
+          <div className="flex flex-wrap gap-3 items-center text-xs text-zinc-600">
+            <span className="font-semibold text-zinc-500">Sent anchor date</span>
             <input
               type="date"
               value={sentFrom}
               onChange={(e) => setSentFrom(e.target.value)}
-              className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-900 bg-white focus:outline-none focus:border-blue-400"
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs bg-white"
             />
-            <span className="text-xs text-gray-400">to</span>
+            <span className="text-zinc-400">to</span>
             <input
               type="date"
               value={sentTo}
               onChange={(e) => setSentTo(e.target.value)}
-              className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-900 bg-white focus:outline-none focus:border-blue-400"
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs bg-white"
             />
           </div>
+          {showFilterPanel && (
+            <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-2 shadow-inner">
+              {activeFilters.map((f) => {
+                const colDef = FILTER_COLS.find((c) => c.key === f.col) ?? FILTER_COLS[0];
+                return (
+                  <div key={f.id} className="flex flex-wrap gap-2 items-center">
+                    <select
+                      value={f.col}
+                      onChange={(e) => updateFilter(f.id, { col: e.target.value, value: '' })}
+                      className="rounded-lg border px-3 py-1.5 text-xs bg-white border-zinc-200"
+                    >
+                      {FILTER_COLS.map((c) => (
+                        <option key={String(c.key)} value={String(c.key)}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                    {colDef.type === 'select' && f.col === 'status' ?
+                      <select
+                        value={f.value}
+                        onChange={(e) => updateFilter(f.id, { value: e.target.value })}
+                        className="flex-1 min-w-[200px] rounded-lg border px-3 py-1.5 text-xs bg-white border-zinc-200"
+                      >
+                        <option value="">Any</option>
+                        <option value="not_sent">not_sent</option>
+                        <option value="sent">sent</option>
+                        <option value="followup_sent">followup_sent</option>
+                        <option value="response_received">response_received</option>
+                      </select>
+                    : colDef.type === 'select' && f.col === 'category' ?
+                      <select
+                        value={f.value}
+                        onChange={(e) => updateFilter(f.id, { value: e.target.value })}
+                        className="flex-1 min-w-[200px] rounded-lg border px-3 py-1.5 text-xs bg-white border-zinc-200"
+                      >
+                        <option value="">Any</option>
+                        {ALL_CATEGORIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    : (
+                      <input
+                        type={colDef.type === 'date' ? 'date' : colDef.type === 'number' ? 'number' : 'text'}
+                        placeholder={`Match ${colDef.label}`}
+                        value={f.value}
+                        onChange={(e) => updateFilter(f.id, { value: e.target.value })}
+                        className="flex-1 rounded-lg border px-3 py-1.5 text-xs bg-white border-zinc-200"
+                      />
+                    )}
+                    <button type="button" onClick={() => removeFilter(f.id)} className="text-zinc-400 hover:text-red-500 font-bold px-2">
+                      ×
+                    </button>
+                  </div>
+                );
+              })}
+              <button type="button" className="text-xs font-semibold text-zinc-800" onClick={addFilter}>
+                + Add criterion
+              </button>
+            </div>
+          )}
         </div>
+      </section>
 
-        {showFilterPanel && (
-          <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-2">
-            {activeFilters.map((f) => {
-              const colDef = FILTER_COLS.find((c) => c.key === f.col) ?? FILTER_COLS[0];
+      <main className="flex-1 overflow-auto px-8 py-6">
+        <div className="max-w-[1800px] mx-auto">
+          {viewMode === 'executive' ?
+            <ExecutiveTableBlock
+              loading={loading}
+              threads={displayThreadsExecutive}
+              recordsAll={records}
+              expandedExecutive={expandedExecutive}
+              onToggleExpand={toggleExecExpand}
+              onViewThread={openViewThread}
+            />
+          : <LinesTableBlock
+              loading={loading}
+              records={filteredRecords}
+              expandedLines={expandedLines}
+              toggleLineExpand={toggleLineExpand}
+            />
+          }
+          {viewDrawerRecord && (
+            <EmailViewDrawer record={viewDrawerRecord} onClose={() => setViewDrawerRecord(null)} />
+          )}
+          <footer className="mt-10 text-[11px] text-zinc-400 text-center">
+            {filteredRecords.length.toLocaleString()} of {records.length.toLocaleString()} rows shown
+            {!showNotSent ? ' (attempted outreach only)' : ''}.
+          </footer>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function ExecutiveTableBlock({
+  loading,
+  threads,
+  recordsAll,
+  expandedExecutive,
+  onToggleExpand,
+  onViewThread,
+}: {
+  loading: boolean;
+  threads: ThreadWire[];
+  /** Full workspace enrichment — ensures expanded threads list every routed invoice line */
+  recordsAll: ApiReportRecord[];
+  expandedExecutive: Set<string>;
+  onToggleExpand: (k: string) => void;
+  onViewThread: (t: ThreadWire) => void;
+}) {
+  const linesOf = (tw: ThreadWire) =>
+    recordsAll.filter((x) => x.threadRootId === tw.threadRootId && x.module === tw.module).sort((a, b) =>
+      String(a.createdAt).localeCompare(String(b.createdAt)),
+    );
+
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-x-auto">
+      <table className="min-w-[1100px] w-full text-left text-sm border-collapse">
+        <thead className="bg-zinc-50 text-[11px] uppercase tracking-wider font-semibold text-zinc-500 rounded-t-xl">
+          <tr>
+            <th className="w-10 px-3 py-3" aria-label="expand" />
+            <th className="px-3 py-3">Counterparty</th>
+            <th className="px-3 py-3">Status</th>
+            <th className="px-3 py-3">Module</th>
+            <th className="px-3 py-3 hidden lg:table-cell">Recipient</th>
+            <th className="px-3 py-3 whitespace-nowrap">Sent</th>
+            <th className="px-3 py-3 whitespace-nowrap">Days</th>
+            <th className="px-3 py-3 whitespace-nowrap">F/U</th>
+            <th className="px-3 py-3 hidden md:table-cell">Proof</th>
+            <th className="px-3 py-3 text-right whitespace-nowrap">Amount</th>
+            <th className="px-3 py-3 text-right whitespace-nowrap">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loading ?
+            <tr>
+              <td colSpan={11} className="text-center py-20 text-zinc-400 animate-pulse">
+                Loading…
+              </td>
+            </tr>
+          : threads.length === 0 ?
+            <tr>
+              <td colSpan={11} className="py-24 text-center text-zinc-500">
+                No attempted outreach matches your filters.
+              </td>
+            </tr>
+          : threads.flatMap((tw) => {
+              const cx = STATUS_UI[tw.canonicalComm.status] ?? STATUS_UI.sent;
+              const open = expandedExecutive.has(tw.threadKey);
+              const execRows = [
+                <tr
+                  key={tw.threadKey}
+                  className={`border-t border-zinc-100 hover:bg-zinc-50 transition-colors cursor-pointer ${
+                    open ? 'bg-zinc-50/80' : ''
+                  }`}
+                  onClick={() => onToggleExpand(tw.threadKey)}
+                >
+                  <td className="px-3 py-4 text-xs text-zinc-400">{open ? '▼' : '▶'}</td>
+                  <td className="px-3 py-4">
+                    <div className="font-semibold text-zinc-900">{tw.entityName}</div>
+                    {tw.custId && <div className="mt-0.5 text-xs text-zinc-500">{tw.custId}</div>}
+                  </td>
+                  <td className="px-3 py-4 align-top">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ring-1 ring-inset ${cx.pill}`}>
+                      <span className={`size-1.5 rounded-full ${cx.dot}`} />
+                      {cx.label}
+                    </span>
+                  </td>
+                  <td className="px-3 py-4 text-xs text-zinc-700">
+                    {MODULE_LABELS[tw.module] ?? tw.module}
+                    <div className="text-[11px] text-zinc-500 mt-0.5">{tw.category}</div>
+                  </td>
+                  <td className="px-3 py-4 hidden lg:table-cell align-top text-xs text-zinc-700 max-w-[200px] truncate" title={tw.emailTo}>
+                    {tw.emailTo}
+                  </td>
+                  <td className="px-3 py-4 text-xs tabular-nums whitespace-nowrap">
+                    {fmtDtShort(tw.canonicalComm.sentAt)}
+                  </td>
+                  <td className="px-3 py-4 text-xs tabular-nums font-medium">{tw.daysSinceSent ?? '—'}</td>
+                  <td className="px-3 py-4 text-xs tabular-nums">{tw.effectiveFollowupCount}</td>
+                  <td className="px-3 py-4 hidden md:table-cell align-top">
+                    <ChannelBadgesExec thread={tw} />
+                  </td>
+                  <td className="px-3 py-4 text-right text-xs tabular-nums font-medium whitespace-nowrap">
+                    {tw.totalAmountDisplay || '—'}
+                  </td>
+                  <td className="px-3 py-4 align-top text-right" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => onViewThread(tw)}
+                      className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-50"
+                    >
+                      View thread
+                    </button>
+                  </td>
+                </tr>,
+              ];
+              const subRows = open ?
+                [<tr key={`${tw.threadKey}-sub`}>
+                    <td colSpan={11} className="bg-zinc-50/95 border-y border-zinc-100 px-6 py-4">
+                      <div className="overflow-x-auto">
+                        <table className="min-w-[800px] w-full text-[12px]">
+                          <thead className="text-[10px] uppercase font-semibold text-zinc-500">
+                            <tr>
+                              <th className="text-left py-2">Document</th>
+                              <th className="text-right py-2">Amount</th>
+                              <th className="text-left py-2">Status</th>
+                              <th className="text-left py-2">Summary</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {linesOf(tw).map((ln) => {
+                              const su = ln.webResponseSummary ?? '';
+                              return (
+                                <tr key={ln.id} className="border-t border-zinc-200/70">
+                                  <td className="py-2 pr-4">
+                                    <div className="font-medium">{ln.bankName ?? ln.documentNumber ?? '—'}</div>
+                                    <div className="text-[11px] text-zinc-500">
+                                      {ln.documentNumber ? `#${ln.documentNumber}` : ''}
+                                      {ln.documentDate ? ` · ${ln.documentDate}` : ''}
+                                    </div>
+                                  </td>
+                                  <td className="py-2 text-right font-mono">{ln.currencyValue ?? '—'}</td>
+                                  <td className="py-2 text-[11px]">
+                                    {STATUS_UI[ln.canonicalComm.status]?.label ?? ln.canonicalComm.status}
+                                  </td>
+                                  <td className="py-2 text-[11px] text-zinc-600 max-w-md truncate" title={su}>
+                                    {su || '—'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>]
+              : [];
+              return [...execRows, ...subRows];
+            })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function LinesTableBlock({
+  loading,
+  records,
+  expandedLines,
+  toggleLineExpand,
+}: {
+  loading: boolean;
+  records: ApiReportRecord[];
+  expandedLines: Set<string>;
+  toggleLineExpand: (id: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white shadow-sm overflow-x-auto">
+      <table className="min-w-[1280px] w-full text-left text-sm border-collapse">
+        <thead className="bg-zinc-50 text-[11px] uppercase tracking-wider font-semibold text-zinc-500">
+          <tr>
+            <th className="px-3 py-3 w-8 " />
+            <th className="px-3 py-3">Entity</th>
+            <th className="px-3 py-3">Module</th>
+            <th className="px-3 py-3 hidden md:table-cell">Document</th>
+            <th className="px-3 py-3">Recipient</th>
+            <th className="px-3 py-3">Status</th>
+            <th className="px-3 py-3 text-center whitespace-nowrap">Proof</th>
+            <th className="px-3 py-3 whitespace-nowrap">Sent</th>
+            <th className="px-3 py-3 whitespace-nowrap">Summary</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loading ?
+            <tr>
+              <td colSpan={9} className="text-center py-20 text-zinc-400 animate-pulse">
+                Hydrating granular ledger rows…
+              </td>
+            </tr>
+          : records.map((record) => {
+              const canon = record.canonicalComm;
+              const st = STATUS_UI[canon.status] ?? STATUS_UI.sent;
+              const open = expandedLines.has(record.id);
+              const webOk = !!(
+                canon.webConfirmedAt ??
+                record.webConfirmedAt ??
+                canon.emailActionConsumedAt ??
+                record.emailActionConsumedAt
+              );
+              const rawQ =
+                canon.respondentQueryJson ?? record.respondentQueryJson;
+              const qOk = !!(rawQ?.trim() && rawQ !== '[]');
+              const inboxCount = record.effectiveInboundCount ?? 0;
+              const recipient = displayEmailForRecord(record);
+              const sumPreview =
+                stripReportHtml(record.webResponseSummary ?? '').slice(0, 140);
               return (
-                <div key={f.id} className="flex items-center gap-2">
-                  <select
-                    value={f.col}
-                    onChange={(e) => updateFilter(f.id, { col: e.target.value, value: '' })}
-                    className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-900 bg-white focus:outline-none"
+                <Fragment key={record.id}>
+                  <tr
+                    className={`border-t border-zinc-100 cursor-pointer hover:bg-zinc-50/80 transition-colors ${open ? 'bg-zinc-50' : ''}`}
+                    onClick={() => toggleLineExpand(record.id)}
                   >
-                    {FILTER_COLS.map((c) => (
-                      <option key={String(c.key)} value={String(c.key)}>{c.label}</option>
-                    ))}
-                  </select>
-
-                  {colDef.type === 'select' && f.col === 'status' ? (
-                    <select
-                      value={f.value}
-                      onChange={(e) => updateFilter(f.id, { value: e.target.value })}
-                      className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-900 bg-white focus:outline-none"
-                    >
-                      <option value="">Any</option>
-                      <option value="not_sent">Not Sent</option>
-                      <option value="sent">Sent</option>
-                      <option value="followup_sent">Follow-up Sent</option>
-                      <option value="response_received">Response Received</option>
-                    </select>
-                  ) : colDef.type === 'select' && f.col === 'category' ? (
-                    <select
-                      value={f.value}
-                      onChange={(e) => updateFilter(f.id, { value: e.target.value })}
-                      className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-900 bg-white focus:outline-none"
-                    >
-                      <option value="">Any</option>
-                      {ALL_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  ) : (
-                    <input
-                      type={colDef.type === 'date' ? 'date' : colDef.type === 'number' ? 'number' : 'text'}
-                      placeholder={`Filter by ${colDef.label}…`}
-                      value={f.value}
-                      onChange={(e) => updateFilter(f.id, { value: e.target.value })}
-                      className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-900 bg-white focus:outline-none"
-                    />
-                  )}
-
-                  <button
-                    onClick={() => removeFilter(f.id)}
-                    className="text-gray-400 hover:text-red-500 transition-colors text-lg leading-none px-1"
-                  >
-                    &times;
-                  </button>
-                </div>
+                    <td className="px-3 py-3 align-top text-[11px] text-zinc-400">{open ? '▼' : '▶'}</td>
+                    <td className="px-3 py-3 align-top font-semibold text-zinc-900">
+                      {record.entityName}
+                      {record.threadRole === 'invoice_line' && (
+                        <span className="ml-2 text-[10px] font-normal text-zinc-400">line</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 align-top text-xs text-zinc-700">
+                      {MODULE_LABELS[record.module] ?? record.module}
+                    </td>
+                    <td className="px-3 py-3 hidden md:table-cell text-xs align-top text-zinc-700">
+                      {record.bankName || record.documentNumber ?
+                        <>
+                          {record.bankName ?? ''}
+                          {record.documentNumber ? ` #${record.documentNumber}` : ''}
+                        </>
+                      : '—'}
+                    </td>
+                    <td className="px-3 py-3 text-xs text-zinc-700 max-w-[220px] truncate" title={recipient}>
+                      {recipient}
+                    </td>
+                    <td className="px-3 py-3 align-top">
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ring-1 ring-inset ${st.pill}`}>
+                        <span className={`size-1.5 rounded-full ${st.dot}`} />
+                        {st.label}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-center align-middle text-[11px]" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-center gap-1 flex-wrap">
+                        <Badge tiny active={inboxCount > 0} tone="success">Inbox</Badge>
+                        <Badge tiny active={webOk} tone="violet">Web</Badge>
+                        <Badge tiny active={qOk} tone="orange">Query</Badge>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 tabular-nums text-xs whitespace-nowrap">
+                      {fmtDtShort(canon.sentAt ?? record.sentAt)}
+                    </td>
+                    <td className="px-3 py-3 text-[11px] text-zinc-600 max-w-[220px] truncate" title={sumPreview}>
+                      {sumPreview || '—'}
+                    </td>
+                  </tr>
+                  {open ?
+                    <tr key={`${record.id}-x`}>
+                      <td colSpan={9} className="bg-zinc-50 border-y border-zinc-100 px-6 py-4">
+                        <LineExpandedPanel record={record} />
+                      </td>
+                    </tr>
+                  : null}
+                </Fragment>
               );
             })}
-            <button
-              onClick={addFilter}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
-            >
-              + Add filter
-            </button>
-          </div>
+        </tbody>
+      </table>
+      {records.length === 0 && !loading && (
+        <div className="py-24 text-center text-zinc-500 text-sm border-t border-zinc-100">Ledger empty for supplied filters.</div>
+      )}
+    </div>
+  );
+}
+
+function Badge({
+  tiny,
+  active,
+  tone,
+  children,
+}: {
+  tiny?: boolean;
+  active: boolean;
+  tone: 'success' | 'violet' | 'orange';
+  children: React.ReactNode;
+}) {
+  const cmap = {
+    success: active ?
+        'bg-emerald-600 text-white'
+      : 'bg-zinc-100 text-zinc-400 ring-1 ring-zinc-200',
+    violet: active ? 'bg-violet-600 text-white' : 'bg-zinc-100 text-zinc-400 ring-1 ring-zinc-200',
+    orange: active ? 'bg-orange-600 text-white' : 'bg-zinc-100 text-zinc-400 ring-1 ring-zinc-200',
+  };
+  return (
+    <span className={`${tiny ? 'px-2 py-[2px] text-[10px]' : 'px-2 py-1 text-xs'} font-semibold rounded-full ${cmap[tone]}`}>{children}</span>
+  );
+}
+
+function LineExpandedPanel({ record }: { record: ApiReportRecord }) {
+  const canon = record.canonicalComm;
+  const recipient = displayEmailForRecord(record);
+
+  let followups: FollowupEntry[] = [];
+  let responses: ResponseEntry[] = [];
+  try {
+    followups = canon.followupsJson ? JSON.parse(canon.followupsJson) : [];
+  } catch {
+    followups = [];
+  }
+  try {
+    responses = canon.responsesJson ? JSON.parse(canon.responsesJson) : [];
+  } catch {
+    responses = [];
+  }
+
+  const activitySummary = buildReportWebSummary({
+    webConfirmedAt: canon.webConfirmedAt ?? record.webConfirmedAt,
+    respondentQueryJson: canon.respondentQueryJson ?? record.respondentQueryJson,
+    emailActionConsumedAt: canon.emailActionConsumedAt ?? record.emailActionConsumedAt,
+  });
+
+  const legacyReply =
+    responses.length === 0 && canon.responseReceivedAt ?
+      {
+        subject: 'Email reply',
+        receivedAt: String(canon.responseReceivedAt),
+        fromName: canon.responseFromName ?? '',
+        fromEmail: canon.responseFromEmail ?? '',
+        preview: stripReportHtml(canon.responseHtmlBody ?? canon.responseBody ?? '').slice(0, 500),
+      }
+    : null;
+
+  return (
+    <div className="max-w-3xl space-y-4 text-sm text-zinc-800">
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-zinc-600">
+        <span>
+          <span className="font-semibold text-zinc-500">Recipient:</span> {recipient}
+        </span>
+        {(canon.sentAt ?? record.sentAt) && (
+          <span>
+            <span className="font-semibold text-zinc-500">Sent:</span>{' '}
+            {fmtDtShort(canon.sentAt ?? record.sentAt)}
+          </span>
         )}
       </div>
 
-      {/* Table */}
-      <div className="flex-1 overflow-auto px-6 py-4">
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
-          <table className="w-full text-sm min-w-[1320px]">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-left">
-                <th className="px-3 py-3 w-8" />
-                <th className="px-3 py-3 text-gray-600 font-semibold">Entity</th>
-                <th className="px-3 py-3 text-gray-600 font-semibold">Category</th>
-                <th className="px-3 py-3 text-gray-600 font-semibold">Bank / Party</th>
-                <th className="px-3 py-3 text-gray-600 font-semibold">Email To</th>
-                <th className="px-3 py-3 text-gray-600 font-semibold">Status</th>
-                <th className="px-3 py-3 text-gray-600 font-semibold text-center">Web</th>
-                <th className="px-3 py-3 text-gray-600 font-semibold text-center">Query</th>
-                <th className="px-3 py-3 text-gray-600 font-semibold">Sent At</th>
-                <th className="px-3 py-3 text-gray-600 font-semibold">Follow-ups</th>
-                <th className="px-3 py-3 text-gray-600 font-semibold">Response At</th>
-                <th className="px-3 py-3 text-gray-600 font-semibold">Response From</th>
-                <th className="px-3 py-3 text-gray-600 font-semibold">Response Email</th>
-                <th className="px-3 py-3 text-gray-600 font-semibold">Response</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={14} className="text-center text-gray-400 py-16">Loading…</td></tr>
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={14} className="text-center text-gray-400 py-16">No records match the current filters.</td></tr>
-              ) : (
-                filtered.map((record) => {
-                  const isExpanded = expanded.has(record.id);
-                  const st = STATUS_CONFIG[record.status] ?? STATUS_CONFIG.not_sent;
-                  return [
-                    <tr
-                      key={record.id}
-                      className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors ${isExpanded ? 'bg-blue-50/30' : ''}`}
-                      onClick={() => toggleExpand(record.id)}
-                    >
-                      <td className="px-3 py-3 text-gray-400 text-center text-xs">{isExpanded ? '▾' : '▸'}</td>
-                      <td className="px-3 py-3 text-gray-900 font-medium">{record.entityName}</td>
-                      <td className="px-3 py-3 text-gray-600 text-xs">{record.category}</td>
-                      <td className="px-3 py-3 text-gray-600">{record.bankName ?? '—'}</td>
-                      <td className="px-3 py-3 text-gray-600 max-w-[160px] truncate text-xs">{record.emailTo}</td>
-                      <td className="px-3 py-3 text-center align-middle" onClick={(e) => e.stopPropagation()}>
-                        {record.webConfirmedAt ? (
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap">
-                            Yes
-                          </span>
-                        ) : (
-                          <span className="text-gray-300 text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 text-center align-middle" onClick={(e) => e.stopPropagation()}>
-                        {!!record.respondentQueryJson?.trim() && record.respondentQueryJson !== '[]' ? (
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 whitespace-nowrap">
-                            Yes
-                          </span>
-                        ) : (
-                          <span className="text-gray-300 text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3">
-                        {(record.followupCount ?? 0) > 0 ? (
-                          <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                            {record.followupCount}×
-                          </span>
-                        ) : <span className="text-gray-400 text-xs">—</span>}
-                      </td>
-                      <td className="px-3 py-3 text-gray-500 text-xs whitespace-nowrap">{fmtDt(record.responseReceivedAt)}</td>
-                      <td className="px-3 py-3 text-gray-600 text-xs">{record.responseFromName || record.responseFromEmail || '—'}</td>
-                      <td className="px-3 py-3 text-gray-500 text-xs max-w-[160px] truncate">{record.responseFromEmail || '—'}</td>
-                      <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                        <ResponseBodyCell html={record.responseHtmlBody} text={record.responseBody} />
-                      </td>
-                    </tr>,
-                    isExpanded && <ExpandedRow key={`${record.id}-exp`} record={record} />,
-                  ];
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <p className="text-gray-400 text-xs mt-3 text-right">
-          Showing {filtered.length} of {records.length} records
+      {activitySummary && (
+        <p className="text-sm text-zinc-700 rounded-lg bg-violet-50 border border-violet-100 px-3 py-2">
+          {activitySummary}
         </p>
+      )}
+
+      {followups.length > 0 && (
+        <div>
+          <h4 className="text-[11px] font-semibold uppercase text-zinc-500 mb-2">Follow-ups sent</h4>
+          <ul className="space-y-2">
+            {followups.map((fu) => (
+              <li key={`${fu.followupNumber}-${fu.sentAt}`} className="border-l-2 border-zinc-300 pl-3">
+                <div className="font-medium text-zinc-900">{fu.subject || `Follow-up #${fu.followupNumber}`}</div>
+                <div className="text-xs text-zinc-500">{fmtReportDate(fu.sentAt)}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div>
+        <h4 className="text-[11px] font-semibold uppercase text-zinc-500 mb-2">Email replies</h4>
+        {responses.length > 0 ?
+          <ul className="space-y-3">
+            {responses.map((rve, idx) => {
+              const preview = stripReportHtml(rve.htmlBody ?? rve.body ?? '').slice(0, 400);
+              return (
+                <li key={rve.messageId ?? idx} className="border-l-2 border-emerald-400 pl-3">
+                  <div className="font-medium text-zinc-900">{rve.subject || '(no subject)'}</div>
+                  <div className="text-xs text-zinc-500 mt-0.5">{fmtReportDate(rve.receivedAt)}</div>
+                  <div className="text-xs text-zinc-600">
+                    {rve.fromName || 'Sender'}
+                    {rve.fromEmail ? ` · ${rve.fromEmail}` : ''}
+                  </div>
+                  {preview && <p className="text-xs text-zinc-600 mt-1 line-clamp-3">{preview}</p>}
+                </li>
+              );
+            })}
+          </ul>
+        : legacyReply ?
+          <div className="border-l-2 border-emerald-400 pl-3">
+            <div className="font-medium">{legacyReply.subject}</div>
+            <div className="text-xs text-zinc-500">{fmtReportDate(legacyReply.receivedAt)}</div>
+            <div className="text-xs text-zinc-600">
+              {legacyReply.fromName}
+              {legacyReply.fromEmail ? ` · ${legacyReply.fromEmail}` : ''}
+            </div>
+            {legacyReply.preview && (
+              <p className="text-xs text-zinc-600 mt-1 line-clamp-3">{legacyReply.preview}</p>
+            )}
+          </div>
+        : <p className="text-zinc-500 text-xs">No inbox reply captured yet.</p>}
       </div>
+
+      {(canon.webConfirmedAt ?? record.webConfirmedAt) && (
+        <p className="text-xs text-zinc-600">
+          Confirmed via web: <strong>{fmtDtShort(canon.webConfirmedAt ?? record.webConfirmedAt)}</strong>
+        </p>
+      )}
+      {(canon.emailActionConsumedAt ?? record.emailActionConsumedAt) && !(canon.webConfirmedAt ?? record.webConfirmedAt) && (
+        <p className="text-xs text-zinc-600">
+          Link used: <strong>{fmtDtShort(canon.emailActionConsumedAt ?? record.emailActionConsumedAt)}</strong>
+        </p>
+      )}
     </div>
   );
 }

@@ -52,7 +52,7 @@ export default function EmailPreviewModal({
 
         {loading ? (
           <div className="flex-1 flex items-center justify-center py-16">
-            <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+            <div className="animate-spin w-8 h-8 border-4 border-neutral-900 border-t-transparent rounded-full" />
           </div>
         ) : (
           <>

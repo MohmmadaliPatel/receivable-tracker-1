@@ -23,8 +23,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const modeParam = request.nextUrl.searchParams.get('mode');
   const mode = modeParam === 'followup' ? 'followup' : 'send';
+  const templateParam = request.nextUrl.searchParams.get('emailBodyTemplateId');
+  const emailBodyTemplateId =
+    typeof templateParam === 'string' && templateParam.trim() ? templateParam.trim() : null;
 
-  const built = await buildConfirmationPreviewHtml({ recordId: id, mode });
+  const built = await buildConfirmationPreviewHtml({ recordId: id, mode, emailBodyTemplateId });
   if (!built) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   return NextResponse.json({ subject: built.subject, html: built.html, record });

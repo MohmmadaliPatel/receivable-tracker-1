@@ -56,7 +56,7 @@ export default function UsersClient() {
         </div>
         <button
           onClick={() => { setEditUser(null); setShowAdd(true); }}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+          className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-800 transition-colors shadow-sm"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -67,7 +67,7 @@ export default function UsersClient() {
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+          <div className="animate-spin w-8 h-8 border-4 border-neutral-900 border-t-transparent rounded-full" />
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
@@ -92,7 +92,7 @@ export default function UsersClient() {
                   <td className="px-5 py-3.5">
                     <span className={`text-xs font-medium px-2 py-1 rounded-full ${
                       u.role === 'admin'
-                        ? 'bg-amber-100 text-amber-700'
+                        ? 'bg-neutral-100 text-neutral-800 border border-neutral-200'
                         : 'bg-gray-100 text-gray-600'
                     }`}>
                       {u.role === 'admin' ? 'Admin' : 'User'}
@@ -118,7 +118,7 @@ export default function UsersClient() {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => { setEditUser(u); setShowAdd(true); }}
-                        className="px-3 py-1.5 text-xs font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+                        className="px-3 py-1.5 text-xs font-medium text-neutral-800 border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
                       >
                         Edit
                       </button>
@@ -246,7 +246,7 @@ function UserModal({
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25"
                 placeholder="e.g. john.doe"
               />
             </div>
@@ -258,7 +258,7 @@ function UserModal({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25"
               placeholder="e.g. John Doe"
             />
           </div>
@@ -269,7 +269,7 @@ function UserModal({
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25"
               placeholder="e.g. john@example.com"
             />
           </div>
@@ -284,7 +284,7 @@ function UserModal({
               onChange={(e) => setPassword(e.target.value)}
               required={!isEdit}
               minLength={4}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25"
               placeholder={isEdit ? '••••••••' : 'Min 4 characters'}
             />
           </div>
@@ -294,7 +294,7 @@ function UserModal({
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 bg-white"
             >
               <option value="user">User</option>
               <option value="admin">Admin</option>
@@ -309,7 +309,7 @@ function UserModal({
                   type="checkbox"
                   checked={accessTp}
                   onChange={(e) => setAccessTp(e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 text-neutral-800 focus:ring-neutral-900/25"
                 />
                 Trade Payables
               </label>
@@ -318,7 +318,7 @@ function UserModal({
                   type="checkbox"
                   checked={accessTr}
                   onChange={(e) => setAccessTr(e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 text-neutral-800 focus:ring-neutral-900/25"
                 />
                 Trade Receivables
               </label>
@@ -327,7 +327,7 @@ function UserModal({
                   type="checkbox"
                   checked={accessMsme}
                   onChange={(e) => setAccessMsme(e.target.checked)}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 text-neutral-800 focus:ring-neutral-900/25"
                 />
                 Confirm MSME
               </label>
@@ -351,7 +351,7 @@ function UserModal({
             <button
               type="submit"
               disabled={saving}
-              className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+              className="px-5 py-2 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-800 transition-colors disabled:opacity-50"
             >
               {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create User'}
             </button>

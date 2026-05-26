@@ -235,7 +235,7 @@ export default function ForwardedEmailsList() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by subject, sender, or forwarded-to..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-neutral-900/25 focus:border-neutral-400"
             />
           </div>
           <div>
@@ -245,7 +245,7 @@ export default function ForwardedEmailsList() {
             <select
               value={filterReplies}
               onChange={(e) => setFilterReplies(e.target.value as any)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-neutral-900/25 focus:border-neutral-400"
             >
               <option value="all">All Emails</option>
               <option value="with-replies">With Replies</option>
@@ -260,7 +260,7 @@ export default function ForwardedEmailsList() {
             <select
               value={filterDateRange}
               onChange={(e) => setFilterDateRange(e.target.value as any)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-neutral-900/25 focus:border-neutral-400"
             >
               <option value="all">All Time</option>
               <option value="today">Today</option>
@@ -338,13 +338,13 @@ export default function ForwardedEmailsList() {
       ) : (
         <>
           {(searchQuery || filterReplies !== 'all' || filterDateRange !== 'all') && (
-            <div className="mb-4 text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="mb-4 text-sm text-gray-600 bg-neutral-50 border border-neutral-200 rounded-lg p-3">
               Showing {filteredEmails.length} of {emails.length} email(s)
             </div>
           )}
           <div className="overflow-x-auto bg-white rounded-xl shadow-lg border border-gray-200">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
+              <thead className="bg-gradient-to-r from-neutral-50 to-neutral-100">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Subject
@@ -374,7 +374,7 @@ export default function ForwardedEmailsList() {
                 <React.Fragment key={email.id}>
                   <tr
                     className={`hover:bg-gray-50 cursor-pointer ${
-                      selectedEmail?.id === email.id ? 'bg-blue-50' : ''
+                      selectedEmail?.id === email.id ? 'bg-neutral-50' : ''
                     }`}
                     onClick={() => handleEmailClick(email)}
                   >
@@ -383,7 +383,7 @@ export default function ForwardedEmailsList() {
                         {email.originalSubject || '(No Subject)'}
                       </div>
                       {email.autoForwarded && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 mt-1">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-neutral-100 text-neutral-800 mt-1">
                           Auto
                         </span>
                       )}
@@ -414,15 +414,15 @@ export default function ForwardedEmailsList() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {email.hasReplies ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-900 border border-emerald-100">
                           {email.replyCount} reply{email.replyCount > 1 ? 'ies' : ''}
                         </span>
                       ) : email.reminderSent ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-neutral-100 text-neutral-900">
                           📧 Reminder Sent
                         </span>
                       ) : shouldShowReminder(email) ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-neutral-100 text-neutral-800 border border-neutral-200">
                           ⏰ Reminder Due
                         </span>
                       ) : (
@@ -436,7 +436,7 @@ export default function ForwardedEmailsList() {
                             e.stopPropagation();
                             handleEmailClick(email);
                           }}
-                          className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors font-medium"
+                          className="px-3 py-1.5 bg-neutral-50 text-neutral-800 rounded-lg hover:bg-neutral-100 transition-colors font-medium"
                         >
                           {selectedEmail?.id === email.id ? 'Hide' : 'View'} Details
                         </button>
@@ -446,7 +446,7 @@ export default function ForwardedEmailsList() {
                               e.stopPropagation();
                               handleViewReplies(email);
                             }}
-                            className="px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors font-medium"
+                            className="px-3 py-1.5 bg-neutral-50 text-neutral-800 rounded-lg hover:bg-neutral-100 transition-colors font-medium"
                           >
                             💬 View Replies ({email.replyCount})
                           </button>
@@ -458,7 +458,7 @@ export default function ForwardedEmailsList() {
                               handleSendReminder(email.id);
                             }}
                             disabled={sendingReminder === email.id}
-                            className="px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-lg hover:bg-yellow-100 transition-colors font-medium disabled:bg-gray-100 disabled:text-gray-400"
+                            className="px-3 py-1.5 bg-neutral-50 text-neutral-800 rounded-lg hover:bg-neutral-100 transition-colors font-medium disabled:bg-gray-100 disabled:text-gray-400 border border-neutral-200"
                           >
                             {sendingReminder === email.id ? 'Sending...' : '📧 Send Reminder'}
                           </button>
@@ -468,7 +468,7 @@ export default function ForwardedEmailsList() {
                   </tr>
                   {selectedEmail?.id === email.id && (
                     <tr>
-                      <td colSpan={7} className="px-6 py-6 bg-gradient-to-br from-blue-50 to-indigo-50">
+                      <td colSpan={7} className="px-6 py-6 bg-gradient-to-br from-neutral-50 to-neutral-100">
                         <div className="space-y-4">
                           <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
                             <h4 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
@@ -507,7 +507,7 @@ export default function ForwardedEmailsList() {
                               </h4>
                               <button
                                 onClick={() => handleViewReplies(email)}
-                                className="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-all font-medium shadow-md"
+                                className="px-4 py-2 bg-gradient-to-r from-neutral-800 to-neutral-1000 text-white rounded-lg hover:from-neutral-900 hover:to-neutral-800 transition-all font-medium shadow-md"
                               >
                                 View All Replies in Popup
                               </button>
@@ -530,10 +530,10 @@ export default function ForwardedEmailsList() {
       {showRepliesModal && selectedEmail && (
         <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col border-2 border-gray-200">
-            <div className="p-6 bg-gradient-to-r from-purple-500 to-indigo-600 text-white flex justify-between items-center">
+            <div className="p-6 bg-gradient-to-r from-neutral-800 to-neutral-800 text-white flex justify-between items-center">
               <div>
                 <h3 className="text-2xl font-bold mb-1">💬 Replies to Forwarded Email</h3>
-                <p className="text-sm text-purple-100">
+                <p className="text-sm text-neutral-200">
                   Subject: {selectedEmail.originalSubject || '(No Subject)'}
                 </p>
               </div>
@@ -551,7 +551,7 @@ export default function ForwardedEmailsList() {
             <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
               {loadingReplies ? (
                 <div className="text-center py-12">
-                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-900 mb-4"></div>
                   <p className="text-gray-600 font-medium">Loading replies...</p>
                 </div>
               ) : replies.length > 0 ? (
@@ -563,7 +563,7 @@ export default function ForwardedEmailsList() {
                     >
                       <div className="flex items-start justify-between mb-4 pb-3 border-b border-gray-200">
                         <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold">
+                          <div className="w-10 h-10 bg-gradient-to-br from-neutral-600 to-neutral-1000 rounded-full flex items-center justify-center text-white font-bold">
                             {index + 1}
                           </div>
                           <div>
@@ -607,7 +607,7 @@ export default function ForwardedEmailsList() {
                             {reply.attachments.map((attachment) => (
                               <div
                                 key={attachment.id}
-                                className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-3 hover:shadow-md transition-shadow"
+                                className="flex items-center justify-between bg-gradient-to-r from-neutral-50 to-neutral-100 border-2 border-neutral-200 rounded-lg p-3 hover:shadow-md transition-shadow"
                               >
                                 <div className="flex items-center space-x-2 flex-1 min-w-0">
                                   <svg
@@ -635,7 +635,7 @@ export default function ForwardedEmailsList() {
                                     handleDownloadAttachment(selectedEmail.id, attachment.id, attachment.name)
                                   }
                                   disabled={downloadingAttachment === attachment.id}
-                                  className="ml-3 px-4 py-2 text-sm bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed font-medium shadow-md transition-all"
+                                  className="ml-3 px-4 py-2 text-sm bg-gradient-to-r from-neutral-900 to-neutral-800 text-white rounded-lg hover:from-neutral-800 hover:to-neutral-900 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed font-medium shadow-md transition-all"
                                 >
                                   {downloadingAttachment === attachment.id ? '⏳ Downloading...' : '⬇️ Download'}
                                 </button>

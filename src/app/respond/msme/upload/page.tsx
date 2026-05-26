@@ -68,7 +68,7 @@ function UploadBody() {
             <button
               type="submit"
               disabled={status === 'sending'}
-              className="w-full py-3 rounded-xl bg-indigo-600 text-white text-sm font-medium disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-neutral-900 text-white text-sm font-medium disabled:opacity-50"
             >
               {status === 'sending' ? 'Uploading…' : 'Submit'}
             </button>

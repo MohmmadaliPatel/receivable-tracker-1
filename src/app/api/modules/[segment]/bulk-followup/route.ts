@@ -4,7 +4,7 @@ import { getSession } from '@/lib/simple-auth';
 import { prisma } from '@/lib/prisma';
 import { countSentTodayAllModules } from '@/lib/confirmation-repository';
 import { userCanAccessModule } from '@/lib/module-access';
-import { sendFollowup, CONFIRMATION_STATUSES } from '@/lib/confirmation-service';
+import { sendFollowup, CONFIRMATION_STATUSES, isEmailBodyTemplateAllowedForPurpose } from '@/lib/confirmation-service';
 
 import { parseModuleSegment } from '../../_utils';
 
@@ -39,12 +39,21 @@ export async function POST(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  let body: { recordIds?: string[] } = {};
+  let body: { recordIds?: string[]; emailBodyTemplateId?: string | null } = {};
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
+
+  const templateId =
+    typeof body.emailBodyTemplateId === 'string' && body.emailBodyTemplateId.trim()
+      ? body.emailBodyTemplateId.trim()
+      : null;
+  if (templateId && !(await isEmailBodyTemplateAllowedForPurpose(templateId, key, 'followup'))) {
+    return NextResponse.json({ error: 'Invalid email template for this module or purpose' }, { status: 400 });
+  }
+  const followupOpts = templateId ? { emailBodyTemplateId: templateId } : undefined;
 
   const idFilter =
     Array.isArray(body.recordIds) && body.recordIds.length > 0
@@ -72,7 +81,7 @@ export async function POST(
   for (const rec of candidates) {
     if (remaining <= 0) break;
 
-    const result = await sendFollowup(rec.id, user.userId);
+    const result = await sendFollowup(rec.id, user.userId, undefined, followupOpts);
 
     if (result.success) {
       sent++;

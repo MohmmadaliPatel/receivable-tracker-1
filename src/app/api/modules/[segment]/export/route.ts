@@ -51,7 +51,6 @@ export async function GET(
         escapeCsvCell(r.emailTo),
         escapeCsvCell(r.emailCc ?? ''),
         escapeCsvCell(r.bankName ?? ''),
-        escapeCsvCell(r.accountNumber ?? ''),
         escapeCsvCell(r.custId ?? ''),
         escapeCsvCell(r.remarks ?? ''),
       ].join(',')

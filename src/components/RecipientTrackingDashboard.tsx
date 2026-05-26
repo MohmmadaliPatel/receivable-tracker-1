@@ -181,7 +181,7 @@ export default function RecipientTrackingDashboard() {
         <h2 className="text-2xl font-bold text-gray-800">Sender Email Tracking</h2>
         <button
           onClick={() => setShowAddForm(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
         >
           + Add Sender
         </button>
@@ -194,7 +194,7 @@ export default function RecipientTrackingDashboard() {
       )}
 
       {success && (
-        <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
+        <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200/80 text-emerald-900 rounded-lg">
           {success}
         </div>
       )}
@@ -211,7 +211,7 @@ export default function RecipientTrackingDashboard() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by sender name or email..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-neutral-900/25 focus:border-neutral-400"
             />
           </div>
           <div className="md:w-48">
@@ -221,7 +221,7 @@ export default function RecipientTrackingDashboard() {
             <select
               value={filterActive}
               onChange={(e) => setFilterActive(e.target.value as 'all' | 'active' | 'inactive')}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-neutral-900/25 focus:border-neutral-400"
             >
               <option value="all">All Senders</option>
               <option value="active">Active Only</option>
@@ -263,7 +263,7 @@ export default function RecipientTrackingDashboard() {
             <div className="flex space-x-3">
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
               >
                 Add Sender
               </button>
@@ -312,7 +312,7 @@ export default function RecipientTrackingDashboard() {
         ) : (
           <>
             {searchQuery || filterActive !== 'all' ? (
-              <div className="mb-4 text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="mb-4 text-sm text-gray-600 bg-neutral-50 border border-neutral-200 rounded-lg p-3">
                 Showing {filteredSenders.length} of {senders.length} sender(s)
               </div>
             ) : null}
@@ -324,7 +324,7 @@ export default function RecipientTrackingDashboard() {
               <div
                 key={sender.id}
                 className={`bg-white border rounded-lg overflow-hidden ${
-                  isExpanded ? 'border-blue-500' : 'border-gray-200'
+                  isExpanded ? 'border-neutral-700' : 'border-gray-200'
                 }`}
               >
                 {/* Sender Header */}
@@ -370,7 +370,7 @@ export default function RecipientTrackingDashboard() {
                           handleSync(sender.id);
                         }}
                         disabled={syncing === sender.id}
-                        className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400"
+                        className="px-3 py-1 text-sm bg-neutral-900 text-white rounded hover:bg-neutral-800 disabled:bg-gray-400"
                       >
                         {syncing === sender.id ? 'Syncing...' : 'Sync Emails'}
                       </button>
@@ -404,7 +404,7 @@ export default function RecipientTrackingDashboard() {
                         <li>{stats.withAttachments} email(s) with attachments</li>
                       </ul>
                       <p className="mt-4 text-xs text-gray-500">
-                        View detailed forwarded emails on the <a href="/forwarded-emails" className="text-blue-600 hover:underline">Forwarded Emails</a> page.
+                        View detailed forwarded emails on the <a href="/forwarded-emails" className="text-neutral-800 hover:underline">Forwarded Emails</a> page.
                       </p>
                     </div>
                   </div>
@@ -439,21 +439,21 @@ export default function RecipientTrackingDashboard() {
                               </div>
                               <div className="flex flex-wrap gap-2 ml-4">
                                 {tracking.hasAttachments && (
-                                  <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
+                                  <span className="px-2 py-1 bg-neutral-100 text-neutral-800 text-xs rounded">
                                     📎 Attachments
                                   </span>
                                 )}
                                 {tracking.isForwarded && (
                                   <span className={`px-2 py-1 text-xs rounded ${
                                     tracking.autoForwarded 
-                                      ? 'bg-purple-100 text-purple-700' 
-                                      : 'bg-green-100 text-green-700'
+                                      ? 'bg-neutral-100 text-neutral-800 border border-neutral-200' 
+                                      : 'bg-emerald-50 text-emerald-900 border border-emerald-100'
                                   }`}>
                                     {tracking.autoForwarded ? '🤖 Auto-Forwarded' : '✓ Forwarded'}
                                   </span>
                                 )}
                                 {tracking.hasReplies && (
-                                  <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded">
+                                  <span className="px-2 py-1 bg-neutral-100 text-neutral-800 text-xs rounded border border-neutral-200">
                                     💬 {tracking.replyCount} Reply{tracking.replyCount > 1 ? 'ies' : ''}
                                   </span>
                                 )}
@@ -461,12 +461,12 @@ export default function RecipientTrackingDashboard() {
                             </div>
 
                             {tracking.isForwarded && (
-                              <div className={`mt-2 p-2 rounded text-sm ${
-                                tracking.autoForwarded ? 'bg-purple-50' : 'bg-green-50'
+                              <div className={`mt-2 p-2 rounded text-sm border ${
+                                tracking.autoForwarded ? 'bg-neutral-50 border-neutral-200' : 'bg-emerald-50/80 border-emerald-100'
                               }`}>
                                 <div className="flex items-center space-x-2">
                                   {tracking.autoForwarded && (
-                                    <span className="text-purple-600">🤖</span>
+                                    <span className="text-neutral-600">🤖</span>
                                   )}
                                   <strong>Forwarded to:</strong> {tracking.forwardedTo}
                                 </div>
@@ -487,7 +487,7 @@ export default function RecipientTrackingDashboard() {
                                     customMessage: '',
                                   })
                                 }
-                                className="mt-3 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                                className="mt-3 px-3 py-1 text-sm bg-neutral-900 text-white rounded hover:bg-neutral-800"
                               >
                                 Forward Email
                               </button>
@@ -529,7 +529,7 @@ export default function RecipientTrackingDashboard() {
                                       )
                                     }
                                     disabled={!forwardForm.forwardTo || forwarding === tracking.id}
-                                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400"
+                                    className="px-3 py-1 text-sm bg-neutral-900 text-white rounded hover:bg-neutral-800 disabled:bg-gray-400"
                                   >
                                     {forwarding === tracking.id ? 'Forwarding...' : 'Send Forward'}
                                   </button>

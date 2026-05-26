@@ -8,6 +8,7 @@ interface AppSettings {
   autoReplyCheck: boolean;
   replyCheckIntervalMinutes: number;
   emailSaveBasePath: string;
+  companyDisplayName: string | null;
 }
 
 function FolderPathPreview({ basePath }: { basePath: string }) {
@@ -20,8 +21,8 @@ function FolderPathPreview({ basePath }: { basePath: string }) {
     <div className="mt-3 p-4 bg-gray-900 rounded-xl text-xs font-mono text-gray-300 space-y-1.5">
       <p className="text-gray-500 mb-2"># Example: one folder per entity / category / bank holds sent mail, follow-ups, and responses:</p>
       <div className="flex items-start gap-2">
-        <span className="text-blue-400 flex-shrink-0">📁</span>
-        <span className="text-green-400 break-all">{threadPath}</span>
+        <span className="text-neutral-400 flex-shrink-0">📁</span>
+        <span className="text-emerald-400/90 break-all">{threadPath}</span>
       </div>
       <p className="text-gray-600 mt-2 text-xs italic">
         Each send/save produces a print-ready PDF plus, when Microsoft Graph returns MIME, a sibling .eml (RFC 822) you can open in Outlook, Apple Mail, or Thunderbird.
@@ -41,6 +42,7 @@ export default function SettingsClient() {
   const [autoReplyCheck, setAutoReplyCheck] = useState(true);
   const [interval, setInterval] = useState(30);
   const [basePath, setBasePath] = useState('emails');
+  const [companyDisplayName, setCompanyDisplayName] = useState('');
 
   useEffect(() => {
     fetch('/api/settings')
@@ -51,6 +53,7 @@ export default function SettingsClient() {
           setAutoReplyCheck(data.settings.autoReplyCheck);
           setInterval(data.settings.replyCheckIntervalMinutes);
           setBasePath(data.settings.emailSaveBasePath);
+          setCompanyDisplayName(data.settings.companyDisplayName ?? '');
         }
       })
       .finally(() => setLoading(false));
@@ -67,6 +70,7 @@ export default function SettingsClient() {
           autoReplyCheck,
           replyCheckIntervalMinutes: interval,
           emailSaveBasePath: basePath.trim() || 'emails',
+          companyDisplayName: companyDisplayName.trim() || null,
         }),
       });
       const data = await res.json();
@@ -87,7 +91,7 @@ export default function SettingsClient() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-neutral-900 border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -128,7 +132,7 @@ export default function SettingsClient() {
                   step={30}
                   value={interval}
                   onChange={(e) => setInterval(Number(e.target.value))}
-                  className="flex-1 accent-blue-600"
+                  className="flex-1 accent-neutral-900"
                 />
                 <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-4 py-2 min-w-[100px] justify-center">
                   <span className="text-lg font-bold text-gray-800">
@@ -146,6 +150,25 @@ export default function SettingsClient() {
               </p>
             </div>
           )}
+        </div>
+
+        {/* Firm name for email templates */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <h2 className="text-base font-semibold text-gray-900">Firm / organization name</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Used as <code className="text-xs bg-gray-100 px-1 rounded">&#123;&#123;companyName&#125;&#125;</code> in
+            outbound confirmation templates (see Masters → Email templates).
+          </p>
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Display name</label>
+            <input
+              type="text"
+              value={companyDisplayName}
+              onChange={(e) => setCompanyDisplayName(e.target.value)}
+              placeholder="e.g. ABC & Associates"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:border-transparent"
+            />
+          </div>
         </div>
 
         {/* Email Save Folder */}
@@ -166,7 +189,7 @@ export default function SettingsClient() {
                 value={basePath}
                 onChange={(e) => setBasePath(e.target.value)}
                 placeholder="emails"
-                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:border-transparent"
               />
               <button
                 onClick={() => setBasePath('emails')}
@@ -196,19 +219,19 @@ export default function SettingsClient() {
                 level: 'Level 1',
                 desc: 'Entity folder — one folder per client entity',
                 example: 'Clean Max IPP 4 Power Private Limited/',
-                color: 'bg-blue-50 border-blue-200 text-blue-700',
+                color: 'bg-neutral-50 border-neutral-200 text-neutral-800',
               },
               {
                 level: 'Level 2',
                 desc: 'Category folder — inside each entity folder',
                 example: 'Bank Balances and FDs/',
-                color: 'bg-purple-50 border-purple-200 text-purple-700',
+                color: 'bg-neutral-100 border-neutral-200 text-neutral-800',
               },
               {
                 level: 'Level 3',
                 desc: 'Bank / confirming party — sent mail, reminders, and replies live together here',
                 example: 'HDFC Bank/2026-04-06_10-30_CONF.pdf + .eml',
-                color: 'bg-amber-50 border-amber-200 text-amber-700',
+                color: 'bg-neutral-50 border-neutral-200 text-neutral-700',
               },
             ].map((item) => (
               <div key={item.level} className={`flex items-start gap-4 p-4 rounded-xl border ${item.color}`}>
@@ -239,7 +262,7 @@ export default function SettingsClient() {
             </p>
           )}
           {saved && (
-            <p className="text-sm text-green-600 bg-green-50 px-4 py-2 rounded-xl border border-green-200 flex items-center gap-2">
+            <p className="text-sm text-emerald-800 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-200/80 flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
@@ -250,7 +273,7 @@ export default function SettingsClient() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-sm"
+            className="flex items-center gap-2 px-6 py-2.5 bg-neutral-900 text-white text-sm font-medium rounded-xl hover:bg-neutral-800 transition-colors disabled:opacity-50 shadow-sm"
           >
             {saving && (
               <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -270,7 +293,7 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
     <button
       onClick={() => onChange(!value)}
       className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-        value ? 'bg-blue-600' : 'bg-gray-200'
+        value ? 'bg-neutral-900' : 'bg-gray-200'
       }`}
     >
       <span

@@ -1,13 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import ConfirmationTable, { ConfirmationRecord } from '@/components/ConfirmationTable';
 import EntityAttachmentModal from '@/components/EntityAttachmentModal';
 import SendConfirmModal from '@/components/SendConfirmModal';
 import { categoryForModule, moduleKeyToRoute } from '@/lib/module-types';
 import type { ModuleKey, ModuleRouteSegment } from '@/lib/module-types';
 import type { TradeInvoiceLineRow, TradeInvoiceLinesSummary } from '@/app/api/modules/[segment]/invoice-lines/route';
-import { parseInrAmountString, debitCreditLabel, formatInrAmount } from '@/lib/inr-amount';
+import { parseInrAmountString, debitCreditLabel, formatInrAmount, drCrBadgeClassNames } from '@/lib/inr-amount';
+import {
+  defaultListingFiscalSelection,
+  listingUploadYearOptions,
+} from '@/lib/listing-upload-fiscal';
 
 type TradeWorkspaceStats = {
   total: number;
@@ -26,12 +30,68 @@ const STATUS_OPTIONS = [
   { value: 'response_received', label: 'Response Received' },
 ];
 
+const FISCAL_QUARTER_OPTIONS: { value: string; label: string }[] = [
+  { value: 'all', label: 'All quarters' },
+  { value: '1', label: 'Q1 (Apr–Jun)' },
+  { value: '2', label: 'Q2 (Jul–Sep)' },
+  { value: '3', label: 'Q3 (Oct–Dec)' },
+  { value: '4', label: 'Q4 (Jan–Mar)' },
+];
+
 const CONFIRMATION_KIND_OPTIONS: { value: string; label: string }[] = [
-  { value: 'all', label: 'All' },
   { value: 'confirmed', label: 'Confirmed' },
   { value: 'queried', label: 'Queried' },
   { value: 'none', label: 'Pending' },
 ];
+
+const FISCAL_QUARTER_KEYS = ['1', '2', '3', '4'] as const;
+
+const BULK_FISCAL_HINT =
+  'Bulk operations require at least one financial year when a quarter is selected. Clear quarters or pick a FY.';
+
+function bulkFiscalSelectionInvalid(fiscalYears: string[], fiscalQuarters: string[]): boolean {
+  return fiscalQuarters.length > 0 && fiscalYears.length === 0;
+}
+
+type BulkWorkspaceFilters = {
+  selectedEntities: string[];
+  selectedStatuses: string[];
+  search: string;
+  confirmationKindFilter: string;
+  selectedCompanyCodes: string[];
+};
+
+function buildBulkConfirmationsParams(
+  moduleKey: ModuleKey,
+  isTrade: boolean,
+  workspace: BulkWorkspaceFilters,
+  fiscalYears: string[],
+  fiscalQuarters: string[],
+  mode: 'workspace_status' | 'followup_eligible'
+): URLSearchParams {
+  const params = new URLSearchParams();
+  params.set('module', moduleKey);
+  workspace.selectedEntities.forEach((e) => params.append('entity', e));
+  if (mode === 'followup_eligible') {
+    params.append('status', 'sent');
+    params.append('status', 'followup_sent');
+  } else {
+    workspace.selectedStatuses.forEach((s) => params.append('status', s));
+  }
+  if (workspace.search) params.set('search', workspace.search);
+  if (workspace.confirmationKindFilter !== 'all') {
+    params.set('confirmationKind', workspace.confirmationKindFilter);
+  }
+  fiscalYears.forEach((y) => params.append('reportingFiscalYear', y));
+  fiscalQuarters.forEach((q) => params.append('reportingFiscalQuarter', q));
+  workspace.selectedCompanyCodes.forEach((c) => params.append('company', c));
+  if (isTrade) {
+    params.set('listMode', 'by_code');
+    params.set('omitTradeLines', 'true');
+  }
+  params.set('unpaged', 'true');
+  return params;
+}
 
 type SortField = 'entityName' | 'category' | 'status' | 'sentAt' | 'responseReceivedAt';
 
@@ -60,6 +120,11 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
   const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [confirmationKindFilter, setConfirmationKindFilter] = useState<string>('all');
+  const [selectedFiscalYears, setSelectedFiscalYears] = useState<string[]>([]);
+  const [selectedFiscalQuarters, setSelectedFiscalQuarters] = useState<string[]>([]);
+  const [reportingFiscalYearOptions, setReportingFiscalYearOptions] = useState<number[]>([]);
+  const [companyCodeOptions, setCompanyCodeOptions] = useState<string[]>([]);
+  const [selectedCompanyCodes, setSelectedCompanyCodes] = useState<string[]>([]);
   const [search, setSearch] = useState('');
 
   const [sortField, setSortField] = useState<SortField>('entityName');
@@ -82,6 +147,22 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
 
   const stats = isTrade && tradeWorkspaceStats ? tradeWorkspaceStats : pageStats;
 
+  const fiscalYearSelectOptions = useMemo(() => {
+    const fromApi = [...reportingFiscalYearOptions].sort((a, b) => b - a);
+    const y = new Date().getFullYear();
+    const fallback = [y + 1, y, y - 1, y - 2, y - 3];
+    return [...new Set([...fromApi, ...fallback])].sort((a, b) => b - a);
+  }, [reportingFiscalYearOptions]);
+
+  const formatFyDropdownOption = useCallback((opt: string) => {
+    const y = parseInt(opt, 10);
+    return Number.isFinite(y) ? `FY ${y}–${String(y + 1).slice(-2)}` : opt;
+  }, []);
+
+  const formatQuarterDropdownOption = useCallback((q: string) => {
+    return FISCAL_QUARTER_OPTIONS.find((o) => o.value === q)?.label ?? q;
+  }, []);
+
   const fetchRecords = useCallback(async () => {
     setLoading(true);
     try {
@@ -91,6 +172,9 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
       selectedStatuses.forEach((s) => params.append('status', s));
       if (search) params.set('search', search);
       if (confirmationKindFilter !== 'all') params.set('confirmationKind', confirmationKindFilter);
+      selectedFiscalYears.forEach((y) => params.append('reportingFiscalYear', y));
+      selectedFiscalQuarters.forEach((q) => params.append('reportingFiscalQuarter', q));
+      selectedCompanyCodes.forEach((c) => params.append('company', c));
       if (isTrade) {
         params.set('listMode', 'by_code');
         params.set('page', String(page));
@@ -110,6 +194,12 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
       setRecords(data.records || []);
       setTotalAnchors(typeof data.total === 'number' ? data.total : (data.records?.length ?? 0));
       if (data.entityNames) setEntityNames(data.entityNames);
+      if (Array.isArray(data.reportingFiscalYears)) {
+        setReportingFiscalYearOptions(data.reportingFiscalYears as number[]);
+      }
+      if (Array.isArray(data.companyCodes)) {
+        setCompanyCodeOptions(data.companyCodes as string[]);
+      }
       if (isTrade && data.stats && typeof data.stats === 'object') {
         setTradeWorkspaceStats(data.stats as TradeWorkspaceStats);
       } else {
@@ -118,11 +208,33 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
     } finally {
       setLoading(false);
     }
-  }, [moduleKey, selectedEntities, selectedStatuses, search, confirmationKindFilter, isTrade, page, pageSize]);
+  }, [
+    moduleKey,
+    selectedEntities,
+    selectedStatuses,
+    search,
+    confirmationKindFilter,
+    selectedFiscalYears,
+    selectedFiscalQuarters,
+    selectedCompanyCodes,
+    isTrade,
+    page,
+    pageSize,
+  ]);
 
   useEffect(() => {
     setPage(1);
-  }, [moduleKey, selectedEntities, selectedStatuses, search, confirmationKindFilter, pageSize]);
+  }, [
+    moduleKey,
+    selectedEntities,
+    selectedStatuses,
+    search,
+    confirmationKindFilter,
+    selectedFiscalYears,
+    selectedFiscalQuarters,
+    selectedCompanyCodes,
+    pageSize,
+  ]);
 
   useEffect(() => {
     fetchRecords();
@@ -189,6 +301,9 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
     setSelectedStatuses([]);
     setSearch('');
     setConfirmationKindFilter('all');
+    setSelectedFiscalYears([]);
+    setSelectedFiscalQuarters([]);
+    setSelectedCompanyCodes([]);
     setPage(1);
   };
 
@@ -196,184 +311,288 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
     selectedEntities.length > 0 ||
     selectedStatuses.length > 0 ||
     search.length > 0 ||
-    confirmationKindFilter !== 'all';
+    confirmationKindFilter !== 'all' ||
+    selectedFiscalYears.length > 0 ||
+    selectedFiscalQuarters.length > 0 ||
+    selectedCompanyCodes.length > 0;
 
   const totalPages = isTrade ? Math.max(1, Math.ceil(totalAnchors / pageSize)) : 1;
 
+  const workspaceBulkFilters = useMemo(
+    (): BulkWorkspaceFilters => ({
+      selectedEntities,
+      selectedStatuses,
+      search,
+      confirmationKindFilter,
+      selectedCompanyCodes,
+    }),
+    [selectedEntities, selectedStatuses, search, confirmationKindFilter, selectedCompanyCodes]
+  );
+
+  const openMsmeBulkSend = useCallback(() => {
+    if (bulkFiscalSelectionInvalid(selectedFiscalYears, selectedFiscalQuarters)) {
+      window.alert(BULK_FISCAL_HINT);
+      return;
+    }
+    setShowBulkSend(true);
+  }, [selectedFiscalYears, selectedFiscalQuarters]);
+
+  const openMsmeBulkFollowup = useCallback(() => {
+    if (bulkFiscalSelectionInvalid(selectedFiscalYears, selectedFiscalQuarters)) {
+      window.alert(BULK_FISCAL_HINT);
+      return;
+    }
+    setShowBulkFollowup(true);
+  }, [selectedFiscalYears, selectedFiscalQuarters]);
+
+  const openTradeBulkSend = useCallback(() => {
+    if (bulkFiscalSelectionInvalid(selectedFiscalYears, selectedFiscalQuarters)) {
+      window.alert(BULK_FISCAL_HINT);
+      return;
+    }
+    setShowTradeBulkSend(true);
+  }, [selectedFiscalYears, selectedFiscalQuarters]);
+
   return (
     <div className="flex flex-col h-screen">
-      <div className="bg-white border-b border-gray-200 px-6 py-5 flex items-center justify-between flex-shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+      <header className="bg-white border-b border-gray-200/90 px-6 py-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between flex-shrink-0">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-gray-900">{title}</h1>
+          <p className="text-sm text-gray-500 mt-1 leading-relaxed max-w-2xl">
             {subtitle ||
               (isMsme ? `MSME confirmations — ${fixedCategory}` : `Balance confirmation — ${fixedCategory}`)}
           </p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap justify-end">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 sm:justify-end shrink-0">
           {repliesMessage && (
-            <span className="text-sm text-green-600 font-medium bg-green-50 px-3 py-1.5 rounded-lg border border-green-200">
+            <span className="text-sm text-emerald-800 font-medium bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-200/80 order-first sm:order-none">
               {repliesMessage}
             </span>
           )}
-          <button
-            onClick={handleCheckReplies}
-            disabled={checkingReplies}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
-          >
-            <svg className={`w-4 h-4 ${checkingReplies ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Check Replies
-          </button>
-          {/* <button
-            onClick={() => setShowEntityAttachment(true)}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors"
-          >
-            Entity attachments
-          </button> */}
-          {isTrade && (
+          <div className="flex flex-wrap items-center gap-2 justify-end p-1 rounded-xl bg-neutral-50/90 border border-gray-200/80">
             <button
               type="button"
-              onClick={() => setShowTradeBulkSend(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-violet-300 text-violet-900 text-sm font-medium rounded-xl hover:bg-violet-50 transition-colors"
+              onClick={handleCheckReplies}
+              disabled={checkingReplies}
+              className="flex items-center justify-center gap-2 px-3.5 py-2 border border-gray-200/90 bg-white text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50/80 transition-colors disabled:opacity-50 shadow-sm"
             >
-              Bulk send
+              <svg className={`w-4 h-4 ${checkingReplies ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Check replies
             </button>
-          )}
-          {isMsme ? (
-            <>
+            {isTrade && (
               <button
                 type="button"
-                onClick={() => setShowBulkSend(true)}
-                className="flex items-center gap-2 px-4 py-2 border border-violet-300 text-violet-900 text-sm font-medium rounded-xl hover:bg-violet-50 transition-colors"
+                onClick={openTradeBulkSend}
+                className="flex items-center justify-center px-3.5 py-2 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors shadow-sm"
               >
                 Bulk send
               </button>
+            )}
+            {isMsme ? (
+              <>
+                <button
+                  type="button"
+                  onClick={openMsmeBulkSend}
+                  className="flex items-center justify-center px-3.5 py-2 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors shadow-sm"
+                >
+                  Bulk send
+                </button>
+                <button
+                  type="button"
+                  onClick={openMsmeBulkFollowup}
+                  className="flex items-center justify-center px-3.5 py-2 border border-gray-200 bg-white text-gray-800 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                  Bulk follow-up
+                </button>
+              </>
+            ) : !isTrade ? (
               <button
                 type="button"
-                onClick={() => setShowBulkFollowup(true)}
-                className="flex items-center gap-2 px-4 py-2 border border-amber-300 text-amber-900 text-sm font-medium rounded-xl hover:bg-amber-50 transition-colors"
+                onClick={() => setShowListingUpload(true)}
+                className="flex items-center justify-center px-3.5 py-2 border border-gray-200 bg-white text-gray-800 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
               >
-                Bulk follow-up
+                Upload customers
               </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setShowListingUpload(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-indigo-200 text-indigo-800 text-sm font-medium rounded-xl hover:bg-indigo-50 transition-colors"
-            >
-              Upload listing (Excel/CSV)
-            </button>
+            ) : null}
+          </div>
+        </div>
+      </header>
+
+      <div className="px-6 py-4 border-b border-gray-100 bg-white flex-shrink-0">
+        <div className="rounded-2xl border border-gray-100 bg-neutral-50/70 px-4 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            {[
+              { label: 'Total', count: stats.total, color: 'text-gray-800', bg: 'bg-white border border-gray-200/90' },
+              { label: 'Not sent', count: stats.notSent, color: 'text-gray-700', bg: 'bg-white border border-gray-200/90' },
+              { label: 'Sent', count: stats.sent, color: 'text-neutral-900', bg: 'bg-white border border-gray-200/90' },
+              { label: 'Follow-up', count: stats.followupSent, color: 'text-neutral-800', bg: 'bg-white border border-gray-200/90' },
+              { label: 'Response', count: stats.responseReceived, color: 'text-emerald-800', bg: 'bg-emerald-50 border border-emerald-200/70' },
+            ].map((s) => (
+              <div key={s.label} className="flex items-center gap-2">
+                <span className={`text-xs font-semibold tabular-nums px-2.5 py-1 rounded-lg ${s.bg} ${s.color}`}>{s.count}</span>
+                <span className="text-xs font-medium text-gray-500">{s.label}</span>
+              </div>
+            ))}
+          </div>
+          {stats.total > 0 && (
+            <div className="flex items-center gap-3 min-w-[10rem]">
+              <div className="flex-1 h-2 bg-gray-200/90 rounded-full overflow-hidden max-w-[140px]">
+                <div
+                  className="h-full bg-emerald-600 rounded-full transition-all"
+                  style={{ width: `${Math.round((stats.responseReceived / stats.total) * 100)}%` }}
+                />
+              </div>
+              <span className="text-xs font-medium text-gray-500 whitespace-nowrap">
+                {Math.round((stats.responseReceived / stats.total) * 100)}% responded
+              </span>
+            </div>
           )}
         </div>
       </div>
 
-      <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-6 flex-shrink-0 flex-wrap">
-        {[
-          { label: 'Total', count: stats.total, color: 'text-gray-700', bg: 'bg-gray-100' },
-          { label: 'Not Sent', count: stats.notSent, color: 'text-gray-600', bg: 'bg-gray-100' },
-          { label: 'Sent', count: stats.sent, color: 'text-blue-700', bg: 'bg-blue-100' },
-          { label: 'Follow-up', count: stats.followupSent, color: 'text-amber-700', bg: 'bg-amber-100' },
-          { label: 'Response', count: stats.responseReceived, color: 'text-green-700', bg: 'bg-green-100' },
-        ].map((s) => (
-          <div key={s.label} className="flex items-center gap-2">
-            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${s.bg} ${s.color}`}>{s.count}</span>
-            <span className="text-xs text-gray-500">{s.label}</span>
+      <div className="bg-white border-b border-gray-100 px-6 py-4 flex-shrink-0 space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+          <div className="lg:col-span-3 relative min-w-0">
+            <label className="sr-only">Search</label>
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search entity, bank, email…"
+              className="w-full h-10 pl-9 pr-3 text-sm border border-gray-200 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-neutral-900/20 focus:border-transparent"
+            />
           </div>
-        ))}
-        <div className="flex-1" />
-        {stats.total > 0 && (
-          <div className="flex items-center gap-2">
-            <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-green-500 rounded-full transition-all"
-                style={{ width: `${Math.round((stats.responseReceived / stats.total) * 100)}%` }}
+
+          <div className="lg:col-span-2 min-w-0">
+            <FilterDropdown
+              fullWidth
+              label={selectedEntities.length ? `${selectedEntities.length} entities` : 'All entities'}
+              options={entityNames}
+              selected={selectedEntities}
+              onToggle={(v) => toggleFilter(selectedEntities, setSelectedEntities, v)}
+              onClear={() => setSelectedEntities([])}
+            />
+          </div>
+
+          <div className="lg:col-span-2 min-w-0">
+            <FilterDropdown
+              fullWidth
+              label={selectedStatuses.length ? `${selectedStatuses.length} status` : 'All status'}
+              options={STATUS_OPTIONS.map((s) => s.label)}
+              selected={selectedStatuses.map((s) => STATUS_OPTIONS.find((o) => o.value === s)?.label || s)}
+              onToggle={(v) => {
+                const val = STATUS_OPTIONS.find((o) => o.label === v)?.value || v;
+                toggleFilter(selectedStatuses, setSelectedStatuses, val);
+              }}
+              onClear={() => setSelectedStatuses([])}
+            />
+          </div>
+
+          <div className="lg:col-span-2 min-w-0">
+            <label className="block text-[11px] font-medium text-gray-500 mb-1">Confirmation</label>
+            <select
+              value={confirmationKindFilter}
+              onChange={(e) => setConfirmationKindFilter(e.target.value)}
+              className="w-full h-10 text-sm border border-gray-200 rounded-xl px-3 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-neutral-900/20"
+              aria-label="Filter by confirmation status"
+            >
+              {CONFIRMATION_KIND_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="lg:col-span-1 min-w-0">
+            <FilterDropdown
+              fullWidth
+              label={selectedFiscalYears.length ? `${selectedFiscalYears.length} FY` : 'All FY'}
+              options={fiscalYearSelectOptions.map(String)}
+              selected={selectedFiscalYears}
+              formatOption={formatFyDropdownOption}
+              onToggle={(v) => toggleFilter(selectedFiscalYears, setSelectedFiscalYears, v)}
+              onClear={() => setSelectedFiscalYears([])}
+            />
+          </div>
+
+          <div className="lg:col-span-1 min-w-0">
+            <FilterDropdown
+              fullWidth
+              label={selectedFiscalQuarters.length ? `${selectedFiscalQuarters.length} Q` : 'All Q'}
+              options={[...FISCAL_QUARTER_KEYS]}
+              selected={selectedFiscalQuarters}
+              formatOption={formatQuarterDropdownOption}
+              onToggle={(v) => toggleFilter(selectedFiscalQuarters, setSelectedFiscalQuarters, v)}
+              onClear={() => setSelectedFiscalQuarters([])}
+            />
+          </div>
+
+          {(isTrade || isMsme) && (
+            <div className="lg:col-span-1 min-w-0">
+              <FilterDropdown
+                fullWidth
+                label={selectedCompanyCodes.length ? `${selectedCompanyCodes.length} co.` : 'All companies'}
+                options={companyCodeOptions}
+                selected={selectedCompanyCodes}
+                onToggle={(v) => toggleFilter(selectedCompanyCodes, setSelectedCompanyCodes, v)}
+                onClear={() => setSelectedCompanyCodes([])}
               />
             </div>
-            <span className="text-xs text-gray-500">
-              {Math.round((stats.responseReceived / stats.total) * 100)}% response rate
-            </span>
-          </div>
-        )}
-      </div>
-
-      <div className="bg-white border-b border-gray-100 px-6 py-3 flex items-start gap-4 flex-shrink-0 flex-wrap">
-        <div className="relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search entity, bank, email…"
-            className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-56"
-          />
+          )}
         </div>
 
-        <FilterDropdown
-          label={selectedEntities.length ? `${selectedEntities.length} entities` : 'All entities'}
-          options={entityNames}
-          selected={selectedEntities}
-          onToggle={(v) => toggleFilter(selectedEntities, setSelectedEntities, v)}
-          onClear={() => setSelectedEntities([])}
-        />
-
-        <FilterDropdown
-          label={selectedStatuses.length ? `${selectedStatuses.length} status` : 'All status'}
-          options={STATUS_OPTIONS.map((s) => s.label)}
-          selected={selectedStatuses.map((s) => STATUS_OPTIONS.find((o) => o.value === s)?.label || s)}
-          onToggle={(v) => {
-            const val = STATUS_OPTIONS.find((o) => o.label === v)?.value || v;
-            toggleFilter(selectedStatuses, setSelectedStatuses, val);
-          }}
-          onClear={() => setSelectedStatuses([])}
-        />
-
-        <label className="flex flex-col gap-0.5 text-xs text-gray-500">
-          <span className="sr-only md:not-sr-only">Confirmation</span>
-          <select
-            value={confirmationKindFilter}
-            onChange={(e) => setConfirmationKindFilter(e.target.value)}
-            className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[10rem]"
-            aria-label="Filter by confirmation status"
-          >
-            {CONFIRMATION_KIND_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {hasActiveFilters && (
-          <button
-            onClick={clearFilters}
-            className="flex items-center gap-1.5 text-sm text-red-500 hover:text-red-700 transition-colors px-3 py-2"
-          >
-            Clear filters
-          </button>
-        )}
-
-        <div className="flex-1" />
-
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <span>Sort:</span>
-          {(['entityName', 'status', 'sentAt', 'responseReceivedAt'] as SortField[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => handleSort(f)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                sortField === f ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              {(
-                { entityName: 'Entity', category: 'Category', status: 'Status', sentAt: 'Sent', responseReceivedAt: 'Response' } as Record<string, string>
-              )[f]}
-              {sortField === f && <span className="ml-1">{sortAsc ? '↑' : '↓'}</span>}
-            </button>
-          ))}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1 border-t border-gray-100">
+          <p className="text-[11px] text-amber-800/90 order-2 sm:order-1">
+            {bulkFiscalSelectionInvalid(selectedFiscalYears, selectedFiscalQuarters)
+              ? BULK_FISCAL_HINT
+              : 'Tip: use FY and quarter together for listing; bulk send needs a FY whenever a quarter is selected.'}
+          </p>
+          <div className="flex flex-wrap items-center gap-3 justify-end order-1 sm:order-2">
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-sm font-medium text-red-600 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50/80 transition-colors"
+              >
+                Clear all filters
+              </button>
+            )}
+            <div className="flex items-center gap-1.5 flex-wrap text-xs text-gray-500">
+              <span className="font-medium text-gray-600 mr-1">Sort</span>
+              {(['entityName', 'status', 'sentAt', 'responseReceivedAt'] as SortField[]).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => handleSort(f)}
+                  className={`px-2.5 py-1.5 rounded-lg font-medium transition-colors ${
+                    sortField === f ? 'bg-neutral-900 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
+                  }`}
+                >
+                  {(
+                    {
+                      entityName: 'Entity',
+                      category: 'Category',
+                      status: 'Status',
+                      sentAt: 'Sent',
+                      responseReceivedAt: 'Response',
+                    } as Record<string, string>
+                  )[f]}
+                  {sortField === f && <span className="ml-0.5">{sortAsc ? '↑' : '↓'}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -400,7 +619,7 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
                 <select
                   value={pageSize}
                   onChange={(e) => setPageSize(Number(e.target.value) || 25)}
-                  className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="text-sm border border-gray-200 rounded-lg px-2.5 py-1.5 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-neutral-900/25"
                   aria-label="Rows per page"
                 >
                   {TRADE_PAGE_SIZE_OPTIONS.map((n) => (
@@ -451,8 +670,15 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
 
       {showBulkSend && isMsme && (
         <MsmeBulkSendModal
-          records={sortedRecords.filter((r) => r.status === 'not_sent')}
           apiSegment={apiSegment}
+          moduleKey={moduleKey}
+          isTrade={false}
+          workspaceBulkFilters={workspaceBulkFilters}
+          initialFiscalYears={selectedFiscalYears}
+          initialFiscalQuarters={selectedFiscalQuarters}
+          fiscalYearSelectOptions={fiscalYearSelectOptions.map(String)}
+          formatFyDropdownOption={formatFyDropdownOption}
+          formatQuarterDropdownOption={formatQuarterDropdownOption}
           onClose={() => setShowBulkSend(false)}
           onSuccess={() => {
             setShowBulkSend(false);
@@ -464,8 +690,14 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
 
       {showBulkFollowup && isMsme && (
         <MsmeBulkFollowupModal
-          records={sortedRecords.filter((r) => r.status === 'sent' || r.status === 'followup_sent')}
           apiSegment={apiSegment}
+          moduleKey={moduleKey}
+          workspaceBulkFilters={workspaceBulkFilters}
+          initialFiscalYears={selectedFiscalYears}
+          initialFiscalQuarters={selectedFiscalQuarters}
+          fiscalYearSelectOptions={fiscalYearSelectOptions.map(String)}
+          formatFyDropdownOption={formatFyDropdownOption}
+          formatQuarterDropdownOption={formatQuarterDropdownOption}
           onClose={() => setShowBulkFollowup(false)}
           onSuccess={() => {
             setShowBulkFollowup(false);
@@ -477,11 +709,20 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
 
       {showTradeBulkSend && isTrade && (
         <MsmeBulkSendModal
-          records={sortedRecords.filter((r) => r.status === 'not_sent')}
           apiSegment={apiSegment}
+          moduleKey={moduleKey}
+          isTrade
           heading="Bulk send"
-          helperText="One email per company / party code cluster (not-sent anchors)."
-          onClose={() => setShowTradeBulkSend(false)}
+          helperText="One email per company / party code cluster (not-sent anchors matching filters below)."
+          workspaceBulkFilters={workspaceBulkFilters}
+          initialFiscalYears={selectedFiscalYears}
+          initialFiscalQuarters={selectedFiscalQuarters}
+          fiscalYearSelectOptions={fiscalYearSelectOptions.map(String)}
+          formatFyDropdownOption={formatFyDropdownOption}
+          formatQuarterDropdownOption={formatQuarterDropdownOption}
+          onClose={() => {
+            setShowTradeBulkSend(false);
+          }}
           onSuccess={() => {
             setShowTradeBulkSend(false);
             fetchRecords();
@@ -599,8 +840,8 @@ function TradeInvoiceLinesModal({
 
   const statusBadge = (s: TradeInvoiceLineRow['lineStatus']) => {
     if (s === 'confirmed') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-    if (s === 'queried_no_confirm') return 'bg-amber-100 text-amber-900 border-amber-200';
-    return 'bg-slate-100 text-slate-600 border-slate-200';
+    if (s === 'queried_no_confirm') return 'bg-neutral-100 text-neutral-900 border-neutral-300';
+    return 'bg-neutral-100 text-neutral-600 border-neutral-200';
   };
 
   const statusLabel = (s: TradeInvoiceLineRow['lineStatus']) => {
@@ -611,43 +852,47 @@ function TradeInvoiceLinesModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col border border-slate-200">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col border border-neutral-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 flex-shrink-0">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Invoices</h2>
-            <p className="text-sm text-slate-500 mt-0.5">{moduleTitle}</p>
+            <h2 className="text-lg font-semibold text-neutral-900">Invoices</h2>
+            <p className="text-sm text-neutral-500 mt-0.5">{moduleTitle}</p>
           </div>
-          <button type="button" onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+          <button type="button" onClick={onClose} className="p-2 text-neutral-400 hover:text-neutral-600 rounded-lg hover:bg-neutral-100">
             ✕
           </button>
         </div>
         <div className="flex-1 min-h-0 overflow-auto px-4 py-3">
-          {loading && <p className="text-sm text-slate-500 py-8 text-center">Loading…</p>}
+          {loading && <p className="text-sm text-neutral-500 py-8 text-center">Loading…</p>}
           {err && <p className="text-sm text-red-600 py-4">{err}</p>}
           {!loading && !err && lines && lines.length === 0 && (
-            <p className="text-sm text-slate-500 py-8 text-center">No lines found.</p>
+            <p className="text-sm text-neutral-500 py-8 text-center">No lines found.</p>
           )}
           {!loading && lines && lines.length > 0 && (
             <>
               {summary && (
-                <div className="mb-4 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm">
+                <div className="mb-4 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 text-sm">
                   <p>
-                    <span className="text-slate-500">Entity </span>
-                    <span className="font-medium text-slate-900">{summary.entityLabel}</span>
+                    <span className="text-neutral-500">Entity </span>
+                    <span className="font-medium text-neutral-900">{summary.entityLabel}</span>
                   </p>
-                  <p className="mt-2">
-                    <span className="text-slate-500">Outstanding </span>
-                    <span className="font-semibold tabular-nums text-slate-900">{summary.outstandingAmount}</span>
+                  <p className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-neutral-500">Outstanding </span>
+                    <span className="font-semibold tabular-nums text-neutral-900">{summary.outstandingAmount}</span>
                     {summary.outstandingDebitCredit !== '—' && (
-                      <span className="ml-2 text-slate-700">{summary.outstandingDebitCredit}</span>
+                      <span
+                        className={`inline-flex px-2 py-0.5 rounded-lg text-xs font-medium ${drCrBadgeClassNames(summary.outstandingDebitCredit)}`}
+                      >
+                        {summary.outstandingDebitCredit}
+                      </span>
                     )}
                   </p>
                 </div>
               )}
-              <div className="overflow-x-auto rounded-xl border border-slate-100">
+              <div className="overflow-x-auto rounded-xl border border-neutral-100">
                 <table className="min-w-full text-sm">
                   <thead>
-                    <tr className="bg-slate-50 text-left text-slate-600 text-xs uppercase tracking-wide">
+                    <tr className="bg-neutral-50 text-left text-neutral-600 text-xs uppercase tracking-wide">
                       <th className="p-3">Document date</th>
                       <th className="p-3">Document no.</th>
                       <th className="p-3 text-right">Amount</th>
@@ -656,13 +901,19 @@ function TradeInvoiceLinesModal({
                       <th className="p-3 text-right">In party books (query)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-neutral-100">
                     {lines.map((r) => (
-                      <tr key={r.id} className="bg-white hover:bg-slate-50/80">
-                        <td className="p-3 text-slate-700">{r.documentDate || '—'}</td>
-                        <td className="p-3 font-mono text-xs text-slate-700">{r.documentNumber || '—'}</td>
-                        <td className="p-3 text-right tabular-nums text-slate-900">{r.amountAbsDisplay}</td>
-                        <td className="p-3 text-slate-800">{r.debitCredit}</td>
+                      <tr key={r.id} className="bg-white hover:bg-neutral-50/80">
+                        <td className="p-3 text-neutral-700">{r.documentDate || '—'}</td>
+                        <td className="p-3 font-mono text-xs text-neutral-700">{r.documentNumber || '—'}</td>
+                        <td className="p-3 text-right tabular-nums text-neutral-900">{r.amountAbsDisplay}</td>
+                        <td className="p-3">
+                          <span
+                            className={`inline-flex px-2 py-0.5 rounded-lg text-xs font-medium ${drCrBadgeClassNames(r.debitCredit)}`}
+                          >
+                            {r.debitCredit}
+                          </span>
+                        </td>
                         <td className="p-3">
                           <span
                             className={`inline-flex px-2 py-0.5 rounded-lg text-xs font-medium border ${statusBadge(r.lineStatus)}`}
@@ -670,7 +921,7 @@ function TradeInvoiceLinesModal({
                             {statusLabel(r.lineStatus)}
                           </span>
                         </td>
-                        <td className="p-3 text-right tabular-nums text-slate-800">
+                        <td className="p-3 text-right tabular-nums text-neutral-800">
                           {r.amountInBooksDisplay ?? '—'}
                         </td>
                       </tr>
@@ -681,11 +932,11 @@ function TradeInvoiceLinesModal({
             </>
           )}
         </div>
-        <div className="px-6 py-3 border-t border-slate-100 flex justify-end flex-shrink-0 bg-slate-50/80">
+        <div className="px-6 py-3 border-t border-neutral-100 flex justify-end flex-shrink-0 bg-neutral-50/80">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-200 text-slate-800 text-sm font-medium hover:bg-slate-300 transition-colors"
+            className="px-4 py-2 rounded-xl bg-neutral-200 text-neutral-800 text-sm font-medium hover:bg-neutral-300 transition-colors"
           >
             Close
           </button>
@@ -712,6 +963,14 @@ function ModuleListingUploadModal({
   const [mode, setMode] = useState<'append' | 'replace'>('append');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fiscalYearChoices = useMemo(() => listingUploadYearOptions(), []);
+  const fiscalDefaults = useMemo(() => defaultListingFiscalSelection(), []);
+  const [reportingFiscalYear, setReportingFiscalYear] = useState(
+    () => fiscalDefaults.reportingFiscalYear
+  );
+  const [reportingFiscalQuarter, setReportingFiscalQuarter] = useState(
+    () => fiscalDefaults.reportingFiscalQuarter
+  );
 
   const handleUpload = async () => {
     if (!file) return;
@@ -720,6 +979,10 @@ function ModuleListingUploadModal({
     const formData = new FormData();
     formData.append('file', file);
     formData.append('mode', mode);
+    if (variant === 'sap') {
+      formData.append('reportingFiscalYear', reportingFiscalYear);
+      formData.append('reportingFiscalQuarter', reportingFiscalQuarter);
+    }
     try {
       const res = await fetch(`/api/modules/${apiSegment}/upload`, { method: 'POST', body: formData });
       const data = await res.json();
@@ -758,11 +1021,42 @@ function ModuleListingUploadModal({
             onChange={(e) => setFile(e.target.files?.[0] || null)}
             className="text-sm"
           />
+          {variant === 'sap' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="block">
+                <span className="text-xs font-medium text-gray-600">Reporting FY (starts April)</span>
+                <select
+                  value={reportingFiscalYear}
+                  onChange={(e) => setReportingFiscalYear(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                >
+                  {fiscalYearChoices.map((y) => (
+                    <option key={y} value={String(y)}>
+                      FY {y}–{String(y + 1).slice(-2)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-gray-600">Quarter</span>
+                <select
+                  value={reportingFiscalQuarter}
+                  onChange={(e) => setReportingFiscalQuarter(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900"
+                >
+                  <option value="1">Q1 (Apr–Jun)</option>
+                  <option value="2">Q2 (Jul–Sep)</option>
+                  <option value="3">Q3 (Oct–Dec)</option>
+                  <option value="4">Q4 (Jan–Mar)</option>
+                </select>
+              </label>
+            </div>
+          )}
           <div className="flex gap-3">
             {(['append', 'replace'] as const).map((m) => (
               <label key={m} className="flex-1 cursor-pointer">
                 <input type="radio" className="sr-only" checked={mode === m} onChange={() => setMode(m)} />
-                <div className={`p-3 rounded-xl border-2 ${mode === m ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
+                <div className={`p-3 rounded-xl border-2 ${mode === m ? 'border-neutral-900 bg-neutral-50' : 'border-gray-200'}`}>
                   <p className="text-sm font-medium capitalize">{m}</p>
                   <p className="text-xs text-gray-500">{m === 'replace' ? 'Remove existing rows in this module only' : 'Add new rows'}</p>
                 </div>
@@ -770,7 +1064,7 @@ function ModuleListingUploadModal({
             ))}
           </div>
           {mode === 'replace' && (
-            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-xs text-neutral-800 bg-neutral-50 border border-neutral-200 rounded-lg p-3">
               Replace deletes only <strong>{moduleLabel}</strong> records, not the other module.
             </p>
           )}
@@ -784,7 +1078,7 @@ function ModuleListingUploadModal({
             type="button"
             disabled={!file || uploading}
             onClick={handleUpload}
-            className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-neutral-900 text-white text-sm disabled:opacity-50"
           >
             {uploading ? 'Importing…' : 'Import'}
           </button>
@@ -795,29 +1089,57 @@ function ModuleListingUploadModal({
 }
 
 function MsmeBulkSendModal({
-  records,
   apiSegment,
+  moduleKey,
+  isTrade,
   heading = 'Bulk send',
   helperText,
+  workspaceBulkFilters,
+  initialFiscalYears,
+  initialFiscalQuarters,
+  fiscalYearSelectOptions,
+  formatFyDropdownOption,
+  formatQuarterDropdownOption,
   onClose,
   onSuccess,
   onRefreshList,
 }: {
-  records: ConfirmationRecord[];
   apiSegment: ModuleRouteSegment;
+  moduleKey: ModuleKey;
+  isTrade: boolean;
   heading?: string;
-  /** Replaces default MSME/trade helper line under the title */
   helperText?: string;
+  workspaceBulkFilters: BulkWorkspaceFilters;
+  initialFiscalYears: string[];
+  initialFiscalQuarters: string[];
+  fiscalYearSelectOptions: string[];
+  formatFyDropdownOption: (s: string) => string;
+  formatQuarterDropdownOption: (s: string) => string;
   onClose: () => void;
   onSuccess: () => void;
   onRefreshList: () => void;
 }) {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(records.map((r) => r.id)));
+  const [modalFiscalYears, setModalFiscalYears] = useState<string[]>(() => [...initialFiscalYears]);
+  const [modalFiscalQuarters, setModalFiscalQuarters] = useState<string[]>(() => [...initialFiscalQuarters]);
+  const [records, setRecords] = useState<ConfirmationRecord[]>([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [remainingDaily, setRemainingDaily] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewRecord, setPreviewRecord] = useState<ConfirmationRecord | null>(null);
   const [previewSending, setPreviewSending] = useState(false);
+  const [templateChoices, setTemplateChoices] = useState<
+    { id: string; name: string; category: string | null; isDefault: boolean; moduleKey: string | null }[]
+  >([]);
+  const [templateChoicesLoading, setTemplateChoicesLoading] = useState(false);
+  const [bulkTemplateId, setBulkTemplateId] = useState('');
+
+  useEffect(() => {
+    setModalFiscalYears([...initialFiscalYears]);
+    setModalFiscalQuarters([...initialFiscalQuarters]);
+  }, [initialFiscalYears, initialFiscalQuarters]);
 
   useEffect(() => {
     fetch('/api/confirmations/email-limit')
@@ -827,8 +1149,55 @@ function MsmeBulkSendModal({
   }, []);
 
   useEffect(() => {
-    setSelectedIds(new Set(records.map((r) => r.id)));
-  }, [records]);
+    setTemplateChoicesLoading(true);
+    setBulkTemplateId('');
+    const q = new URLSearchParams({ moduleKey, purpose: 'initial' });
+    fetch(`/api/masters/email-body-templates?${q.toString()}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.templates)) setTemplateChoices(d.templates);
+        else setTemplateChoices([]);
+      })
+      .catch(() => setTemplateChoices([]))
+      .finally(() => setTemplateChoicesLoading(false));
+  }, [moduleKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setListLoading(true);
+    setFetchError(null);
+    const params = buildBulkConfirmationsParams(
+      moduleKey,
+      isTrade,
+      workspaceBulkFilters,
+      modalFiscalYears,
+      modalFiscalQuarters,
+      'workspace_status'
+    );
+    fetch(`/api/confirmations?${params.toString()}`)
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error((data as { error?: string }).error || 'Could not load rows');
+        if (cancelled) return;
+        setRecords((data.records || []) as ConfirmationRecord[]);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setFetchError(e instanceof Error ? e.message : 'Could not load rows');
+      })
+      .finally(() => {
+        if (!cancelled) setListLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [moduleKey, isTrade, workspaceBulkFilters, modalFiscalYears, modalFiscalQuarters]);
+
+  const notSentRows = useMemo(() => records.filter((r) => r.status === 'not_sent'), [records]);
+  const fiscalInvalid = bulkFiscalSelectionInvalid(modalFiscalYears, modalFiscalQuarters);
+
+  useEffect(() => {
+    setSelectedIds(new Set(notSentRows.map((r) => r.id)));
+  }, [notSentRows]);
 
   const toggle = (id: string) => {
     setSelectedIds((prev) => {
@@ -839,6 +1208,13 @@ function MsmeBulkSendModal({
     });
   };
 
+  const toggleModalFy = (v: string) => {
+    setModalFiscalYears((arr) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]));
+  };
+  const toggleModalQ = (v: string) => {
+    setModalFiscalQuarters((arr) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]));
+  };
+
   const dailyLine = `Daily limit (all modules): ${remainingDaily ?? '—'} remaining before this run.`;
   const helperLine = helperText ? `${helperText} ${dailyLine}` : `Not-sent rows only. ${dailyLine}`;
 
@@ -847,6 +1223,7 @@ function MsmeBulkSendModal({
     emailCc: string;
     remarks: string;
     emailBody?: string;
+    emailBodyTemplateId?: string;
   }) => {
     if (!previewRecord) return;
     setPreviewSending(true);
@@ -865,7 +1242,10 @@ function MsmeBulkSendModal({
       const res = await fetch(`/api/confirmations/${previewRecord.id}/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailBody: overrides.emailBody || undefined }),
+        body: JSON.stringify({
+          emailBody: overrides.emailBody || undefined,
+          emailBodyTemplateId: overrides.emailBodyTemplateId || undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Send failed');
@@ -877,6 +1257,10 @@ function MsmeBulkSendModal({
   };
 
   const handleSend = async () => {
+    if (fiscalInvalid) {
+      setError(BULK_FISCAL_HINT);
+      return;
+    }
     if (selectedIds.size === 0) {
       setError('Select at least one row.');
       return;
@@ -890,6 +1274,7 @@ function MsmeBulkSendModal({
         body: JSON.stringify({
           recordIds: [...selectedIds],
           includeNotSentOnly: true,
+          ...(bulkTemplateId.trim() ? { emailBodyTemplateId: bulkTemplateId.trim() } : {}),
         }),
       });
       const data = await res.json();
@@ -916,112 +1301,192 @@ function MsmeBulkSendModal({
 
   return (
     <>
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 flex-shrink-0">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">{heading}</h2>
-            <p className="text-sm text-gray-500 mt-0.5">{helperLine}</p>
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-gray-200/80">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 flex-shrink-0">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">{heading}</h2>
+              <p className="text-sm text-gray-500 mt-0.5">{helperLine}</p>
+            </div>
+            <button type="button" onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
+              ✕
+            </button>
           </div>
-          <button type="button" onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
-            ✕
-          </button>
-        </div>
-        <div className="px-6 py-4 flex-1 min-h-0 flex flex-col gap-3">
-          {records.length === 0 ? (
-            <p className="text-sm text-gray-600">No rows with status &quot;Not Sent&quot;.</p>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  className="text-xs text-blue-600 hover:underline"
-                  onClick={() => setSelectedIds(new Set(records.map((r) => r.id)))}
-                >
-                  Select all
-                </button>
-                <button type="button" className="text-xs text-gray-600 hover:underline" onClick={() => setSelectedIds(new Set())}>
-                  Clear
-                </button>
+          <div className="px-6 py-4 flex-1 min-h-0 flex flex-col gap-3">
+            <div className="rounded-xl border border-gray-200 bg-neutral-50/90 p-4 space-y-3">
+              <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Send scope</p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <FilterDropdown
+                  fullWidth
+                  label={modalFiscalYears.length ? `${modalFiscalYears.length} FY` : 'All FY'}
+                  options={fiscalYearSelectOptions}
+                  selected={modalFiscalYears}
+                  formatOption={formatFyDropdownOption}
+                  onToggle={toggleModalFy}
+                  onClear={() => setModalFiscalYears([])}
+                />
+                <FilterDropdown
+                  fullWidth
+                  label={modalFiscalQuarters.length ? `${modalFiscalQuarters.length} quarters` : 'All quarters'}
+                  options={[...FISCAL_QUARTER_KEYS]}
+                  selected={modalFiscalQuarters}
+                  formatOption={formatQuarterDropdownOption}
+                  onToggle={toggleModalQ}
+                  onClear={() => setModalFiscalQuarters([])}
+                />
               </div>
-              <div className="border border-gray-100 rounded-xl divide-y divide-gray-100 min-h-0 max-h-[50vh] overflow-y-auto">
-                {records.map((r) => (
-                  <div
-                    key={r.id}
-                    className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-gray-50/80"
+              {fiscalInvalid && <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2">{BULK_FISCAL_HINT}</p>}
+              <p className="text-[11px] text-gray-500">Adjust FY/quarter to match who receives mail. Main-page filters (entity, status, search) still apply.</p>
+            </div>
+
+            {listLoading && <p className="text-sm text-gray-500">Loading rows…</p>}
+            {fetchError && <p className="text-sm text-red-600">{fetchError}</p>}
+
+            {!listLoading && !fetchError && notSentRows.length === 0 && (
+              <p className="text-sm text-gray-600">No not-sent rows for this scope.</p>
+            )}
+
+            {!listLoading && !fetchError && notSentRows.length > 0 && (
+              <>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    className="text-xs text-neutral-800 hover:underline"
+                    onClick={() => setSelectedIds(new Set(notSentRows.map((r) => r.id)))}
                   >
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(r.id)}
-                      onChange={() => toggle(r.id)}
-                      className="mt-1 rounded border-gray-300 text-blue-600"
-                    />
-                    <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 sm:gap-4 sm:items-center">
-                      <div className="min-w-0">
-                        <div className="font-medium text-gray-900">{r.entityName}</div>
-                        <div className="text-xs text-gray-500 break-all">{r.emailTo}</div>
+                    Select all
+                  </button>
+                  <button type="button" className="text-xs text-gray-600 hover:underline" onClick={() => setSelectedIds(new Set())}>
+                    Clear
+                  </button>
+                  <span className="text-xs text-gray-500 ml-auto">{notSentRows.length} not sent</span>
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-600">
+                    Email template
+                    <select
+                      value={bulkTemplateId}
+                      onChange={(e) => setBulkTemplateId(e.target.value)}
+                      disabled={templateChoicesLoading}
+                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white disabled:opacity-60 h-10"
+                    >
+                      <option value="">Automatic (match category / default)</option>
+                      {templateChoices.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                          {t.isDefault ? ' · default' : ''}
+                          {t.category ? ` · ${t.category}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="text-[11px] text-gray-500">
+                    Placeholders such as entity name still resolve per row. Preview uses the selected template.
+                  </p>
+                </div>
+                <div className="border border-gray-100 rounded-xl divide-y divide-gray-100 min-h-0 max-h-[50vh] overflow-y-auto">
+                  {notSentRows.map((r) => (
+                    <div key={r.id} className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-gray-50/80">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(r.id)}
+                        onChange={() => toggle(r.id)}
+                        className="mt-1 rounded border-gray-300 text-neutral-800"
+                      />
+                      <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 sm:gap-4 sm:items-center">
+                        <div className="min-w-0">
+                          <div className="font-medium text-gray-900">{r.entityName}</div>
+                          <div className="text-xs text-gray-500 break-all">{r.emailTo}</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewRecord(r)}
+                          className="text-xs font-medium text-neutral-700 hover:text-neutral-900 whitespace-nowrap self-start sm:self-center"
+                        >
+                          Preview email
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewRecord(r)}
-                        className="text-xs font-medium text-violet-600 hover:text-violet-800 whitespace-nowrap self-start sm:self-center"
-                      >
-                        Preview email
-                      </button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-          {error && <p className="text-sm text-red-600 flex-shrink-0">{error}</p>}
-        </div>
-        <div className="flex justify-end gap-3 px-6 py-4 border-t flex-shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl bg-gray-100 text-gray-800 text-sm">
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={sending || records.length === 0 || selectedIds.size === 0}
-            onClick={handleSend}
-            className="px-4 py-2 rounded-xl bg-violet-600 text-white text-sm disabled:opacity-50"
-          >
-            {sending ? 'Sending…' : 'Send selected'}
-          </button>
+                  ))}
+                </div>
+              </>
+            )}
+            {error && <p className="text-sm text-red-600 flex-shrink-0">{error}</p>}
+          </div>
+          <div className="flex justify-end gap-3 px-6 py-4 border-t flex-shrink-0">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl bg-gray-100 text-gray-800 text-sm">
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={sending || fiscalInvalid || listLoading || notSentRows.length === 0 || selectedIds.size === 0}
+              onClick={handleSend}
+              className="px-4 py-2 rounded-xl bg-neutral-900 text-white text-sm disabled:opacity-50"
+            >
+              {sending ? 'Sending…' : 'Send selected'}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-    {previewRecord && (
-      <SendConfirmModal
-        record={previewRecord}
-        mode="send"
-        onClose={() => !previewSending && setPreviewRecord(null)}
-        onConfirm={handlePreviewSendConfirm}
-      />
-    )}
+      {previewRecord && (
+        <SendConfirmModal
+          record={previewRecord}
+          mode="send"
+          syncTemplateId={bulkTemplateId}
+          onClose={() => !previewSending && setPreviewRecord(null)}
+          onConfirm={handlePreviewSendConfirm}
+        />
+      )}
     </>
   );
 }
 
 function MsmeBulkFollowupModal({
-  records,
   apiSegment,
+  moduleKey,
+  workspaceBulkFilters,
+  initialFiscalYears,
+  initialFiscalQuarters,
+  fiscalYearSelectOptions,
+  formatFyDropdownOption,
+  formatQuarterDropdownOption,
   onClose,
   onSuccess,
   onRefreshList,
 }: {
-  records: ConfirmationRecord[];
   apiSegment: ModuleRouteSegment;
+  moduleKey: ModuleKey;
+  workspaceBulkFilters: BulkWorkspaceFilters;
+  initialFiscalYears: string[];
+  initialFiscalQuarters: string[];
+  fiscalYearSelectOptions: string[];
+  formatFyDropdownOption: (s: string) => string;
+  formatQuarterDropdownOption: (s: string) => string;
   onClose: () => void;
   onSuccess: () => void;
   onRefreshList: () => void;
 }) {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(records.map((r) => r.id)));
+  const [modalFiscalYears, setModalFiscalYears] = useState<string[]>(() => [...initialFiscalYears]);
+  const [modalFiscalQuarters, setModalFiscalQuarters] = useState<string[]>(() => [...initialFiscalQuarters]);
+  const [records, setRecords] = useState<ConfirmationRecord[]>([]);
+  const [listLoading, setListLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [remainingDaily, setRemainingDaily] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewRecord, setPreviewRecord] = useState<ConfirmationRecord | null>(null);
   const [previewSending, setPreviewSending] = useState(false);
+  const [templateChoices, setTemplateChoices] = useState<
+    { id: string; name: string; category: string | null; isDefault: boolean; moduleKey: string | null }[]
+  >([]);
+  const [templateChoicesLoading, setTemplateChoicesLoading] = useState(false);
+  const [bulkTemplateId, setBulkTemplateId] = useState('');
+
+  useEffect(() => {
+    setModalFiscalYears([...initialFiscalYears]);
+    setModalFiscalQuarters([...initialFiscalQuarters]);
+  }, [initialFiscalYears, initialFiscalQuarters]);
 
   useEffect(() => {
     fetch('/api/confirmations/email-limit')
@@ -1031,8 +1496,58 @@ function MsmeBulkFollowupModal({
   }, []);
 
   useEffect(() => {
-    setSelectedIds(new Set(records.map((r) => r.id)));
-  }, [records]);
+    setTemplateChoicesLoading(true);
+    setBulkTemplateId('');
+    const q = new URLSearchParams({ moduleKey, purpose: 'followup' });
+    fetch(`/api/masters/email-body-templates?${q.toString()}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.templates)) setTemplateChoices(d.templates);
+        else setTemplateChoices([]);
+      })
+      .catch(() => setTemplateChoices([]))
+      .finally(() => setTemplateChoicesLoading(false));
+  }, [moduleKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setListLoading(true);
+    setFetchError(null);
+    const params = buildBulkConfirmationsParams(
+      moduleKey,
+      false,
+      workspaceBulkFilters,
+      modalFiscalYears,
+      modalFiscalQuarters,
+      'followup_eligible'
+    );
+    fetch(`/api/confirmations?${params.toString()}`)
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error((data as { error?: string }).error || 'Could not load rows');
+        if (cancelled) return;
+        setRecords((data.records || []) as ConfirmationRecord[]);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setFetchError(e instanceof Error ? e.message : 'Could not load rows');
+      })
+      .finally(() => {
+        if (!cancelled) setListLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [moduleKey, workspaceBulkFilters, modalFiscalYears, modalFiscalQuarters]);
+
+  const eligibleRows = useMemo(
+    () => records.filter((r) => r.status === 'sent' || r.status === 'followup_sent'),
+    [records]
+  );
+  const fiscalInvalid = bulkFiscalSelectionInvalid(modalFiscalYears, modalFiscalQuarters);
+
+  useEffect(() => {
+    setSelectedIds(new Set(eligibleRows.map((r) => r.id)));
+  }, [eligibleRows]);
 
   const toggle = (id: string) => {
     setSelectedIds((prev) => {
@@ -1043,6 +1558,13 @@ function MsmeBulkFollowupModal({
     });
   };
 
+  const toggleModalFy = (v: string) => {
+    setModalFiscalYears((arr) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]));
+  };
+  const toggleModalQ = (v: string) => {
+    setModalFiscalQuarters((arr) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]));
+  };
+
   const dailyLine = `Daily limit (all modules): ${remainingDaily ?? '—'} remaining before this run.`;
 
   const handlePreviewFollowupConfirm = async (overrides: {
@@ -1050,6 +1572,7 @@ function MsmeBulkFollowupModal({
     emailCc: string;
     remarks: string;
     emailBody?: string;
+    emailBodyTemplateId?: string;
   }) => {
     if (!previewRecord) return;
     setPreviewSending(true);
@@ -1068,7 +1591,10 @@ function MsmeBulkFollowupModal({
       const res = await fetch(`/api/confirmations/${previewRecord.id}/followup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailBody: overrides.emailBody || undefined }),
+        body: JSON.stringify({
+          emailBody: overrides.emailBody || undefined,
+          emailBodyTemplateId: overrides.emailBodyTemplateId || undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Follow-up failed');
@@ -1080,6 +1606,10 @@ function MsmeBulkFollowupModal({
   };
 
   const handleSend = async () => {
+    if (fiscalInvalid) {
+      setError(BULK_FISCAL_HINT);
+      return;
+    }
     if (selectedIds.size === 0) {
       setError('Select at least one row.');
       return;
@@ -1092,6 +1622,7 @@ function MsmeBulkFollowupModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recordIds: [...selectedIds],
+          ...(bulkTemplateId.trim() ? { emailBodyTemplateId: bulkTemplateId.trim() } : {}),
         }),
       });
       const data = await res.json();
@@ -1119,12 +1650,12 @@ function MsmeBulkFollowupModal({
   return (
     <>
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-gray-200/80">
           <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 flex-shrink-0">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Bulk follow-up</h2>
               <p className="text-sm text-gray-500 mt-0.5">
-                Rows with status Email sent or Follow-up sent. {dailyLine}
+                Email sent or follow-up sent rows. {dailyLine}
               </p>
             </div>
             <button type="button" onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg">
@@ -1132,33 +1663,85 @@ function MsmeBulkFollowupModal({
             </button>
           </div>
           <div className="px-6 py-4 flex-1 min-h-0 flex flex-col gap-3">
-            {records.length === 0 ? (
-              <p className="text-sm text-gray-600">No rows eligible for follow-up.</p>
-            ) : (
+            <div className="rounded-xl border border-gray-200 bg-neutral-50/90 p-4 space-y-3">
+              <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Scope</p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <FilterDropdown
+                  fullWidth
+                  label={modalFiscalYears.length ? `${modalFiscalYears.length} FY` : 'All FY'}
+                  options={fiscalYearSelectOptions}
+                  selected={modalFiscalYears}
+                  formatOption={formatFyDropdownOption}
+                  onToggle={toggleModalFy}
+                  onClear={() => setModalFiscalYears([])}
+                />
+                <FilterDropdown
+                  fullWidth
+                  label={modalFiscalQuarters.length ? `${modalFiscalQuarters.length} quarters` : 'All quarters'}
+                  options={[...FISCAL_QUARTER_KEYS]}
+                  selected={modalFiscalQuarters}
+                  formatOption={formatQuarterDropdownOption}
+                  onToggle={toggleModalQ}
+                  onClear={() => setModalFiscalQuarters([])}
+                />
+              </div>
+              {fiscalInvalid && <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2">{BULK_FISCAL_HINT}</p>}
+              <p className="text-[11px] text-gray-500">Main-page filters still apply. Follow-up list is limited to sent / follow-up sent.</p>
+            </div>
+
+            {listLoading && <p className="text-sm text-gray-500">Loading rows…</p>}
+            {fetchError && <p className="text-sm text-red-600">{fetchError}</p>}
+
+            {!listLoading && !fetchError && eligibleRows.length === 0 && (
+              <p className="text-sm text-gray-600">No rows eligible for follow-up in this scope.</p>
+            )}
+
+            {!listLoading && !fetchError && eligibleRows.length > 0 && (
               <>
                 <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
-                    className="text-xs text-blue-600 hover:underline"
-                    onClick={() => setSelectedIds(new Set(records.map((r) => r.id)))}
+                    className="text-xs text-neutral-800 hover:underline"
+                    onClick={() => setSelectedIds(new Set(eligibleRows.map((r) => r.id)))}
                   >
                     Select all
                   </button>
                   <button type="button" className="text-xs text-gray-600 hover:underline" onClick={() => setSelectedIds(new Set())}>
                     Clear
                   </button>
+                  <span className="text-xs text-gray-500 ml-auto">{eligibleRows.length} eligible</span>
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-medium text-gray-600">
+                    Follow-up template
+                    <select
+                      value={bulkTemplateId}
+                      onChange={(e) => setBulkTemplateId(e.target.value)}
+                      disabled={templateChoicesLoading}
+                      className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white disabled:opacity-60 h-10"
+                    >
+                      <option value="">Automatic (match category / default)</option>
+                      {templateChoices.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                          {t.isDefault ? ' · default' : ''}
+                          {t.category ? ` · ${t.category}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="text-[11px] text-gray-500">
+                    Placeholders still resolve per row. Preview uses the selected follow-up template.
+                  </p>
                 </div>
                 <div className="border border-gray-100 rounded-xl divide-y divide-gray-100 min-h-0 max-h-[50vh] overflow-y-auto">
-                  {records.map((r) => (
-                    <div
-                      key={r.id}
-                      className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-gray-50/80"
-                    >
+                  {eligibleRows.map((r) => (
+                    <div key={r.id} className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-gray-50/80">
                       <input
                         type="checkbox"
                         checked={selectedIds.has(r.id)}
                         onChange={() => toggle(r.id)}
-                        className="mt-1 rounded border-gray-300 text-amber-600"
+                        className="mt-1 rounded border-gray-300 text-neutral-700"
                       />
                       <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 sm:gap-4 sm:items-center">
                         <div className="min-w-0">
@@ -1168,7 +1751,7 @@ function MsmeBulkFollowupModal({
                         <button
                           type="button"
                           onClick={() => setPreviewRecord(r)}
-                          className="text-xs font-medium text-amber-700 hover:text-amber-900 whitespace-nowrap self-start sm:self-center"
+                          className="text-xs font-medium text-neutral-800 hover:text-neutral-950 whitespace-nowrap self-start sm:self-center"
                         >
                           Preview follow-up
                         </button>
@@ -1186,9 +1769,9 @@ function MsmeBulkFollowupModal({
             </button>
             <button
               type="button"
-              disabled={sending || records.length === 0 || selectedIds.size === 0}
+              disabled={sending || fiscalInvalid || listLoading || eligibleRows.length === 0 || selectedIds.size === 0}
               onClick={handleSend}
-              className="px-4 py-2 rounded-xl bg-amber-600 text-white text-sm disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-neutral-900 text-white text-sm disabled:opacity-50"
             >
               {sending ? 'Sending…' : 'Send follow-up to selected'}
             </button>
@@ -1199,6 +1782,7 @@ function MsmeBulkFollowupModal({
         <SendConfirmModal
           record={previewRecord}
           mode="followup"
+          syncTemplateId={bulkTemplateId}
           onClose={() => !previewSending && setPreviewRecord(null)}
           onConfirm={handlePreviewFollowupConfirm}
         />
@@ -1213,22 +1797,29 @@ function FilterDropdown({
   selected,
   onToggle,
   onClear,
+  formatOption,
+  fullWidth,
 }: {
   label: string;
   options: string[];
   selected: string[];
   onToggle: (v: string) => void;
   onClear: () => void;
+  formatOption?: (opt: string) => string;
+  /** Stretch trigger to container width (e.g. grid cells) */
+  fullWidth?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="relative">
+    <div className={fullWidth ? 'relative w-full min-w-0' : 'relative'}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-xl transition-colors ${
-          selected.length ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+        className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-xl transition-colors h-10 ${
+          fullWidth ? 'w-full justify-between' : ''
+        } ${
+          selected.length ? 'border-neutral-800 bg-neutral-100 text-neutral-900' : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
         }`}
       >
         {label}
@@ -1261,9 +1852,9 @@ function FilterDropdown({
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
               >
                 <span
-                  className={`w-4 h-4 border rounded flex-shrink-0 ${selected.includes(opt) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}
+                  className={`w-4 h-4 border rounded flex-shrink-0 ${selected.includes(opt) ? 'bg-neutral-900 border-neutral-900' : 'border-neutral-300'}`}
                 />
-                <span className="text-xs">{opt}</span>
+                <span className="text-xs">{formatOption ? formatOption(opt) : opt}</span>
               </button>
             ))}
           </div>

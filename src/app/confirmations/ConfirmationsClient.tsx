@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import ConfirmationTable, { ConfirmationRecord } from '@/components/ConfirmationTable';
 
 const ALL_CATEGORIES = [
@@ -27,6 +27,18 @@ const CONFIRMATION_KIND_OPTIONS: { value: string; label: string }[] = [
   { value: 'none', label: 'Pending' },
 ];
 
+const FY_COMPANY_CATEGORIES = new Set(['Trade Payables', 'Trade Receivables', 'Confirm MSME']);
+
+const FISCAL_QUARTER_OPTIONS: { value: string; label: string }[] = [
+  { value: 'all', label: 'All quarters' },
+  { value: '1', label: 'Q1 (Apr–Jun)' },
+  { value: '2', label: 'Q2 (Jul–Sep)' },
+  { value: '3', label: 'Q3 (Oct–Dec)' },
+  { value: '4', label: 'Q4 (Jan–Mar)' },
+];
+
+const FISCAL_QUARTER_KEYS = ['1', '2', '3', '4'] as const;
+
 type SortField = 'entityName' | 'category' | 'status' | 'sentAt' | 'responseReceivedAt';
 
 /** Admin-only: all confirmation categories across modules (requires admin session on GET). */
@@ -41,6 +53,11 @@ export default function ConfirmationsClient() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [confirmationKindFilter, setConfirmationKindFilter] = useState<string>('all');
+  const [selectedFiscalYears, setSelectedFiscalYears] = useState<string[]>([]);
+  const [selectedFiscalQuarters, setSelectedFiscalQuarters] = useState<string[]>([]);
+  const [reportingFiscalYearOptions, setReportingFiscalYearOptions] = useState<number[]>([]);
+  const [companyCodeOptions, setCompanyCodeOptions] = useState<string[]>([]);
+  const [selectedCompanyCodes, setSelectedCompanyCodes] = useState<string[]>([]);
   const [search, setSearch] = useState('');
 
   const [sortField, setSortField] = useState<SortField>('entityName');
@@ -54,6 +71,25 @@ export default function ConfirmationsClient() {
     responseReceived: records.filter((r) => r.status === 'response_received').length,
   };
 
+  const fiscalYearSelectOptions = useMemo(() => {
+    const fromApi = [...reportingFiscalYearOptions].sort((a, b) => b - a);
+    const y = new Date().getFullYear();
+    const fallback = [y + 1, y, y - 1, y - 2, y - 3];
+    return [...new Set([...fromApi, ...fallback])].sort((a, b) => b - a);
+  }, [reportingFiscalYearOptions]);
+
+  const formatFyDropdownOption = useCallback((opt: string) => {
+    const y = parseInt(opt, 10);
+    return Number.isFinite(y) ? `FY ${y}–${String(y + 1).slice(-2)}` : opt;
+  }, []);
+
+  const formatQuarterDropdownOption = useCallback((q: string) => {
+    return FISCAL_QUARTER_OPTIONS.find((o) => o.value === q)?.label ?? q;
+  }, []);
+
+  const showFiscalAndCompanyFilters =
+    selectedCategories.length === 0 || selectedCategories.some((c) => FY_COMPANY_CATEGORIES.has(c));
+
   const fetchRecords = useCallback(async () => {
     setLoading(true);
     try {
@@ -63,16 +99,37 @@ export default function ConfirmationsClient() {
       selectedStatuses.forEach((s) => params.append('status', s));
       if (search) params.set('search', search);
       if (confirmationKindFilter !== 'all') params.set('confirmationKind', confirmationKindFilter);
+      if (showFiscalAndCompanyFilters) {
+        selectedFiscalYears.forEach((y) => params.append('reportingFiscalYear', y));
+        selectedFiscalQuarters.forEach((q) => params.append('reportingFiscalQuarter', q));
+        selectedCompanyCodes.forEach((c) => params.append('company', c));
+      }
       params.set('metadata', 'true');
 
       const res = await fetch(`/api/confirmations?${params.toString()}`);
       const data = await res.json();
       setRecords(data.records || []);
       if (data.entityNames) setEntityNames(data.entityNames);
+      if (Array.isArray(data.reportingFiscalYears)) {
+        setReportingFiscalYearOptions(data.reportingFiscalYears as number[]);
+      }
+      if (Array.isArray(data.companyCodes)) {
+        setCompanyCodeOptions(data.companyCodes as string[]);
+      }
     } finally {
       setLoading(false);
     }
-  }, [selectedEntities, selectedCategories, selectedStatuses, search, confirmationKindFilter]);
+  }, [
+    selectedEntities,
+    selectedCategories,
+    selectedStatuses,
+    search,
+    confirmationKindFilter,
+    showFiscalAndCompanyFilters,
+    selectedFiscalYears,
+    selectedFiscalQuarters,
+    selectedCompanyCodes,
+  ]);
 
   useEffect(() => {
     fetchRecords();
@@ -100,14 +157,13 @@ export default function ConfirmationsClient() {
 
   const handleDownloadCSV = () => {
     const headers = [
-      'Sr No', 'Entity Name', 'Category', 'Bank / Party', 'Account No', 'Cust ID',
+      'Sr No', 'Entity Name', 'Category', 'Bank / Party', 'Cust ID',
       'Email TO', 'Email CC', 'Attachment', 'Status', 'Sent At', 'Follow-up Sent At',
       'Response At', 'Response From', 'Response Subject', 'Remarks',
       'Emails Sent Folder', 'Responses Folder',
     ];
     const rows = sortedRecords.map((r, i) => [
-      i + 1, r.entityName, r.category, r.bankName || '', r.accountNumber || '',
-      r.custId || '', r.emailTo, r.emailCc || '', r.attachmentName || '',
+      i + 1, r.entityName, r.category, r.bankName || '', r.custId || '', r.emailTo, r.emailCc || '', r.attachmentName || '',
       r.status, r.sentAt ? new Date(r.sentAt).toLocaleString('en-IN') : '',
       r.followupSentAt ? new Date(r.followupSentAt).toLocaleString('en-IN') : '',
       r.responseReceivedAt ? new Date(r.responseReceivedAt).toLocaleString('en-IN') : '',
@@ -148,6 +204,9 @@ export default function ConfirmationsClient() {
     setSelectedStatuses([]);
     setSearch('');
     setConfirmationKindFilter('all');
+    setSelectedFiscalYears([]);
+    setSelectedFiscalQuarters([]);
+    setSelectedCompanyCodes([]);
   };
 
   const hasActiveFilters =
@@ -155,7 +214,10 @@ export default function ConfirmationsClient() {
     selectedCategories.length > 0 ||
     selectedStatuses.length > 0 ||
     search.length > 0 ||
-    confirmationKindFilter !== 'all';
+    confirmationKindFilter !== 'all' ||
+    selectedFiscalYears.length > 0 ||
+    selectedFiscalQuarters.length > 0 ||
+    selectedCompanyCodes.length > 0;
 
   return (
     <div className="flex flex-col h-screen">
@@ -166,7 +228,7 @@ export default function ConfirmationsClient() {
         </div>
         <div className="flex items-center gap-3 flex-wrap justify-end">
           {repliesMessage && (
-            <span className="text-sm text-green-600 font-medium bg-green-50 px-3 py-1.5 rounded-lg border border-green-200">
+            <span className="text-sm text-emerald-800 font-medium bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200/80">
               {repliesMessage}
             </span>
           )}
@@ -204,9 +266,9 @@ export default function ConfirmationsClient() {
         {[
           { label: 'Total', count: stats.total, color: 'text-gray-700', bg: 'bg-gray-100' },
           { label: 'Not Sent', count: stats.notSent, color: 'text-gray-600', bg: 'bg-gray-100' },
-          { label: 'Sent', count: stats.sent, color: 'text-blue-700', bg: 'bg-blue-100' },
-          { label: 'Follow-up', count: stats.followupSent, color: 'text-amber-700', bg: 'bg-amber-100' },
-          { label: 'Response Received', count: stats.responseReceived, color: 'text-green-700', bg: 'bg-green-100' },
+          { label: 'Sent', count: stats.sent, color: 'text-neutral-800', bg: 'bg-neutral-100' },
+          { label: 'Follow-up', count: stats.followupSent, color: 'text-neutral-700', bg: 'bg-neutral-100' },
+          { label: 'Response Received', count: stats.responseReceived, color: 'text-emerald-800', bg: 'bg-emerald-50' },
         ].map((s) => (
           <div key={s.label} className="flex items-center gap-2">
             <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${s.bg} ${s.color}`}>
@@ -220,7 +282,7 @@ export default function ConfirmationsClient() {
           <div className="flex items-center gap-2">
             <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
               <div
-                className="h-full bg-green-500 rounded-full transition-all"
+                className="h-full bg-emerald-600 rounded-full transition-all"
                 style={{ width: `${Math.round((stats.responseReceived / stats.total) * 100)}%` }}
               />
             </div>
@@ -241,7 +303,7 @@ export default function ConfirmationsClient() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search entity, bank, email…"
-            className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-56"
+            className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25 focus:border-transparent w-56"
           />
         </div>
 
@@ -279,7 +341,7 @@ export default function ConfirmationsClient() {
           <select
             value={confirmationKindFilter}
             onChange={(e) => setConfirmationKindFilter(e.target.value)}
-            className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[10rem]"
+            className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-neutral-900/25 min-w-[10rem]"
             aria-label="Filter by confirmation status"
           >
             {CONFIRMATION_KIND_OPTIONS.map((o) => (
@@ -289,6 +351,34 @@ export default function ConfirmationsClient() {
             ))}
           </select>
         </label>
+
+        {showFiscalAndCompanyFilters && (
+          <>
+            <FilterDropdown
+              label={selectedFiscalYears.length ? `${selectedFiscalYears.length} FY` : 'All FY'}
+              options={fiscalYearSelectOptions.map(String)}
+              selected={selectedFiscalYears}
+              formatOption={formatFyDropdownOption}
+              onToggle={(v) => toggleFilter(selectedFiscalYears, setSelectedFiscalYears, v)}
+              onClear={() => setSelectedFiscalYears([])}
+            />
+            <FilterDropdown
+              label={selectedFiscalQuarters.length ? `${selectedFiscalQuarters.length} quarters` : 'All quarters'}
+              options={[...FISCAL_QUARTER_KEYS]}
+              selected={selectedFiscalQuarters}
+              formatOption={formatQuarterDropdownOption}
+              onToggle={(v) => toggleFilter(selectedFiscalQuarters, setSelectedFiscalQuarters, v)}
+              onClear={() => setSelectedFiscalQuarters([])}
+            />
+            <FilterDropdown
+              label={selectedCompanyCodes.length ? `${selectedCompanyCodes.length} companies` : 'All companies'}
+              options={companyCodeOptions}
+              selected={selectedCompanyCodes}
+              onToggle={(v) => toggleFilter(selectedCompanyCodes, setSelectedCompanyCodes, v)}
+              onClear={() => setSelectedCompanyCodes([])}
+            />
+          </>
+        )}
 
         {hasActiveFilters && (
           <button
@@ -312,7 +402,7 @@ export default function ConfirmationsClient() {
               type="button"
               key={f}
               onClick={() => handleSort(f)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${sortField === f ? 'bg-blue-100 text-blue-700' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${sortField === f ? 'bg-neutral-100 text-neutral-800' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
             >
               {{ entityName: 'Entity', category: 'Category', status: 'Status', sentAt: 'Sent', responseReceivedAt: 'Response' }[f]}
               {sortField === f && <span className="ml-1">{sortAsc ? '↑' : '↓'}</span>}
@@ -341,12 +431,14 @@ function FilterDropdown({
   selected,
   onToggle,
   onClear,
+  formatOption,
 }: {
   label: string;
   options: string[];
   selected: string[];
   onToggle: (v: string) => void;
   onClear: () => void;
+  formatOption?: (opt: string) => string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -357,8 +449,8 @@ function FilterDropdown({
         onClick={() => setOpen(!open)}
         className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-xl transition-colors ${
           selected.length
-            ? 'border-blue-400 bg-blue-50 text-blue-700'
-            : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+            ? 'border-neutral-800 bg-neutral-100 text-neutral-900'
+            : 'border-neutral-200 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50'
         }`}
       >
         {label}
@@ -390,14 +482,14 @@ function FilterDropdown({
                 onClick={() => onToggle(opt)}
                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
               >
-                <span className={`w-4 h-4 border rounded flex items-center justify-center flex-shrink-0 ${selected.includes(opt) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                <span className={`w-4 h-4 border rounded flex items-center justify-center flex-shrink-0 ${selected.includes(opt) ? 'bg-neutral-900 border-neutral-900' : 'border-gray-300'}`}>
                   {selected.includes(opt) && (
                     <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                     </svg>
                   )}
                 </span>
-                <span className="text-xs">{opt}</span>
+                <span className="text-xs">{formatOption ? formatOption(opt) : opt}</span>
               </button>
             ))}
           </div>

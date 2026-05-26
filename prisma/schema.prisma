@@ -36,8 +36,30 @@ model User {
   emailConfigs  EmailConfig[]
   senders       Sender[]
   forwarders    Forwarder[]
+  emailBodyTemplates EmailBodyTemplate[]
+  tradeListingUploads TradeListingUpload[]
 
   @@map("users")
+}
+
+/// SAP-style TP/TR listing import batch — user-selected India FY + quarter
+model TradeListingUpload {
+  id                     String   @id @default(cuid())
+  userId                 String
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moduleKey              String
+  originalFileName       String
+  mode                   String
+  reportingFiscalYear    Int
+  reportingFiscalQuarter Int
+  rowCountImported       Int      @default(0)
+  createdAt              DateTime @default(now())
+
+  tradePayableConfirmations    TradePayableConfirmation[]
+  tradeReceivableConfirmations TradeReceivableConfirmation[]
+
+  @@index([userId])
+  @@map("trade_listing_uploads")
 }
 
 model EmailConfig {
@@ -293,6 +315,10 @@ model TradePayableConfirmation {
   documentDate         String?
   documentNumber       String?
   currencyValue        String?
+  reportingFiscalYear     Int?
+  reportingFiscalQuarter  Int?
+  listingUploadId      String?
+  listingUpload        TradeListingUpload? @relation(fields: [listingUploadId], references: [id], onDelete: SetNull)
   emailThreadAnchorId  String?
   emailThreadAnchor    TradePayableConfirmation? @relation("TpEmailAnchor", fields: [emailThreadAnchorId], references: [id], onDelete: SetNull)
   tpAnchorLines        TradePayableConfirmation[] @relation("TpEmailAnchor")
@@ -336,6 +362,7 @@ model TradePayableConfirmation {
   @@index([entityContactId])
   @@index([vendorMasterId])
   @@index([custId])
+  @@index([listingUploadId])
   @@index([emailThreadAnchorId])
   @@map("trade_payable_confirmations")
 }
@@ -354,6 +381,10 @@ model TradeReceivableConfirmation {
   documentDate         String?
   documentNumber       String?
   currencyValue        String?
+  reportingFiscalYear     Int?
+  reportingFiscalQuarter  Int?
+  listingUploadId      String?
+  listingUpload        TradeListingUpload? @relation(fields: [listingUploadId], references: [id], onDelete: SetNull)
   emailThreadAnchorId  String?
   emailThreadAnchor    TradeReceivableConfirmation? @relation("TrEmailAnchor", fields: [emailThreadAnchorId], references: [id], onDelete: SetNull)
   trAnchorLines        TradeReceivableConfirmation[] @relation("TrEmailAnchor")
@@ -397,6 +428,7 @@ model TradeReceivableConfirmation {
   @@index([entityContactId])
   @@index([supplierMasterId])
   @@index([custId])
+  @@index([listingUploadId])
   @@index([emailThreadAnchorId])
   @@map("trade_receivable_confirmations")
 }
@@ -414,6 +446,8 @@ model MsmeConfirmation {
   bankName             String?
   accountNumber        String?
   custId               String?
+  reportingFiscalYear     Int?
+  reportingFiscalQuarter  Int?
   emailTo              String
   emailCc              String?
   status               String         @default("not_sent")
@@ -461,12 +495,33 @@ model MsmeConfirmation {
   @@map("msme_confirmations")
 }
 
+model EmailBodyTemplate {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  moduleKey        String?  // trade_payable | trade_receivable | confirm_msme | null = any
+  category         String?  // e.g. Trade Payables — optional narrowing
+  purpose          String   @default("initial") // initial | followup
+  subjectTemplate  String?
+  htmlBody         String
+  plainBody        String?
+  isDefault        Boolean  @default(false)
+  userId           String?
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([moduleKey, purpose])
+  @@map("email_body_templates")
+}
+
 model AppSettings {
   id                        String   @id @default(cuid())
   userId                    String   @unique
   autoReplyCheck            Boolean  @default(true)   // Automatically check for replies on cron
-  replyCheckIntervalMinutes Int      @default(30)      // How often to check for replies
+  replyCheckIntervalMinutes Int      @default(30)     // How often to check for replies
   emailSaveBasePath         String   @default("emails") // Base folder path for saving emails
+  companyDisplayName        String?  // Firm / org name for {{companyName}} in email templates
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 

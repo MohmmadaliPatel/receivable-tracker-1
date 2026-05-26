@@ -108,9 +108,9 @@ function defaultTabForRecord(record: ConfirmationRecord): ActiveTab {
 
 const statusColors: Record<string, string> = {
   not_sent: 'bg-gray-100 text-gray-600',
-  sent: 'bg-blue-100 text-blue-700',
-  followup_sent: 'bg-yellow-100 text-yellow-700',
-  response_received: 'bg-green-100 text-green-700',
+  sent: 'bg-neutral-100 text-neutral-800',
+  followup_sent: 'bg-neutral-100 text-neutral-700 border border-neutral-200',
+  response_received: 'bg-emerald-50 text-emerald-800 border border-emerald-100',
 };
 
 const statusLabels: Record<string, string> = {
@@ -354,7 +354,7 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-[2px] p-3 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/50 backdrop-blur-[2px] p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="email-view-title"
@@ -363,14 +363,14 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
       }}
     >
       <div
-        className="w-full max-w-5xl max-h-[92vh] bg-white rounded-2xl shadow-2xl ring-1 ring-slate-200/80 flex flex-col overflow-hidden"
+        className="w-full max-w-5xl max-h-[92vh] bg-white rounded-2xl shadow-2xl ring-1 ring-neutral-200/80 flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+        <div className="flex items-start justify-between px-6 py-5 border-b border-neutral-100 bg-gradient-to-r from-neutral-50 to-white">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 id="email-view-title" className="text-lg font-semibold text-slate-900 truncate">
+              <h2 id="email-view-title" className="text-lg font-semibold text-neutral-900 truncate">
                 {record.entityName}
               </h2>
               <span
@@ -381,12 +381,12 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
                 {statusLabels[record.status] || record.status}
               </span>
             </div>
-            <p className="text-sm text-slate-500 mt-1">{record.category}</p>
+            <p className="text-sm text-neutral-500 mt-1">{record.category}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="ml-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors flex-shrink-0"
+            className="ml-4 p-2 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-xl transition-colors flex-shrink-0"
             aria-label="Close"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -396,18 +396,13 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
         </div>
 
         {/* Metadata grid */}
-        <div className="px-6 py-4 bg-slate-50/90 border-b border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
+        <div className="px-6 py-4 bg-neutral-50/90 border-b border-neutral-100 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
           {!isMsmeRecord && <MetaItem label="Bank / Party" value={record.bankName} />}
           {!isMsmeRecord && <MetaItem label="Authority Letter" value={record.attachmentName} />}
           {isMsmeRecord ? (
             !!record.custId?.trim() && <MetaItem label="Cust ID / Listing" value={record.custId} />
           ) : (
-            (record.accountNumber || record.custId) && (
-              <>
-                <MetaItem label="Account / Loan No." value={record.accountNumber} />
-                <MetaItem label="Cust ID" value={record.custId} />
-              </>
-            )
+            !!record.custId?.trim() && <MetaItem label="Cust ID" value={record.custId} />
           )}
           <div className="col-span-1 sm:col-span-2">
             <MetaItem
@@ -423,7 +418,7 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
               }
             />
             {msmeEmailEff?.fromReply && !!msmeEmailEff.text && (
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-neutral-500 mt-1">
                 Shown because no outbound &ldquo;Email To&rdquo; is stored on this row; address comes from the inbox
                 reply.
               </p>
@@ -454,15 +449,15 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
 
         {/* Folder paths */}
         {(record.emailsSentFolderPath || record.responsesFolderPath) && (
-          <div className="px-6 py-3 bg-indigo-50/80 border-b border-indigo-100 text-xs">
-            <p className="font-medium text-indigo-800 mb-1">Saved file locations</p>
+          <div className="px-6 py-3 bg-neutral-50 border-b border-neutral-200 text-xs">
+            <p className="font-medium text-neutral-800 mb-1">Saved file locations</p>
             {record.emailsSentFolderPath && <FolderPath label="Emails Sent" path={record.emailsSentFolderPath} />}
             {record.responsesFolderPath && <FolderPath label="Responses" path={record.responsesFolderPath} />}
           </div>
         )}
 
         {/* Tabs */}
-        <div className="flex border-b border-slate-200 bg-white px-3 sm:px-4 overflow-x-auto gap-0.5">
+        <div className="flex border-b border-neutral-200 bg-white px-3 sm:px-4 overflow-x-auto gap-0.5">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -470,17 +465,17 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
               disabled={!tab.available}
               className={`flex items-center gap-1.5 px-3 sm:px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap rounded-t-lg ${
                 activeTab === tab.key
-                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
+                  ? 'border-neutral-900 text-neutral-900 bg-neutral-50/80'
                   : tab.available
-                    ? 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                    : 'border-transparent text-slate-300 cursor-not-allowed'
+                    ? 'border-transparent text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50'
+                    : 'border-transparent text-neutral-300 cursor-not-allowed'
               }`}
             >
               {tab.label}
               {tab.badge && Number(tab.badge) > 0 && (
                 <span
                   className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                    activeTab === tab.key ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'
+                    activeTab === tab.key ? 'bg-neutral-200 text-neutral-900' : 'bg-neutral-100 text-neutral-600'
                   }`}
                 >
                   {tab.badge}
@@ -560,7 +555,7 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
                   type="response"
                   label="Web confirmation (primary)"
                   date={record.webConfirmedAt ?? record.responseReceivedAt}
-                  subLabel="Responded via web / magic link"
+                  subLabel="Responded via web / link"
                   onView={() => setActiveTab('response')}
                 />
               )}
@@ -616,7 +611,7 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
             <>
               {loadingEmail ? (
                 <div className="flex items-center justify-center h-full py-24">
-                  <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+                  <div className="animate-spin w-8 h-8 border-4 border-neutral-900 border-t-transparent rounded-full" />
                 </div>
               ) : emailError ? (
                 <div className="flex flex-col items-center justify-center h-full py-24 text-gray-400 gap-2">
@@ -651,8 +646,8 @@ export default function EmailViewDrawer({ record, onClose }: EmailViewDrawerProp
 
         {/* File path footer */}
         {filePath && activeTab !== 'trail' && (
-          <div className="px-6 py-2 border-t border-slate-100 bg-slate-50 text-xs text-slate-500 truncate">
-            <span className="font-medium text-slate-600">
+          <div className="px-6 py-2 border-t border-neutral-100 bg-neutral-50 text-xs text-neutral-500 truncate">
+            <span className="font-medium text-neutral-600">
               {activeTab === 'response' ? 'Saved: ' : 'File: '}
             </span>
             {filePath}
@@ -723,11 +718,11 @@ function WebConfirmationPanel({
   })();
 
   return (
-    <div className="border-b border-indigo-200 bg-indigo-50/80 flex-shrink-0">
-      <div className="bg-indigo-600 text-white px-6 py-3">
+    <div className="border-b border-neutral-200 bg-neutral-50 flex-shrink-0">
+      <div className="bg-neutral-900 text-white px-6 py-3">
         <span className="font-semibold text-sm tracking-wide">Web confirmation (primary)</span>
         {record.responseReceivedAt && (
-          <span className="block text-indigo-100 text-xs mt-1 font-normal">
+          <span className="block text-neutral-300 text-xs mt-1 font-normal">
             Recorded {formatDate(record.webConfirmedAt ?? record.responseReceivedAt)}
           </span>
         )}
@@ -737,10 +732,10 @@ function WebConfirmationPanel({
           lines.length > 0 && (
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Invoice lines</p>
-              <div className="overflow-x-auto border border-indigo-100 rounded-lg">
+              <div className="overflow-x-auto border border-neutral-200 rounded-lg">
                 <table className="min-w-full text-xs">
                   <thead>
-                    <tr className="bg-indigo-100/60 text-left text-gray-600">
+                    <tr className="bg-neutral-100 text-left text-gray-600">
                       <th className="p-2">Document Date</th>
                       <th className="p-2">Document Number</th>
                       <th className="p-2 text-right">Currency Value</th>
@@ -769,14 +764,14 @@ function WebConfirmationPanel({
                           .join(' · ');
                       }
                       return (
-                        <tr key={line.id} className="border-t border-indigo-50 bg-white">
+                        <tr key={line.id} className="border-t border-neutral-100 bg-white">
                           <td className="p-2 text-gray-800">{line.documentDate || '—'}</td>
                           <td className="p-2 font-mono text-gray-700">{line.documentNumber || '—'}</td>
                           <td className="p-2 text-right text-gray-800 tabular-nums">
                             {formatCurrencyCellDisplay(line.currencyValue)}
                           </td>
                           <td className="p-2 text-gray-700">
-                            <span className={`font-medium ${confirmed ? 'text-green-700' : queried ? 'text-amber-800' : 'text-gray-400'}`}>
+                            <span className={`font-medium ${confirmed ? 'text-emerald-800' : queried ? 'text-neutral-800' : 'text-gray-400'}`}>
                               {label}
                             </span>
                             {detail && <span className="block text-[11px] text-gray-500 mt-0.5">{detail}</span>}
@@ -792,14 +787,14 @@ function WebConfirmationPanel({
         {(lines.length === 0 ||
           (record.category !== 'Trade Payables' && record.category !== 'Trade Receivables')) &&
           record.webConfirmedAt && (
-          <p className="text-green-800 font-medium">Balance / line confirmed via web (Confirm action).</p>
+          <p className="text-emerald-800 font-medium">Balance / line confirmed via web (Confirm action).</p>
         )}
         {queryLines.length > 0 && lines.length === 0 && (
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Queries submitted</p>
             <ul className="space-y-2">
               {queryLines.map((line, i) => (
-                <li key={line.recordId ?? i} className="bg-white border border-indigo-100 rounded-lg px-3 py-2 text-sm">
+                <li key={line.recordId ?? i} className="bg-white border border-neutral-200 rounded-lg px-3 py-2 text-sm">
                   {line.amountInBooks?.trim() && (
                     <span className="font-medium text-gray-900">
                       Amount (books): {formatCurrencyCellDisplay(line.amountInBooks)}
@@ -827,7 +822,7 @@ function WebConfirmationPanel({
                   href={`/api/uploads/local-file?relative=${encodeURIComponent(f.path)}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-indigo-200 rounded-lg text-indigo-700 text-sm hover:bg-indigo-50"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-neutral-800 text-sm hover:bg-neutral-50"
                 >
                   {fileIcon('application/pdf')}
                   <span className="truncate max-w-[200px]">{f.originalName}</span>
@@ -925,13 +920,13 @@ function ResponseTabContent({
   return (
     <div className="flex flex-col flex-1 min-h-0 h-full overflow-hidden">
       {showBothChannels && (
-        <div className="flex flex-wrap gap-1 px-3 py-2 border-b border-gray-200 bg-slate-50 flex-shrink-0">
+        <div className="flex flex-wrap gap-1 px-3 py-2 border-b border-gray-200 bg-neutral-50 flex-shrink-0">
           <button
             type="button"
             onClick={() => setResponseChannel('web')}
             className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
               responseChannel === 'web'
-                ? 'bg-indigo-600 text-white'
+                ? 'bg-neutral-900 text-white'
                 : 'text-gray-600 hover:bg-gray-200/80'
             }`}
           >
@@ -942,7 +937,7 @@ function ResponseTabContent({
             onClick={() => setResponseChannel('email')}
             className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
               responseChannel === 'email'
-                ? 'bg-green-600 text-white'
+                ? 'bg-neutral-900 text-white'
                 : 'text-gray-600 hover:bg-gray-200/80'
             }`}
           >
@@ -959,7 +954,7 @@ function ResponseTabContent({
 
       {hasEmailThread && resp && (!showBothChannels || responseChannel === 'email') && (
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden border-t border-gray-100">
-          <div className="px-4 py-2 bg-slate-100 border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-600 flex-shrink-0">
+          <div className="px-4 py-2 bg-neutral-100 border-b border-neutral-200 text-xs font-semibold uppercase tracking-wide text-neutral-600 flex-shrink-0">
             Email reply (inbox thread)
           </div>
       {responses.length > 1 && (
@@ -972,7 +967,7 @@ function ResponseTabContent({
               key={r.messageId || i}
               onClick={() => setActiveResponseIdx(i)}
               className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
-                i === activeResponseIdx ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                i === activeResponseIdx ? 'bg-neutral-900 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
               }`}
             >
               #{i + 1}
@@ -982,10 +977,10 @@ function ResponseTabContent({
       )}
 
       {/* Response header */}
-      <div className="bg-green-600 text-white px-6 py-4">
+      <div className="bg-neutral-900 text-white px-6 py-4">
         <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-green-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-neutral-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
             </svg>
             <span className="font-semibold text-lg">
@@ -1003,17 +998,17 @@ function ResponseTabContent({
         </div>
         <div className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
           <div>
-            <p className="text-green-200 text-xs font-medium uppercase tracking-wide">From</p>
+            <p className="text-neutral-300 text-xs font-medium uppercase tracking-wide">From</p>
             <p className="text-white font-medium mt-0.5">{resp.fromName || resp.fromEmail || '—'}</p>
-            {resp.fromName && resp.fromEmail && <p className="text-green-200 text-xs mt-0.5">{resp.fromEmail}</p>}
+            {resp.fromName && resp.fromEmail && <p className="text-neutral-300 text-xs mt-0.5">{resp.fromEmail}</p>}
           </div>
           <div>
-            <p className="text-green-200 text-xs font-medium uppercase tracking-wide">Received At</p>
+            <p className="text-neutral-300 text-xs font-medium uppercase tracking-wide">Received At</p>
             <p className="text-white font-medium mt-0.5">{formatDate(resp.receivedAt)}</p>
           </div>
           {resp.subject && (
             <div className="col-span-2">
-              <p className="text-green-200 text-xs font-medium uppercase tracking-wide">Subject</p>
+              <p className="text-neutral-300 text-xs font-medium uppercase tracking-wide">Subject</p>
               <p className="text-white mt-0.5">{resp.subject}</p>
             </div>
           )}
@@ -1022,8 +1017,8 @@ function ResponseTabContent({
 
       {/* Attachments */}
       {respAttachments.length > 0 && (
-        <div className="px-6 py-3 border-b border-gray-200 bg-amber-50">
-          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-2">
+        <div className="px-6 py-3 border-b border-gray-200 bg-neutral-50">
+          <p className="text-xs font-semibold text-neutral-700 uppercase tracking-wide mb-2">
             {respAttachments.length} Attachment{respAttachments.length > 1 ? 's' : ''}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -1041,18 +1036,18 @@ function ResponseTabContent({
               <button
                 onClick={() => onDownloadAttachment(att, activeResponseIdx)}
                 disabled={downloadingAttachment === att.id}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-amber-200 rounded-lg text-sm hover:bg-amber-50 hover:border-amber-400 transition-colors disabled:opacity-60"
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-neutral-200 rounded-lg text-sm hover:bg-neutral-50 hover:border-neutral-400 transition-colors disabled:opacity-60"
               >
                 <span className="text-base leading-none">{fileIcon(att.contentType)}</span>
                 <span className="max-w-[180px] truncate text-gray-700 font-medium">{att.name}</span>
                 <span className="text-gray-400 text-xs flex-shrink-0">{formatFileSize(att.size)}</span>
                 {downloadingAttachment === att.id ? (
-                  <svg className="w-4 h-4 animate-spin text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 animate-spin text-neutral-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
                 ) : (
-                  <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-neutral-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
                 )}
@@ -1062,7 +1057,7 @@ function ResponseTabContent({
                   href={openHref}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-xs font-medium text-amber-800 hover:underline px-2 py-1 rounded-lg border border-amber-200 bg-white"
+                  className="text-xs font-medium text-neutral-800 hover:underline px-2 py-1 rounded-lg border border-neutral-200 bg-white"
                 >
                   View PDF
                 </a>
@@ -1079,13 +1074,13 @@ function ResponseTabContent({
           <span className="text-gray-500">View:</span>
           <button
             onClick={() => setShowFullThread(false)}
-            className={`px-2.5 py-1 rounded-full font-medium transition-colors ${!showFullThread ? 'bg-green-600 text-white' : 'text-gray-500 hover:bg-gray-200'}`}
+            className={`px-2.5 py-1 rounded-full font-medium transition-colors ${!showFullThread ? 'bg-neutral-900 text-white' : 'text-gray-500 hover:bg-gray-200'}`}
           >
             Reply only
           </button>
           <button
             onClick={loadFullThread}
-            className={`px-2.5 py-1 rounded-full font-medium transition-colors ${showFullThread ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-200'}`}
+            className={`px-2.5 py-1 rounded-full font-medium transition-colors ${showFullThread ? 'bg-neutral-900 text-white' : 'text-gray-500 hover:bg-gray-200'}`}
           >
             Full email thread
           </button>
@@ -1097,7 +1092,7 @@ function ResponseTabContent({
         {showFullThread ? (
           loadingThread ? (
             <div className="flex items-center justify-center py-24">
-              <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+              <div className="animate-spin w-8 h-8 border-4 border-neutral-900 border-t-transparent rounded-full" />
             </div>
           ) : threadPdfUrl ? (
             <embed src={threadPdfUrl} type="application/pdf" className="w-full h-full min-h-[400px]" title="Full Thread PDF" />
@@ -1157,9 +1152,9 @@ function TrailItem({
   onView?: () => void;
 }) {
   const cfg = {
-    conf:     { icon: '📧', bg: 'bg-blue-50',   border: 'border-blue-200',  dot: 'bg-blue-500',  text: 'text-blue-700'  },
-    followup: { icon: '🔁', bg: 'bg-amber-50',  border: 'border-amber-200', dot: 'bg-amber-500', text: 'text-amber-700' },
-    response: { icon: '✅', bg: 'bg-green-50',  border: 'border-green-200', dot: 'bg-green-500', text: 'text-green-700' },
+    conf:     { icon: '📧', bg: 'bg-neutral-50',   border: 'border-neutral-200',  dot: 'bg-neutral-700',  text: 'text-neutral-900'  },
+    followup: { icon: '🔁', bg: 'bg-neutral-50',  border: 'border-neutral-200', dot: 'bg-neutral-600', text: 'text-neutral-800' },
+    response: { icon: '✅', bg: 'bg-emerald-50/90',  border: 'border-emerald-200/80', dot: 'bg-emerald-700', text: 'text-emerald-900' },
   }[type];
 
   const formatDate = (d?: string | null) => {
@@ -1182,7 +1177,7 @@ function TrailItem({
       {onView && (
         <button
           onClick={onView}
-          className="flex-shrink-0 text-xs font-medium text-blue-600 hover:text-blue-800 px-2 py-1 hover:bg-blue-50 rounded transition-colors"
+          className="flex-shrink-0 text-xs font-medium text-neutral-700 hover:text-neutral-900 px-2 py-1 hover:bg-neutral-100 rounded transition-colors"
         >
           View →
         </button>
@@ -1200,11 +1195,11 @@ function FolderPath({ label, path }: { label: string; path: string }) {
   };
   return (
     <div className="flex items-center gap-2 mt-1">
-      <span className="text-blue-600 font-medium w-24 flex-shrink-0">{label}:</span>
-      <span className="text-blue-800 font-mono truncate flex-1" title={path}>{path}</span>
-      <button onClick={handleCopy} className="flex-shrink-0 text-blue-600 hover:text-blue-800 transition-colors" title="Copy path">
+      <span className="text-neutral-700 font-medium w-24 flex-shrink-0">{label}:</span>
+      <span className="text-neutral-900 font-mono truncate flex-1" title={path}>{path}</span>
+      <button onClick={handleCopy} className="flex-shrink-0 text-neutral-600 hover:text-neutral-900 transition-colors" title="Copy path">
         {copied ? (
-          <svg className="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-3.5 h-3.5 text-emerald-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         ) : (

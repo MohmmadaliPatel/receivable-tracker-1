@@ -172,12 +172,12 @@ function msmeCertificateViewLinks(
 function confirmationKindCell(record: ConfirmationRecord, formatDate: (iso?: string | null) => string) {
   const k = record.confirmationKind;
   if (k === 'queried') {
-    return <span className="text-amber-800 font-medium">Queried</span>;
+    return <span className="text-neutral-800 font-medium">Queried</span>;
   }
   if (k === 'confirmed') {
     return (
       <span className="block">
-        <span className="text-green-700 font-medium">Confirmed</span>
+        <span className="text-emerald-800 font-medium">Confirmed</span>
         {record.emailActionConsumedAt ? (
           <span className="block text-gray-400 mt-0.5 text-[10px]">
             Link used {formatDate(record.emailActionConsumedAt)}
@@ -200,9 +200,9 @@ function confirmationKindCell(record: ConfirmationRecord, formatDate: (iso?: str
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   not_sent: { label: 'Not Sent', color: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' },
-  sent: { label: 'Email Sent', color: 'bg-blue-100 text-blue-700', dot: 'bg-blue-500' },
-  followup_sent: { label: 'Follow-up Sent', color: 'bg-amber-100 text-amber-700', dot: 'bg-amber-500' },
-  response_received: { label: 'Response Received', color: 'bg-green-100 text-green-700', dot: 'bg-green-500' },
+  sent: { label: 'Email Sent', color: 'bg-neutral-100 text-neutral-800', dot: 'bg-neutral-600' },
+  followup_sent: { label: 'Follow-up Sent', color: 'bg-neutral-100 text-neutral-700', dot: 'bg-neutral-700' },
+  response_received: { label: 'Response Received', color: 'bg-emerald-50 text-emerald-800', dot: 'bg-emerald-600' },
 };
 
 export default function ConfirmationTable({
@@ -256,7 +256,13 @@ export default function ConfirmationTable({
     setSendModalMode(mode);
   };
 
-  const handleSendConfirmed = async (overrides: { emailTo: string; emailCc: string; remarks: string; emailBody?: string }) => {
+  const handleSendConfirmed = async (overrides: {
+    emailTo: string;
+    emailCc: string;
+    remarks: string;
+    emailBody?: string;
+    emailBodyTemplateId?: string;
+  }) => {
     if (!sendModalRecord) return;
     setSendingId(sendModalRecord.id);
 
@@ -279,7 +285,10 @@ export default function ConfirmationTable({
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emailBody: overrides.emailBody || undefined }),
+      body: JSON.stringify({
+        emailBody: overrides.emailBody || undefined,
+        emailBodyTemplateId: overrides.emailBodyTemplateId || undefined,
+      }),
     });
     const data = await res.json();
     setSendingId(null);
@@ -338,7 +347,7 @@ export default function ConfirmationTable({
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-neutral-900 border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -392,9 +401,6 @@ export default function ConfirmationTable({
               )}
               {!msmeVendorMasterLayout && (
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[140px]">Bank / Party</th>
-              )}
-              {!msmeVendorMasterLayout && (
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Acct No.</th>
               )}
               {!tradeListingLayout && !msmeVendorMasterLayout && (
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Cust ID</th>
@@ -476,7 +482,7 @@ export default function ConfirmationTable({
                                       href={l.href}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline truncate max-w-[180px]"
+                                      className="text-xs text-neutral-700 hover:text-neutral-900 hover:underline truncate max-w-[180px]"
                                       title={l.label}
                                     >
                                       View: {l.label}
@@ -501,7 +507,7 @@ export default function ConfirmationTable({
                             <button
                               type="button"
                               onClick={() => onOpenInvoiceLines(record)}
-                              className="block text-left text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline mt-0.5 font-medium"
+                              className="block text-left text-[10px] text-neutral-700 hover:text-neutral-900 hover:underline mt-0.5 font-medium"
                               aria-label={`View ${record.tradeInvoiceLines!.length} invoice lines for ${displayParts.party}`}
                             >
                               {record.tradeInvoiceLines!.length} invoice line
@@ -525,7 +531,7 @@ export default function ConfirmationTable({
                           <button
                             type="button"
                             onClick={() => onOpenInvoiceLines(record)}
-                            className="block text-left text-[10px] text-indigo-600 hover:text-indigo-800 hover:underline mt-0.5 font-medium"
+                            className="block text-left text-[10px] text-neutral-700 hover:text-neutral-900 hover:underline mt-0.5 font-medium"
                             aria-label={`View ${record.tradeInvoiceLines!.length} invoice lines for ${record.entityName}`}
                           >
                             {record.tradeInvoiceLines!.length} invoice line
@@ -549,9 +555,6 @@ export default function ConfirmationTable({
 
                       {/* Bank/Party */}
                       <td className="px-4 py-3 text-xs text-gray-600">{record.bankName || '—'}</td>
-
-                      {/* Account No */}
-                      <td className="px-4 py-3 text-xs text-gray-500 font-mono">{record.accountNumber || '—'}</td>
 
                       {/* Cust ID */}
                       {!tradeListingLayout && (
@@ -579,7 +582,7 @@ export default function ConfirmationTable({
                     <td className="px-4 py-3">
                     {record.attachmentName ? (
                       <div className="flex items-center gap-1">
-                        <svg className="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                         </svg>
                         <span className="text-xs text-gray-600 truncate max-w-[80px]" title={record.attachmentName}>
@@ -595,7 +598,7 @@ export default function ConfirmationTable({
                           fileInputRef.current?.click();
                         }}
                         disabled={isUploading}
-                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                        className="flex items-center gap-1 text-xs text-neutral-800 hover:text-neutral-950 transition-colors"
                       >
                         {isUploading ? (
                           <svg className="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -616,7 +619,7 @@ export default function ConfirmationTable({
                   <td className="px-4 py-3">
                     <button
                       onClick={() => setPreviewRecordId(record.id)}
-                      className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800 transition-colors"
+                      className="flex items-center gap-1 text-xs text-neutral-700 hover:text-neutral-900 transition-colors"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -632,7 +635,7 @@ export default function ConfirmationTable({
                       <button
                         onClick={() => openSendModal(record, 'send')}
                         disabled={isSending}
-                        className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-neutral-900 text-white text-xs font-medium rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50"
                       >
                         {isSending ? (
                           <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -650,7 +653,7 @@ export default function ConfirmationTable({
                       <button
                         onClick={() => openSendModal(record, 'followup')}
                         disabled={isFollowingUp}
-                        className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 text-white text-xs font-medium rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-neutral-700 text-white text-xs font-medium rounded-lg hover:bg-neutral-800 transition-colors disabled:opacity-50"
                       >
                         {isFollowingUp ? (
                           <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -675,12 +678,12 @@ export default function ConfirmationTable({
                       )}
                     {record.status === 'response_received' && (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-green-600 font-medium">Received</span>
+                        <span className="text-xs font-medium text-emerald-700">Received</span>
                         <button
                           onClick={() => handleResetResponse(record.id)}
                           disabled={resettingId === record.id}
                           title="Reset and re-check reply"
-                          className="text-xs text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-50"
+                          className="text-xs text-neutral-400 hover:text-neutral-800 transition-colors disabled:opacity-50"
                         >
                           <svg className={`w-3 h-3 ${resettingId === record.id ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -754,10 +757,10 @@ export default function ConfirmationTable({
                             if (e.key === 'Enter') handleSaveRemark(record.id);
                             if (e.key === 'Escape') setEditingRemark(null);
                           }}
-                          className="text-xs border border-gray-300 rounded px-2 py-1 w-24 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="text-xs border border-gray-300 rounded px-2 py-1 w-24 focus:outline-none focus:ring-1 focus:ring-neutral-900/25"
                           placeholder="Add remark…"
                         />
-                        <button onClick={() => handleSaveRemark(record.id)} className="text-green-600 hover:text-green-800">
+                        <button onClick={() => handleSaveRemark(record.id)} className="font-medium text-emerald-700 hover:text-emerald-900">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                           </svg>
@@ -790,7 +793,7 @@ export default function ConfirmationTable({
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setEditRecord(record)}
-                        className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
+                        className="p-1 text-gray-300 hover:text-neutral-700 transition-colors"
                         title="Edit record"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

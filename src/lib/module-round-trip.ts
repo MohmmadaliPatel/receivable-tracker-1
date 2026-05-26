@@ -5,7 +5,6 @@ export const ROUND_TRIP_HEADERS = [
   'Email TO',
   'Email CC',
   'Bank Name',
-  'Account Number',
   'Cust ID',
   'Remarks',
 ] as const;
@@ -16,7 +15,6 @@ export type RoundTripRow = {
   emailTo: string;
   emailCc: string;
   bankName: string;
-  accountNumber: string;
   custId: string;
   remarks: string;
 };
@@ -51,7 +49,6 @@ export function mapRoundTripCsvRow(row: Record<string, string>): RoundTripRow | 
     emailTo,
     emailCc: getCol(row, ['Email CC', 'email cc']),
     bankName: getCol(row, ['Bank Name', 'bank name']),
-    accountNumber: getCol(row, ['Account Number', 'account no', 'Account No']),
     custId: getCol(row, ['Cust ID', 'customer id', 'cust id']),
     remarks: getCol(row, ['Remarks', 'remarks', 'Query/Remarks']),
   };
