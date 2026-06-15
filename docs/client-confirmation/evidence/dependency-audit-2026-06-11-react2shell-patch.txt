@@ -1,0 +1,306 @@
+
+> email-auto@0.1.0 security:audit
+> npm audit --audit-level=moderate
+
+# npm audit report
+
+basic-ftp  <=5.3.0
+Severity: high
+basic-ftp: Incomplete CRLF Injection Protection Allows Arbitrary FTP Command Execution via Credentials and MKD Commands - https://github.com/advisories/GHSA-6v7q-wjvx-w8wg
+basic-ftp has FTP Command Injection via CRLF - https://github.com/advisories/GHSA-chqc-8p9q-pq6q
+basic-ftp vulnerable to denial of service via unbounded memory consumption in Client.list() - https://github.com/advisories/GHSA-rp42-5vxx-qpwr
+basic-ftp allows a malicious FTP server to cause client-side denial of service via unbounded multiline control response buffering - https://github.com/advisories/GHSA-rpmf-866q-6p89
+fix available via `npm audit fix`
+node_modules/basic-ftp
+
+cookie  <0.7.0
+cookie accepts cookie name, path, and domain with out of bounds characters - https://github.com/advisories/GHSA-pxg6-pf52-xh8x
+fix available via `npm audit fix --force`
+Will install @auth/core@0.41.2, which is a breaking change
+node_modules/@auth/core/node_modules/cookie
+  @auth/core  <=0.41.0
+  Depends on vulnerable versions of cookie
+  Depends on vulnerable versions of nodemailer
+  node_modules/@auth/core
+    next-auth  *
+    Depends on vulnerable versions of @auth/core
+    Depends on vulnerable versions of next
+    Depends on vulnerable versions of nodemailer
+    Depends on vulnerable versions of uuid
+    node_modules/next-auth
+
+fast-xml-parser  <=5.6.0
+Severity: critical
+fast-xml-parser has RangeError DoS Numeric Entities Bug - https://github.com/advisories/GHSA-37qj-frw5-hhjh
+fast-xml-parser has an entity encoding bypass via regex injection in DOCTYPE entity names - https://github.com/advisories/GHSA-m7jm-9gc2-mpf2
+fast-xml-parser affected by DoS through entity expansion in DOCTYPE (no expansion limit) - https://github.com/advisories/GHSA-jmr7-xgp7-cmfj
+fast-xml-parser has stack overflow in XMLBuilder with preserveOrder - https://github.com/advisories/GHSA-fj3w-jwp8-x2g3
+fast-xml-parser affected by numeric entity expansion bypassing all entity expansion limits (incomplete fix for CVE-2026-26278) - https://github.com/advisories/GHSA-8gc5-j5rx-235r
+Entity Expansion Limits Bypassed When Set to Zero Due to JavaScript Falsy Evaluation in fast-xml-parser - https://github.com/advisories/GHSA-jp2q-39xq-3w4g
+fast-xml-parser XMLBuilder: XML Comment and CDATA Injection via Unescaped Delimiters - https://github.com/advisories/GHSA-gh4j-gqv2-49f6
+fix available via `npm audit fix`
+node_modules/fast-xml-parser
+  @aws-sdk/xml-builder  3.894.0 - 3.972.18
+  Depends on vulnerable versions of fast-xml-parser
+  node_modules/@aws-sdk/xml-builder
+    @aws-sdk/core  3.894.0 - 3.972.0
+    Depends on vulnerable versions of @aws-sdk/xml-builder
+    node_modules/@aws-sdk/core
+      @aws-sdk/client-sesv2  3.894.0 - 3.978.0
+      Depends on vulnerable versions of @aws-sdk/core
+      Depends on vulnerable versions of @aws-sdk/credential-provider-node
+      Depends on vulnerable versions of @aws-sdk/middleware-user-agent
+      Depends on vulnerable versions of @aws-sdk/signature-v4-multi-region
+      Depends on vulnerable versions of @aws-sdk/util-user-agent-node
+      node_modules/@aws-sdk/client-sesv2
+      @aws-sdk/client-sso  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      Depends on vulnerable versions of @aws-sdk/middleware-user-agent
+      Depends on vulnerable versions of @aws-sdk/util-user-agent-node
+      node_modules/@aws-sdk/client-sso
+      @aws-sdk/credential-provider-env  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      node_modules/@aws-sdk/credential-provider-env
+      @aws-sdk/credential-provider-http  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      node_modules/@aws-sdk/credential-provider-http
+        @aws-sdk/credential-provider-node  3.894.0 - 3.972.0
+        Depends on vulnerable versions of @aws-sdk/credential-provider-env
+        Depends on vulnerable versions of @aws-sdk/credential-provider-http
+        Depends on vulnerable versions of @aws-sdk/credential-provider-ini
+        Depends on vulnerable versions of @aws-sdk/credential-provider-process
+        Depends on vulnerable versions of @aws-sdk/credential-provider-sso
+        Depends on vulnerable versions of @aws-sdk/credential-provider-web-identity
+        node_modules/@aws-sdk/credential-provider-node
+      @aws-sdk/credential-provider-ini  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      Depends on vulnerable versions of @aws-sdk/credential-provider-env
+      Depends on vulnerable versions of @aws-sdk/credential-provider-http
+      Depends on vulnerable versions of @aws-sdk/credential-provider-login
+      Depends on vulnerable versions of @aws-sdk/credential-provider-process
+      Depends on vulnerable versions of @aws-sdk/credential-provider-sso
+      Depends on vulnerable versions of @aws-sdk/credential-provider-web-identity
+      Depends on vulnerable versions of @aws-sdk/nested-clients
+      node_modules/@aws-sdk/credential-provider-ini
+      @aws-sdk/credential-provider-login  <=3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      Depends on vulnerable versions of @aws-sdk/nested-clients
+      node_modules/@aws-sdk/credential-provider-login
+      @aws-sdk/credential-provider-process  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      node_modules/@aws-sdk/credential-provider-process
+      @aws-sdk/credential-provider-sso  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/client-sso
+      Depends on vulnerable versions of @aws-sdk/core
+      Depends on vulnerable versions of @aws-sdk/token-providers
+      node_modules/@aws-sdk/credential-provider-sso
+      @aws-sdk/credential-provider-web-identity  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      Depends on vulnerable versions of @aws-sdk/nested-clients
+      node_modules/@aws-sdk/credential-provider-web-identity
+      @aws-sdk/middleware-sdk-s3  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      node_modules/@aws-sdk/middleware-sdk-s3
+        @aws-sdk/signature-v4-multi-region  3.894.0 - 3.972.0
+        Depends on vulnerable versions of @aws-sdk/middleware-sdk-s3
+        node_modules/@aws-sdk/signature-v4-multi-region
+      @aws-sdk/middleware-user-agent  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      node_modules/@aws-sdk/middleware-user-agent
+        @aws-sdk/util-user-agent-node  3.894.0 - 3.972.0
+        Depends on vulnerable versions of @aws-sdk/middleware-user-agent
+        node_modules/@aws-sdk/util-user-agent-node
+      @aws-sdk/nested-clients  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      Depends on vulnerable versions of @aws-sdk/middleware-user-agent
+      Depends on vulnerable versions of @aws-sdk/util-user-agent-node
+      node_modules/@aws-sdk/nested-clients
+      @aws-sdk/token-providers  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      Depends on vulnerable versions of @aws-sdk/nested-clients
+      node_modules/@aws-sdk/token-providers
+
+ip-address  <=10.1.0
+Severity: moderate
+ip-address has XSS in Address6 HTML-emitting methods - https://github.com/advisories/GHSA-v2v4-37r5-5v8g
+fix available via `npm audit fix`
+node_modules/ip-address
+
+jws  <3.2.3
+Severity: high
+auth0/node-jws Improperly Verifies HMAC Signature - https://github.com/advisories/GHSA-869p-cjfg-cm3x
+fix available via `npm audit fix`
+node_modules/jws
+
+
+nodemailer  <=8.0.4
+Severity: high
+Nodemailer: Email to an unintended domain can occur due to Interpretation Conflict - https://github.com/advisories/GHSA-mm7p-fcc7-pg87
+Nodemailer’s addressparser is vulnerable to DoS caused by recursive calls - https://github.com/advisories/GHSA-rcmh-qjqh-p98v
+Nodemailer has SMTP command injection due to unsanitized `envelope.size` parameter - https://github.com/advisories/GHSA-c7w3-x93f-qmm8
+Nodemailer Vulnerable to SMTP Command Injection via CRLF in Transport name Option (EHLO/HELO)  - https://github.com/advisories/GHSA-vvjj-xcjg-gr5g
+fix available via `npm audit fix --force`
+Will install nodemailer@8.0.11, which is a breaking change
+node_modules/nodemailer
+
+postcss  <8.5.10
+Severity: moderate
+PostCSS has XSS via Unescaped </style> in its CSS Stringify Output - https://github.com/advisories/GHSA-qx2v-qp2m-jg93
+fix available via `npm audit fix --force`
+Will install next@9.3.3, which is a breaking change
+node_modules/next/node_modules/postcss
+node_modules/postcss
+  next  9.3.4-canary.0 - 16.3.0-canary.5
+  Depends on vulnerable versions of postcss
+  node_modules/next
+
+preact  10.27.0 - 10.27.2
+Severity: high
+Preact has JSON VNode Injection issue - https://github.com/advisories/GHSA-36hm-qxxp-pg3m
+fix available via `npm audit fix`
+node_modules/preact
+
+tar  <=7.5.10
+Severity: high
+node-tar Vulnerable to Arbitrary File Creation/Overwrite via Hardlink Path Traversal - https://github.com/advisories/GHSA-34x7-hfp2-rc4v
+node-tar is Vulnerable to Arbitrary File Overwrite and Symlink Poisoning via Insufficient Path Sanitization - https://github.com/advisories/GHSA-8qq5-rm4j-mr97
+Arbitrary File Read/Write via Hardlink Target Escape Through Symlink Chain in node-tar Extraction - https://github.com/advisories/GHSA-83g3-92jg-28cx
+tar has Hardlink Path Traversal via Drive-Relative Linkpath - https://github.com/advisories/GHSA-qffp-2rhf-9h96
+node-tar Symlink Path Traversal via Drive-Relative Linkpath - https://github.com/advisories/GHSA-9ppj-qmqm-q256
+Race Condition in node-tar Path Reservations via Unicode Ligature Collisions on macOS APFS - https://github.com/advisories/GHSA-r6q2-hw4h-h46w
+fix available via `npm audit fix`
+node_modules/tar
+
+uuid  <11.1.1
+Severity: moderate
+uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided - https://github.com/advisories/GHSA-w5hq-g745-h8pq
+fix available via `npm audit fix --force`
+Will install @azure/msal-node@5.2.4, which is a breaking change
+node_modules/uuid
+  @azure/msal-node  <=5.1.4
+  Depends on vulnerable versions of uuid
+  node_modules/@azure/msal-node
+
+ws  8.0.0 - 8.20.0
+Severity: moderate
+ws: Uninitialized memory disclosure - https://github.com/advisories/GHSA-58qx-3vcg-4xpx
+fix available via `npm audit fix`
+node_modules/ws
+
+xlsx  *
+Severity: high
+Prototype Pollution in sheetJS - https://github.com/advisories/GHSA-4r6h-8v6p-xvw6
+SheetJS Regular Expression Denial of Service (ReDoS) - https://github.com/advisories/GHSA-5pgg-2g8v-p4x9
+No fix available
+node_modules/xlsx
+
+34 vulnerabilities (1 low, 26 moderate, 6 high, 1 critical)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+
+Some issues need review, and may require choosing
+a different dependency.
+# npm audit report
+
+basic-ftp  <=5.3.0
+Severity: high
+basic-ftp: Incomplete CRLF Injection Protection Allows Arbitrary FTP Command Execution via Credentials and MKD Commands - https://github.com/advisories/GHSA-6v7q-wjvx-w8wg
+basic-ftp has FTP Command Injection via CRLF - https://github.com/advisories/GHSA-chqc-8p9q-pq6q
+basic-ftp vulnerable to denial of service via unbounded memory consumption in Client.list() - https://github.com/advisories/GHSA-rp42-5vxx-qpwr
+basic-ftp allows a malicious FTP server to cause client-side denial of service via unbounded multiline control response buffering - https://github.com/advisories/GHSA-rpmf-866q-6p89
+fix available via `npm audit fix`
+node_modules/basic-ftp
+
+cookie  <0.7.0
+cookie accepts cookie name, path, and domain with out of bounds characters - https://github.com/advisories/GHSA-pxg6-pf52-xh8x
+fix available via `npm audit fix --force`
+Will install @auth/core@0.41.2, which is a breaking change
+node_modules/@auth/core/node_modules/cookie
+  @auth/core  <=0.41.0
+  Depends on vulnerable versions of cookie
+  Depends on vulnerable versions of nodemailer
+  node_modules/@auth/core
+    next-auth  *
+    Depends on vulnerable versions of @auth/core
+    Depends on vulnerable versions of next
+    Depends on vulnerable versions of nodemailer
+    Depends on vulnerable versions of uuid
+    node_modules/next-auth
+
+fast-xml-parser  <=5.6.0
+Severity: critical
+fast-xml-parser has RangeError DoS Numeric Entities Bug - https://github.com/advisories/GHSA-37qj-frw5-hhjh
+fast-xml-parser has an entity encoding bypass via regex injection in DOCTYPE entity names - https://github.com/advisories/GHSA-m7jm-9gc2-mpf2
+fast-xml-parser affected by DoS through entity expansion in DOCTYPE (no expansion limit) - https://github.com/advisories/GHSA-jmr7-xgp7-cmfj
+fast-xml-parser has stack overflow in XMLBuilder with preserveOrder - https://github.com/advisories/GHSA-fj3w-jwp8-x2g3
+fast-xml-parser affected by numeric entity expansion bypassing all entity expansion limits (incomplete fix for CVE-2026-26278) - https://github.com/advisories/GHSA-8gc5-j5rx-235r
+Entity Expansion Limits Bypassed When Set to Zero Due to JavaScript Falsy Evaluation in fast-xml-parser - https://github.com/advisories/GHSA-jp2q-39xq-3w4g
+fast-xml-parser XMLBuilder: XML Comment and CDATA Injection via Unescaped Delimiters - https://github.com/advisories/GHSA-gh4j-gqv2-49f6
+fix available via `npm audit fix`
+node_modules/fast-xml-parser
+  @aws-sdk/xml-builder  3.894.0 - 3.972.18
+  Depends on vulnerable versions of fast-xml-parser
+  node_modules/@aws-sdk/xml-builder
+    @aws-sdk/core  3.894.0 - 3.972.0
+    Depends on vulnerable versions of @aws-sdk/xml-builder
+    node_modules/@aws-sdk/core
+      @aws-sdk/client-sesv2  3.894.0 - 3.978.0
+      Depends on vulnerable versions of @aws-sdk/core
+      Depends on vulnerable versions of @aws-sdk/credential-provider-node
+      Depends on vulnerable versions of @aws-sdk/middleware-user-agent
+      Depends on vulnerable versions of @aws-sdk/signature-v4-multi-region
+      Depends on vulnerable versions of @aws-sdk/util-user-agent-node
+      node_modules/@aws-sdk/client-sesv2
+      @aws-sdk/client-sso  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      Depends on vulnerable versions of @aws-sdk/middleware-user-agent
+      Depends on vulnerable versions of @aws-sdk/util-user-agent-node
+      node_modules/@aws-sdk/client-sso
+      @aws-sdk/credential-provider-env  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      node_modules/@aws-sdk/credential-provider-env
+      @aws-sdk/credential-provider-http  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      node_modules/@aws-sdk/credential-provider-http
+      @aws-sdk/credential-provider-ini  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      Depends on vulnerable versions of @aws-sdk/credential-provider-env
+      Depends on vulnerable versions of @aws-sdk/credential-provider-http
+      Depends on vulnerable versions of @aws-sdk/credential-provider-login
+      Depends on vulnerable versions of @aws-sdk/credential-provider-process
+      Depends on vulnerable versions of @aws-sdk/credential-provider-sso
+      Depends on vulnerable versions of @aws-sdk/credential-provider-web-identity
+      Depends on vulnerable versions of @aws-sdk/nested-clients
+      node_modules/@aws-sdk/credential-provider-ini
+        @aws-sdk/credential-provider-node  3.894.0 - 3.972.0
+        Depends on vulnerable versions of @aws-sdk/credential-provider-env
+        Depends on vulnerable versions of @aws-sdk/credential-provider-http
+        Depends on vulnerable versions of @aws-sdk/credential-provider-ini
+        Depends on vulnerable versions of @aws-sdk/credential-provider-process
+        Depends on vulnerable versions of @aws-sdk/credential-provider-sso
+        Depends on vulnerable versions of @aws-sdk/credential-provider-web-identity
+        node_modules/@aws-sdk/credential-provider-node
+      @aws-sdk/credential-provider-login  <=3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      Depends on vulnerable versions of @aws-sdk/nested-clients
+      node_modules/@aws-sdk/credential-provider-login
+      @aws-sdk/credential-provider-process  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      node_modules/@aws-sdk/credential-provider-process
+      @aws-sdk/credential-provider-sso  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/client-sso
+      Depends on vulnerable versions of @aws-sdk/core
+      Depends on vulnerable versions of @aws-sdk/token-providers
+      node_modules/@aws-sdk/credential-provider-sso
+      @aws-sdk/credential-provider-web-identity  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      Depends on vulnerable versions of @aws-sdk/nested-clients
+      node_modules/@aws-sdk/credential-provider-web-identity
+      @aws-sdk/middleware-sdk-s3  3.894.0 - 3.972.0
+      Depends on vulnerable versions of @aws-sdk/core
+      node_modules/@aws-sdk/middleware-sdk-s3
+        @aws-sdk/signature-v4-multi-region  3.894.0 - 3.972.0

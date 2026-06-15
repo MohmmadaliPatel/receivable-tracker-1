@@ -1,0 +1,12 @@
+{
+  "pages": {
+    "/api/email-body-templates/route": [
+      "static/chunks/cf7a5f02862ea17b.js",
+      "static/chunks/4f748dba2d106a49.js",
+      "static/chunks/8082ab48faca5ea1.js",
+      "static/chunks/fc86b4b6d0fb9aa2.js",
+      "static/chunks/de9777518f2b49c4.js",
+      "static/chunks/turbopack-94c86d0f7f524342.js"
+    ]
+  }
+}

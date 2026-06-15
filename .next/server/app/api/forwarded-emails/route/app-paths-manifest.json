@@ -1,0 +1,3 @@
+{
+  "/api/forwarded-emails/route": "app/api/forwarded-emails/route.js"
+}

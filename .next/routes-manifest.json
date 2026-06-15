@@ -1,0 +1,496 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/:path*",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://graph.microsoft.com https://login.microsoftonline.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self';"
+        }
+      ],
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+    }
+  ],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/api/auth/[...nextauth]",
+      "regex": "^/api/auth/(.+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPnextauth": "nxtPnextauth"
+      },
+      "namedRegex": "^/api/auth/(?<nxtPnextauth>.+?)(?:/)?$"
+    },
+    {
+      "page": "/api/confirmations/[id]",
+      "regex": "^/api/confirmations/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/confirmations/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/confirmations/[id]/attachment",
+      "regex": "^/api/confirmations/([^/]+?)/attachment(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/confirmations/(?<nxtPid>[^/]+?)/attachment(?:/)?$"
+    },
+    {
+      "page": "/api/confirmations/[id]/email-file",
+      "regex": "^/api/confirmations/([^/]+?)/email\\-file(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/confirmations/(?<nxtPid>[^/]+?)/email\\-file(?:/)?$"
+    },
+    {
+      "page": "/api/confirmations/[id]/followup",
+      "regex": "^/api/confirmations/([^/]+?)/followup(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/confirmations/(?<nxtPid>[^/]+?)/followup(?:/)?$"
+    },
+    {
+      "page": "/api/confirmations/[id]/preview",
+      "regex": "^/api/confirmations/([^/]+?)/preview(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/confirmations/(?<nxtPid>[^/]+?)/preview(?:/)?$"
+    },
+    {
+      "page": "/api/confirmations/[id]/response-attachment",
+      "regex": "^/api/confirmations/([^/]+?)/response\\-attachment(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/confirmations/(?<nxtPid>[^/]+?)/response\\-attachment(?:/)?$"
+    },
+    {
+      "page": "/api/confirmations/[id]/send",
+      "regex": "^/api/confirmations/([^/]+?)/send(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/confirmations/(?<nxtPid>[^/]+?)/send(?:/)?$"
+    },
+    {
+      "page": "/api/email-body-templates/[id]",
+      "regex": "^/api/email\\-body\\-templates/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/email\\-body\\-templates/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/email-config/[id]",
+      "regex": "^/api/email\\-config/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/email\\-config/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/email-config/[id]/activate",
+      "regex": "^/api/email\\-config/([^/]+?)/activate(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/email\\-config/(?<nxtPid>[^/]+?)/activate(?:/)?$"
+    },
+    {
+      "page": "/api/email-config/[id]/validate",
+      "regex": "^/api/email\\-config/([^/]+?)/validate(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/email\\-config/(?<nxtPid>[^/]+?)/validate(?:/)?$"
+    },
+    {
+      "page": "/api/email-tracking/[id]/forward",
+      "regex": "^/api/email\\-tracking/([^/]+?)/forward(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/email\\-tracking/(?<nxtPid>[^/]+?)/forward(?:/)?$"
+    },
+    {
+      "page": "/api/forwarded-emails/[id]/replies",
+      "regex": "^/api/forwarded\\-emails/([^/]+?)/replies(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/forwarded\\-emails/(?<nxtPid>[^/]+?)/replies(?:/)?$"
+    },
+    {
+      "page": "/api/forwarded-emails/[id]/send-reminder",
+      "regex": "^/api/forwarded\\-emails/([^/]+?)/send\\-reminder(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/forwarded\\-emails/(?<nxtPid>[^/]+?)/send\\-reminder(?:/)?$"
+    },
+    {
+      "page": "/api/forwarders/[id]",
+      "regex": "^/api/forwarders/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/forwarders/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/forwarding-rules/[id]",
+      "regex": "^/api/forwarding\\-rules/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/forwarding\\-rules/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/masters/email-body-templates/[id]",
+      "regex": "^/api/masters/email\\-body\\-templates/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/masters/email\\-body\\-templates/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/modules/[segment]/bulk-followup",
+      "regex": "^/api/modules/([^/]+?)/bulk\\-followup(?:/)?$",
+      "routeKeys": {
+        "nxtPsegment": "nxtPsegment"
+      },
+      "namedRegex": "^/api/modules/(?<nxtPsegment>[^/]+?)/bulk\\-followup(?:/)?$"
+    },
+    {
+      "page": "/api/modules/[segment]/bulk-send",
+      "regex": "^/api/modules/([^/]+?)/bulk\\-send(?:/)?$",
+      "routeKeys": {
+        "nxtPsegment": "nxtPsegment"
+      },
+      "namedRegex": "^/api/modules/(?<nxtPsegment>[^/]+?)/bulk\\-send(?:/)?$"
+    },
+    {
+      "page": "/api/modules/[segment]/export",
+      "regex": "^/api/modules/([^/]+?)/export(?:/)?$",
+      "routeKeys": {
+        "nxtPsegment": "nxtPsegment"
+      },
+      "namedRegex": "^/api/modules/(?<nxtPsegment>[^/]+?)/export(?:/)?$"
+    },
+    {
+      "page": "/api/modules/[segment]/hydrate-from-suppliers",
+      "regex": "^/api/modules/([^/]+?)/hydrate\\-from\\-suppliers(?:/)?$",
+      "routeKeys": {
+        "nxtPsegment": "nxtPsegment"
+      },
+      "namedRegex": "^/api/modules/(?<nxtPsegment>[^/]+?)/hydrate\\-from\\-suppliers(?:/)?$"
+    },
+    {
+      "page": "/api/modules/[segment]/import",
+      "regex": "^/api/modules/([^/]+?)/import(?:/)?$",
+      "routeKeys": {
+        "nxtPsegment": "nxtPsegment"
+      },
+      "namedRegex": "^/api/modules/(?<nxtPsegment>[^/]+?)/import(?:/)?$"
+    },
+    {
+      "page": "/api/modules/[segment]/invoice-lines",
+      "regex": "^/api/modules/([^/]+?)/invoice\\-lines(?:/)?$",
+      "routeKeys": {
+        "nxtPsegment": "nxtPsegment"
+      },
+      "namedRegex": "^/api/modules/(?<nxtPsegment>[^/]+?)/invoice\\-lines(?:/)?$"
+    },
+    {
+      "page": "/api/modules/[segment]/sync-from-tr",
+      "regex": "^/api/modules/([^/]+?)/sync\\-from\\-tr(?:/)?$",
+      "routeKeys": {
+        "nxtPsegment": "nxtPsegment"
+      },
+      "namedRegex": "^/api/modules/(?<nxtPsegment>[^/]+?)/sync\\-from\\-tr(?:/)?$"
+    },
+    {
+      "page": "/api/modules/[segment]/upload",
+      "regex": "^/api/modules/([^/]+?)/upload(?:/)?$",
+      "routeKeys": {
+        "nxtPsegment": "nxtPsegment"
+      },
+      "namedRegex": "^/api/modules/(?<nxtPsegment>[^/]+?)/upload(?:/)?$"
+    },
+    {
+      "page": "/api/replies/[trackingId]/attachments/[attachmentId]",
+      "regex": "^/api/replies/([^/]+?)/attachments/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPtrackingId": "nxtPtrackingId",
+        "nxtPattachmentId": "nxtPattachmentId"
+      },
+      "namedRegex": "^/api/replies/(?<nxtPtrackingId>[^/]+?)/attachments/(?<nxtPattachmentId>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/senders/[id]",
+      "regex": "^/api/senders/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/senders/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/senders/[id]/sync",
+      "regex": "^/api/senders/([^/]+?)/sync(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/senders/(?<nxtPid>[^/]+?)/sync(?:/)?$"
+    },
+    {
+      "page": "/api/users/[id]",
+      "regex": "^/api/users/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/users/(?<nxtPid>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/bulk-email",
+      "regex": "^/bulk\\-email(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/bulk\\-email(?:/)?$"
+    },
+    {
+      "page": "/confirm-msme",
+      "regex": "^/confirm\\-msme(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/confirm\\-msme(?:/)?$"
+    },
+    {
+      "page": "/confirmations",
+      "regex": "^/confirmations(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/confirmations(?:/)?$"
+    },
+    {
+      "page": "/documents",
+      "regex": "^/documents(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/documents(?:/)?$"
+    },
+    {
+      "page": "/email-config",
+      "regex": "^/email\\-config(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/email\\-config(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/forwarded-emails",
+      "regex": "^/forwarded\\-emails(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/forwarded\\-emails(?:/)?$"
+    },
+    {
+      "page": "/forwarders",
+      "regex": "^/forwarders(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/forwarders(?:/)?$"
+    },
+    {
+      "page": "/forwarding-rules",
+      "regex": "^/forwarding\\-rules(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/forwarding\\-rules(?:/)?$"
+    },
+    {
+      "page": "/listing-uploads",
+      "regex": "^/listing\\-uploads(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/listing\\-uploads(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/masters/email-templates",
+      "regex": "^/masters/email\\-templates(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/masters/email\\-templates(?:/)?$"
+    },
+    {
+      "page": "/masters/listing-uploads",
+      "regex": "^/masters/listing\\-uploads(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/masters/listing\\-uploads(?:/)?$"
+    },
+    {
+      "page": "/masters/supplier",
+      "regex": "^/masters/supplier(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/masters/supplier(?:/)?$"
+    },
+    {
+      "page": "/masters/vendor",
+      "regex": "^/masters/vendor(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/masters/vendor(?:/)?$"
+    },
+    {
+      "page": "/recipients",
+      "regex": "^/recipients(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/recipients(?:/)?$"
+    },
+    {
+      "page": "/reports",
+      "regex": "^/reports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/reports(?:/)?$"
+    },
+    {
+      "page": "/respond/msme/decline",
+      "regex": "^/respond/msme/decline(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/respond/msme/decline(?:/)?$"
+    },
+    {
+      "page": "/respond/msme/upload",
+      "regex": "^/respond/msme/upload(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/respond/msme/upload(?:/)?$"
+    },
+    {
+      "page": "/respond/trade/confirm",
+      "regex": "^/respond/trade/confirm(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/respond/trade/confirm(?:/)?$"
+    },
+    {
+      "page": "/respond/trade/query",
+      "regex": "^/respond/trade/query(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/respond/trade/query(?:/)?$"
+    },
+    {
+      "page": "/senders",
+      "regex": "^/senders(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/senders(?:/)?$"
+    },
+    {
+      "page": "/settings",
+      "regex": "^/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/settings(?:/)?$"
+    },
+    {
+      "page": "/settings/email-templates",
+      "regex": "^/settings/email\\-templates(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/settings/email\\-templates(?:/)?$"
+    },
+    {
+      "page": "/supplier-master",
+      "regex": "^/supplier\\-master(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/supplier\\-master(?:/)?$"
+    },
+    {
+      "page": "/trade-payables",
+      "regex": "^/trade\\-payables(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/trade\\-payables(?:/)?$"
+    },
+    {
+      "page": "/trade-receivables",
+      "regex": "^/trade\\-receivables(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/trade\\-receivables(?:/)?$"
+    },
+    {
+      "page": "/users",
+      "regex": "^/users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/users(?:/)?$"
+    },
+    {
+      "page": "/vendor-master",
+      "regex": "^/vendor\\-master(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/vendor\\-master(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments"
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

@@ -1,0 +1,3 @@
+{
+  "/api/confirmations/email-limit/route": "app/api/confirmations/email-limit/route.js"
+}

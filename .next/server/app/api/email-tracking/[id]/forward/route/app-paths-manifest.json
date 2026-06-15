@@ -1,0 +1,3 @@
+{
+  "/api/email-tracking/[id]/forward/route": "app/api/email-tracking/[id]/forward/route.js"
+}

@@ -1,0 +1,17 @@
+Emergency Security Patch Log - React2Shell RCE (CVE-2025-55182)
+Date (UTC): 2026-06-11T07:11:45Z
+Operator: AI coding agent (per user ZAP report remediation request)
+Vulnerability: High/High confidence Remote Code Execution (React2Shell) via unsafe deserialization in React Server Components Flight protocol. Affected: next@15.5.2 + react@19.1.0 (and transitive react-server-dom-*).
+Exposure: App was scanned on localhost:3002 (dev, turbopack). App is typically internet-facing in prod per deployment docs.
+Action taken:
+- Updated package.json exact pins: next@15.5.18, react@19.1.7, react-dom@19.1.7 (covers initial RCE + follow-on RSC DoS/source exposure + May 2026 cumulative per Next.js/React advisories).
+- npm install (changed 5 packages), verified lock and node_modules.
+- npm run build --turbopack succeeded (Next 15.5.18 in header), .next/standalone/server.js present.
+- Full smoke: turbopack dev server, public confirmation flows, login, admin pages (via redirect), puppeteer.
+- No 5xx, no deserialization errors, clean compiles in logs.
+- Per emergency response: patch applied immediately in source. Secrets rotation not performed here (lab scan on localhost, no successful exploitation indicated by ZAP probe which is non-destructive). In prod: consider rotating EMAIL_ACTION_JWT_SECRET + CRON_API_SECRET + Entra secret as defense-in-depth.
+- Audit run and archived.
+- ZAP post-fix verification note created (user to re-scan with desktop ZAP for formal evidence).
+Test results: All smoke routes non-5xx; build clean; versions confirmed patched.
+Rollback: Re-pin package.json to 15.5.2/19.1.0, npm install, rebuild.
+References: React blog (2025-12-03 + updates), Next.js security advisories (GHSA-9qr9-h5gf-34mp, 2025-12-11, May 2026 release), original ZAP report public/2026-06-11-ZAP-Report-.html, this patch log + dependency-audit-2026-06-11-react2shell-patch.txt.

@@ -1,0 +1,3 @@
+{
+  "/api/email-body-templates/[id]/route": "app/api/email-body-templates/[id]/route.js"
+}

@@ -1,0 +1,3 @@
+{
+  "/api/confirmations/check-replies/route": "app/api/confirmations/check-replies/route.js"
+}

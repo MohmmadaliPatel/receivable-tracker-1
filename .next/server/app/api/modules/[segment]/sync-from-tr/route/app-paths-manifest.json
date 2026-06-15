@@ -1,0 +1,3 @@
+{
+  "/api/modules/[segment]/sync-from-tr/route": "app/api/modules/[segment]/sync-from-tr/route.js"
+}

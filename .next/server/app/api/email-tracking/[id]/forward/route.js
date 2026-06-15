@@ -1,0 +1,11 @@
+var R=require("../../../../../chunks/[turbopack]_runtime.js")("server/app/api/email-tracking/[id]/forward/route.js")
+R.c("server/chunks/[root-of-the-server]__133e9e50._.js")
+R.c("server/chunks/node_modules_next_d739b5ba._.js")
+R.c("server/chunks/src_lib_49ff5031._.js")
+R.c("server/chunks/[root-of-the-server]__e9fc41ee._.js")
+R.c("server/chunks/node_modules_@microsoft_microsoft-graph-client_lib_es_src_index_4cb99aad.js")
+R.c("server/chunks/node_modules_next_92aaecbe._.js")
+R.c("server/chunks/_6668dae6._.js")
+R.m(7128)
+R.m(47003)
+module.exports=R.m(47003).exports

@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+node_modules/
+node_modules/.cache
+*.log
+dev.db
+prisma/dev.db
+emails/
+attachments/
+uploads/
+logs/
+.DS_Store

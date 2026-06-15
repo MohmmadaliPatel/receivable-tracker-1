@@ -1,0 +1,3 @@
+{
+  "/api/modules/[segment]/bulk-followup/route": "app/api/modules/[segment]/bulk-followup/route.js"
+}

@@ -1,0 +1,4 @@
+Taxteck Email Auto — client release package
+Built: 2026-06-15T08:53:42Z
+NEXT_PUBLIC_APP_BASE_URL=https://confirm.example.com
+Node: v22.14.0

@@ -1,0 +1,3 @@
+{
+  "/api/modules/[segment]/export/route": "app/api/modules/[segment]/export/route.js"
+}

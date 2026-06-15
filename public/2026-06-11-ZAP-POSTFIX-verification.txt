@@ -1,0 +1,90 @@
+
+================================================================================
+FOLLOW-UP SCAN (user-provided report, generated 2026-06-11 ~12:50)
+================================================================================
+New ZAP run on http://localhost:3002 (dev, turbopack) after initial React2Shell fix + CSP tightening.
+
+Summary from this report:
+- High: 0 (React2Shell / CVE-2025-55182 completely absent — upgrade to next@15.5.18 + react@19.1.7 succeeded)
+- Medium: 1 (Low confidence) — "Directory Browsing" (CWE-548) on a single probe: GET /_next/static/chunks/node_modules_48de47ca._.js/
+  - Response was 200 + full JS chunk body (ZAP had appended / to test for listing).
+  - No actual HTML directory index was served; the dev server simply served the asset for the malformed path.
+- Low: 1 (Medium confidence) — "Application Error Disclosure" (2 instances, tied to the same probe path + framework error utility strings like "react-stack-top-frame", DecodeError, etc. inside the client bundle).
+- Informational: 2
+  - "Content-Type Header Missing" (1, on the probe response)
+  - "Information Disclosure - Suspicious Comments" (23 instances in one chunk — React/Next dev runtime strings such as didWarnAboutKeySpread, jsxDEV internals, TURBOPACK markers, license headers, sourceMappingURL comments in dev bundles).
+
+CSP Mediums from the first scan (10 total) are gone — our added directives (object-src 'none', base-uri 'self', frame-ancestors 'none', form-action 'self') plus existing headers satisfied the passive scanner.
+
+Mitigations applied for this follow-up scan (code changes + config):
+1. src/middleware.ts:
+   - Extended to run on /_next/static/:path* (updated matcher).
+   - Early check: if a request under /_next/static/ ends with '/', return 404 JSON immediately.
+     This defeats the exact "append / to discovered static file" technique used by ZAP's Directory Browsing active scanner (and similar tools).
+   - Legitimate asset requests never use trailing / on .js/.css chunks.
+2. next.config.ts:
+   - Added explicit `trailingSlash: false`.
+   - Added `productionBrowserSourceMaps: false` (was already default; now documented for client questionnaires).
+3. Rebuilt successfully (standalone output valid).
+
+Expected effect on future scans:
+- The specific "Directory Browsing" Medium on slashed static chunk paths should be suppressed (404 instead of 200 content).
+- The associated Low "Application Error Disclosure" on the same probe path should also disappear or drop.
+- "Suspicious Comments" count will be much lower (or zero for those strings) when ZAP is run against a production build (`npm run build && npm start`) instead of dev/turbopack, because prod bundles are minified and dev-only React warning code is stripped.
+- "Content-Type Header Missing" on this class of probe will be avoided.
+
+Remaining Low/Informational items are acceptable for this application:
+- They originate from shipping a full modern React/Next client runtime in browser bundles (standard practice).
+- No application source, secrets, PII, or business logic is present in the disclosed strings.
+- Production builds + our security headers (CSP, X-Frame-Options DENY, nosniff, etc.) provide strong protection.
+- For client-confirmation evidence, always generate the "official" ZAP report against the production standalone server (after `npm run client:prepare` or equivalent), not the dev server.
+
+Next recommended actions:
+- Re-run ZAP (or at least the Directory Browsing rule + passive CSP) against `npm run build && npm start` on :3002 to obtain a clean production-mode report.
+- Archive the new HTML report + this verification note.
+- Update docs/client-confirmation/evidence/ with the latest dependency-audit and a short "2026-06-11 follow-up ZAP results" note referencing this file.
+- Manually test the rich-text editor (/masters/email-body-templates) in browser after the CSP change (already done in prior step) and the new middleware (no impact on normal static asset loading).
+- Review the one remaining pre-existing npm audit critical/highs (fast-xml-parser transitive via AWS SDK for SES, xlsx, etc.) per the normal patch process — unrelated to these ZAP findings.
+
+This scan + the prior one together demonstrate:
+- Critical pre-auth RCE (React2Shell) fully resolved by framework upgrade.
+- All prior Medium CSP issues resolved by explicit secure headers.
+- The last remaining Medium (directory probe) now mitigated at the request-handling layer.
+- Overall risk posture significantly improved with minimal, targeted changes.
+
+
+================================================================================
+PRODUCTION BUILD ZAP SCAN (user run, 2026-06-11 ~13:00, report overwrote the previous file)
+================================================================================
+Environment: Production standalone server (after `npm run build`, `npm start` on :3002).
+Report subdir in the HTML: 2026-06-11-ZAP-Report-2 (different from prior dev scan).
+
+Findings:
+- High: 0 (React2Shell completely gone)
+- Medium: 0 (no Directory Browsing, no CSP issues)
+- Low: 0
+- Informational: 2 types
+  1. Content-Type Header Missing (1) — on the artificial probe GET /_next/static/chunks/node_modules_48de47ca._.js/ (ZAP added trailing /)
+  2. Information Disclosure - Suspicious Comments (6 total) — all in minified prod chunks. Example: ZAP regex \bBUG\b matched inside a string like "//nextjs.org/docs/messages/next-dynamic-api-wrong-context" + __NEXT_ERROR_CODE / E251 references (Next.js internal error catalog strings).
+
+Mitigations already in place at time of this scan (plus the one added immediately after):
+- Next 15.5.18 + React 19.1.7 (RCE fixed)
+- CSP with object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self' + other secure headers (global via next.config.ts)
+- trailingSlash: false + productionBrowserSourceMaps: false
+- Middleware protection for /_next/static/* (trailing slash -> 404). After this scan we strengthened it to use a raw Response with explicit Content-Type + X-Content-Type-Options: nosniff to address the remaining Informational on the probe path.
+- Rebuild succeeded; middleware change is in the prod bundle.
+
+What cannot be reasonably fixed:
+- The 6 "Suspicious Comments" are baked into Next.js client runtime chunks (error message identifiers and dev messaging). They are harmless, non-sensitive, and typical for any Next.js app. Volume is already low in a real production (minified) build.
+
+Evidence & notes:
+- Full details + rationale added to docs/COMPLETE-DOCUMENTATION.md under "Vulnerability & Secure Coding Validation" (new subsection "Automated security scanning (ZAP DAST) – production build results (June 2026)").
+- Also referenced in the Client Security Confirmation residual risks area and the deployment verification checklist.
+- Local evidence file: docs/client-confirmation/evidence/zap-followup-2026-06-11-mediums-addressed.txt (covers earlier dev scan); consider adding a prod-specific one.
+- Because the report HTML uses a fixed name, the previous (dev) report was overwritten. Keep dated copies for audit trails (e.g. zap-prod-2026-06-11.html).
+
+Recommended next step for formal sign-off:
+Run ZAP one more time in prod mode after the latest middleware tweak (the explicit-header 404), export the HTML with a distinct name, and archive it with this note and the COMPLETE-DOCUMENTATION.md update.
+
+This production scan + the fixes close the loop: the application in its real deployed configuration has a very clean ZAP profile.
+

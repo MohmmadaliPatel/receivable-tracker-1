@@ -1,0 +1,10 @@
+var R=require("../../../chunks/[turbopack]_runtime.js")("server/app/api/send-email/route.js")
+R.c("server/chunks/[root-of-the-server]__b92d4681._.js")
+R.c("server/chunks/node_modules_next_d739b5ba._.js")
+R.c("server/chunks/_6668dae6._.js")
+R.c("server/chunks/[root-of-the-server]__e9fc41ee._.js")
+R.c("server/chunks/node_modules_@microsoft_microsoft-graph-client_lib_es_src_index_4cb99aad.js")
+R.c("server/chunks/node_modules_next_92aaecbe._.js")
+R.m(82383)
+R.m(26570)
+module.exports=R.m(26570).exports

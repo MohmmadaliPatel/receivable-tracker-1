@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZAP by Checkmarx Scanning Report</title>
+<link
+	href="2026-06-11-ZAP-Report-2/normalize/normalize.css" rel="stylesheet">
+<link
+	href="2026-06-11-ZAP-Report-2/themes/original/main.css" rel="stylesheet">
+<link
+	href="2026-06-11-ZAP-Report-2/themes/original/colors.css" rel="stylesheet">
+</head>
+<body>
+	<header>
+		<h1>ZAP by Checkmarx Scanning Report</h1>
+		<p>
+			<span>Generated with</span> <a href="https://zaproxy.org"><img
+				src="2026-06-11-ZAP-Report-2/zap32x32.png" alt="The ZAP logo" class="zap-logo">ZAP</a>
+			<span>on Thu 11 Jun 2026, at 13:00:24</span>
+		</p>
+		<p>ZAP Version: 2.17.0</p>
+		<p>
+			ZAP by <a href="https://checkmarx.com/">Checkmarx</a>
+		</p>
+	</header>
+
+	<main>
+
+		<section id="contents" class="contents">
+			<h2>Contents</h2>
+			<nav>
+				<ol>
+					<li><a
+						href="#about-this-report">About This Report</a>
+						<ol>
+							
+							<li><a
+								href="#report-parameters">Report Parameters</a></li>
+						</ol></li>
+					<data-th-block>
+					<li><a
+						href="#summaries">Summaries</a>
+						<ol>
+							<li><a
+								href="#risk-confidence-counts">Alert Counts by Risk and Confidence</a></li>
+							<li><a
+								href="#site-risk-counts">Alert Counts by Site and Risk</a></li>
+							<li><a
+								href="#alert-type-counts">Alert Counts by Alert Type</a></li>
+							<li><a
+								href="#insights">Insights</a></li>
+						</ol></li>
+					<li><a
+						href="#alerts">Alerts</a>
+						<ol>
+							
+							 
+							 
+							 
+							
+							
+							
+							
+							
+							
+							<li><a
+								href="#alerts--risk-0-confidence-2"><span>Risk</span>=<span
+									class="risk-level">Informational</span>, <span>Confidence</span>=<span
+									class="confidence-level">Medium</span> <span>(1)</span></a></li>
+							
+							<li><a
+								href="#alerts--risk-0-confidence-1"><span>Risk</span>=<span
+									class="risk-level">Informational</span>, <span>Confidence</span>=<span
+									class="confidence-level">Low</span> <span>(1)</span></a></li>
+							  
+						</ol></li>
+					<li><a
+						href="#appendix">Appendix</a>
+						<ol>
+							<li><a
+								href="#alert-types">Alert Types</a></li>
+						</ol></li>
+					</data-th-block>
+				</ol>
+			</nav>
+		</section>
+
+		<section
+			id="about-this-report" class="about-this-report">
+			<h2>About This Report</h2>
+
+			
+
+			<section
+				id="report-parameters">
+				<h3>Report Parameters</h3>
+				<div class="report-parameters--container">
+					<h4>Contexts</h4>
+					
+					
+					<p>No contexts were selected, so all contexts were included by default.</p>
+					  
+
+					<h4>Sites</h4>
+					
+					<p>The following sites were included:</p>
+					<ul class="sites-list">
+						<li><span class="site">http://localhost:3002</span></li>
+					</ul>
+					
+					<p>(If no sites were selected, all sites were included by default.)</p>
+					<p>An included site must also be within one of the included contexts for its data to be included in the report.</p>
+
+					<h4>Risk levels</h4>
+					<p>
+						<span>Included</span>:
+						 
+						<span class="included-risk-codes"><span class="risk-level">High</span>, <span class="risk-level">Medium</span>, <span class="risk-level">Low</span>, <span class="risk-level">Informational</span></span>
+					</p>
+					<p>
+						<span>Excluded</span>:
+						 <span>None</span>
+						
+					</p>
+
+					<h4>Confidence levels</h4>
+					<p>
+						<span>Included</span>:
+						
+						
+						<span class="included-confidence-codes"><span class="confidence-level">User Confirmed</span>, <span class="confidence-level">High</span>, <span class="confidence-level">Medium</span>, <span class="confidence-level">Low</span></span>
+					</p>
+					<p>
+						<span>Excluded</span>:
+						
+						
+						<span class="included-confidence-codes"> <span class="confidence-level">User Confirmed</span>, <span class="confidence-level">High</span>, <span class="confidence-level">Medium</span>, <span class="confidence-level">Low</span>, <span class="confidence-level">False Positive</span></span>
+					</p>
+				</div>
+			</section>
+		</section>
+
+		
+		<section>
+			
+		</section>
+		
+		<section id="summaries" class="summaries">
+			<h2>Summaries</h2>
+
+			<section
+				id="risk-confidence-counts">
+				<h3>Alert Counts by Risk and Confidence</h3>
+				<table class="risk-confidence-counts-table">
+					<caption>
+						<p>This table shows the number of alerts for each level of risk and confidence included in the report.</p>
+						<p>(The percentages in brackets represent the count as a percentage of the total number of alerts included in the report, rounded to one decimal place.)</p>
+					</caption>
+					<colgroup>
+						<col>
+						<col>
+					</colgroup>
+					<colgroup>
+						<col
+							style="width: 14.0%"><col
+							style="width: 14.0%"><col
+							style="width: 14.0%"><col
+							style="width: 14.0%">
+						<col style="width: 14.0%">
+					</colgroup>
+					<thead>
+						<tr>
+							<td colspan="2" rowspan="2"></td>
+							<th scope="colgroup"
+								colspan="5">Confidence</th>
+						</tr>
+						<tr>
+							<th scope="col">User Confirmed</th>
+							<th scope="col">High</th>
+							<th scope="col">Medium</th>
+							<th scope="col">Low</th>
+							<th scope="col">Total</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<th scope="rowgroup"
+								rowspan="5">Risk</th>
+							<th scope="row">High</th>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>0</span><br> <span class="additional-info-percentages">(0.0%)</span></td>
+						</tr>
+						<tr>
+							
+							<th scope="row">Medium</th>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>0</span><br> <span class="additional-info-percentages">(0.0%)</span></td>
+						</tr>
+						<tr>
+							
+							<th scope="row">Low</th>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>0</span><br> <span class="additional-info-percentages">(0.0%)</span></td>
+						</tr>
+						<tr>
+							
+							<th scope="row">Informational</th>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>1</span><br> <span
+								class="additional-info-percentages">(50.0%)</span></td>
+							<td><span>1</span><br> <span
+								class="additional-info-percentages">(50.0%)</span></td>
+							<td><span>2</span><br> <span class="additional-info-percentages">(100.0%)</span></td>
+						</tr>
+						<tr>
+							<th scope="row">Total</th>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0.0%)</span></td>
+							<td><span>1</span><br> <span
+								class="additional-info-percentages">(50.0%)</span></td>
+							<td><span>1</span><br> <span
+								class="additional-info-percentages">(50.0%)</span></td>
+							<td><span>2</span><br> <span
+								class="additional-info-percentages">(100%)</span></td>
+						</tr>
+					</tbody>
+				</table>
+			</section>
+
+			<section
+				id="site-risk-counts">
+				<h3>Alert Counts by Site and Risk</h3>
+				<table class="site-risk-counts-table">
+					<caption>
+						<p>This table shows, for each site for which one or more alerts were raised, the number of alerts raised at each risk level.</p>
+						<p>Alerts with a confidence level of &quot;False Positive&quot; have been excluded from these counts.</p>
+						<p>(The numbers in brackets are the number of alerts raised for the site at or above that risk level.)</p>
+					</caption>
+					<colgroup>
+						<col>
+						<col>
+					</colgroup>
+					<colgroup>
+						<col
+							style="width: 16.25%"><col
+							style="width: 16.25%"><col
+							style="width: 16.25%"><col
+							style="width: 16.25%">
+					</colgroup>
+					<thead>
+						<tr>
+							<td colspan="2" rowspan="2"></td>
+							<th scope="colgroup" colspan="4">Risk</th>
+						</tr>
+						<tr>
+							<th scope="col">
+								<span>High</span><br>  <span
+									class="additional-info-percentages">(= High)</span>  
+							</th>
+							<th scope="col">
+								<span>Medium</span><br>   <span
+									class="additional-info-percentages">(&gt;= Medium)</span> 
+							</th>
+							<th scope="col">
+								<span>Low</span><br>   <span
+									class="additional-info-percentages">(&gt;= Low)</span> 
+							</th>
+							<th scope="col">
+								<span>Informational</span><br>   <span
+									class="additional-info-percentages">(&gt;= Informational)</span> 
+							</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<th scope="rowgroup"
+								rowspan="1">Site</th>
+							<th scope="row">http://localhost:3002</th>
+							
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0)</span></td>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0)</span></td>
+							<td><span>0</span><br> <span
+								class="additional-info-percentages">(0)</span></td>
+							<td><span>2</span><br> <span
+								class="additional-info-percentages">(2)</span></td>
+							
+						</tr>
+					</tbody>
+				</table>
+			</section>
+
+			<section
+				id="alert-type-counts">
+				<h3>Alert Counts by Alert Type</h3>
+				<table class="alert-type-counts-table">
+					<caption>
+						<p>This table shows the number of alerts of each alert type, together with the alert type&#39;s risk level.</p>
+						<p>(The percentages in brackets represent each count as a percentage, rounded to one decimal place, of the total number of alerts included in this report.)</p>
+					</caption>
+					<thead>
+						<tr>
+							<th scope="col">Alert type</th>
+							<th scope="col">Risk</th>
+							<th scope="col">Count</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<th scope="row"><a
+								href="#alert-type-0">Content-Type Header Missing</a></th>
+							<td class="risk-level">Informational</td>
+							<td><span>1</span><br> <span
+								class="additional-info-percentages">(50.0%)</span></td>
+						</tr>
+						<tr>
+							<th scope="row"><a
+								href="#alert-type-1">Information Disclosure - Suspicious Comments</a></th>
+							<td class="risk-level">Informational</td>
+							<td><span>6</span><br> <span
+								class="additional-info-percentages">(300.0%)</span></td>
+						</tr>
+					</tbody>
+					<tfoot>
+						<tr>
+							<th scope="row">Total</th>
+							<td></td>
+							<td>2</td>
+						</tr>
+					</tfoot>
+				</table>
+			</section>
+			
+			<section
+				id="insights">
+				<h3 class="left-header">Insights</h3>
+				<table class="insights-table">
+						<caption>
+						<p>This table shows information that is likely to be very relevant to you, but which is not related to vulnerabilities, or potentially even related to the application in question.</p>
+					</caption>
+					<thead>
+					<tr>
+						<th scope="col">Level</th>
+						<th scope="col">Reason</th>
+						<th scope="col">Site</th>
+						<th scope="col">Description</th>
+						<th scope="col">Statistic</th>
+					</tr>
+					</thead>
+					<tbody>
+					
+						<tr>
+						<td class="risk-1">
+							<div>Low</div>
+						</td>
+						<td>
+							<div>Warning</div>
+						</td>
+						<td>
+							<div></div>
+						</td>
+						<td>
+							<div>ZAP warnings logged - see the zap.log file for details</div>
+						</td>
+						<td align="center">
+							<div>85   </div>
+						</td>
+						</tr>
+					
+						<tr>
+						<td class="risk-0">
+							<div>Info</div>
+						</td>
+						<td>
+							<div>Informational</div>
+						</td>
+						<td>
+							<div></div>
+						</td>
+						<td>
+							<div>Percentage of network failures</div>
+						</td>
+						<td align="center">
+							<div>1 %</div>
+						</td>
+						</tr>
+					
+						<tr>
+						<td class="risk-0">
+							<div>Info</div>
+						</td>
+						<td>
+							<div>Informational</div>
+						</td>
+						<td>
+							<div>http://localhost:3002</div>
+						</td>
+						<td>
+							<div>Percentage of responses with status code 2xx</div>
+						</td>
+						<td align="center">
+							<div>38 %</div>
+						</td>
+						</tr>
+					
+						<tr>
+						<td class="risk-0">
+							<div>Info</div>
+						</td>
+						<td>
+							<div>Exceeded Low</div>
+						</td>
+						<td>
+							<div>http://localhost:3002</div>
+						</td>
+						<td>
+							<div>Percentage of responses with status code 4xx</div>
+						</td>
+						<td align="center">
+							<div>49 %</div>
+						</td>
+						</tr>
+					
+						<tr>
+						<td class="risk-0">
+							<div>Info</div>
+						</td>
+						<td>
+							<div>Exceeded Low</div>
+						</td>
+						<td>
+							<div>http://localhost:3002</div>
+						</td>
+						<td>
+							<div>Percentage of responses with status code 5xx</div>
+						</td>
+						<td align="center">
+							<div>11 %</div>
+						</td>
+						</tr>
+					
+						<tr>
+						<td class="risk-0">
+							<div>Info</div>
+						</td>
+						<td>
+							<div>Informational</div>
+						</td>
+						<td>
+							<div>http://localhost:3002</div>
+						</td>
+						<td>
+							<div>Percentage of endpoints with content type application/javascript</div>
+						</td>
+						<td align="center">
+							<div>79 %</div>
+						</td>
+						</tr>
+					
+						<tr>
+						<td class="risk-0">
+							<div>Info</div>
+						</td>
+						<td>
+							<div>Informational</div>
+						</td>
+						<td>
+							<div>http://localhost:3002</div>
+						</td>
+						<td>
+							<div>Percentage of endpoints with content type font/woff2</div>
+						</td>
+						<td align="center">
+							<div>2 %</div>
+						</td>
+						</tr>
+					
+						<tr>
+						<td class="risk-0">
+							<div>Info</div>
+						</td>
+						<td>
+							<div>Informational</div>
+						</td>
+						<td>
+							<div>http://localhost:3002</div>
+						</td>
+						<td>
+							<div>Percentage of endpoints with content type text/css</div>
+						</td>
+						<td align="center">
+							<div>4 %</div>
+						</td>
+						</tr>
+					
+						<tr>
+						<td class="risk-0">
+							<div>Info</div>
+						</td>
+						<td>
+							<div>Informational</div>
+						</td>
+						<td>
+							<div>http://localhost:3002</div>
+						</td>
+						<td>
+							<div>Percentage of endpoints with content type text/html</div>
+						</td>
+						<td align="center">
+							<div>8 %</div>
+						</td>
+						</tr>
+					
+						<tr>
+						<td class="risk-0">
+							<div>Info</div>
+						</td>
+						<td>
+							<div>Informational</div>
+						</td>
+						<td>
+							<div>http://localhost:3002</div>
+						</td>
+						<td>
+							<div>Percentage of endpoints with content type text/plain</div>
+						</td>
+						<td align="center">
+							<div>4 %</div>
+						</td>
+						</tr>
+					
+						<tr>
+						<td class="risk-0">
+							<div>Info</div>
+						</td>
+						<td>
+							<div>Informational</div>
+						</td>
+						<td>
+							<div>http://localhost:3002</div>
+						</td>
+						<td>
+							<div>Percentage of endpoints with method GET</div>
+						</td>
+						<td align="center">
+							<div>100 %</div>
+						</td>
+						</tr>
+					
+						<tr>
+						<td class="risk-0">
+							<div>Info</div>
+						</td>
+						<td>
+							<div>Informational</div>
+						</td>
+						<td>
+							<div>http://localhost:3002</div>
+						</td>
+						<td>
+							<div>Count of total endpoints</div>
+						</td>
+						<td align="center">
+							<div>68   </div>
+						</td>
+						</tr>
+					
+						<tr>
+						<td class="risk-0">
+							<div>Info</div>
+						</td>
+						<td>
+							<div>Exceeded Low</div>
+						</td>
+						<td>
+							<div>http://localhost:3002</div>
+						</td>
+						<td>
+							<div>Percentage of slow responses</div>
+						</td>
+						<td align="center">
+							<div>8 %</div>
+						</td>
+						</tr>
+					
+					</tbody>
+				</table>
+			</section>
+		</section>
+
+		<section id="alerts" class="alerts">
+			<h2>Alerts</h2>
+			<ol>
+				
+				 
+				 
+				 
+				 
+				
+				
+				
+				
+				<li id="alerts--risk-0-confidence-2">
+					<h3>
+						<span>Risk</span>=<span
+							class="risk-level">Informational</span>, <span>Confidence</span>=<span
+							class="confidence-level">Medium</span> <span>(1)</span>
+					</h3>
+					<ol>
+						
+						<li class="alerts--site-li">
+							<h4>
+								<span class="site">http://localhost:3002</span> <span>(1)</span>
+							</h4>
+							<ol>
+								
+								<li>
+									<h5>
+										<a
+											href="#alert-type-0">Content-Type Header Missing</a> <span>(1)</span>
+									</h5>
+									<ol>
+										<li><details>
+												<summary>
+													<span class="request-method-n-url">GET http://localhost:3002/_next/static/chunks/node_modules_48de47ca._.js/</span>
+												</summary>
+												
+<table class="alerts-table">
+	<tr>
+		<th scope="row">Alert tags</th>
+		<td>
+			<ul class="alert-tags-list">
+				<li>
+					<span><a href="https://cwe.mitre.org/data/definitions/345.html">CWE-345</a></span> 
+				</li>
+				<li>
+					<span><a href="https://owasp.org/Top10/A05_2021-Security_Misconfiguration/">OWASP_2021_A05</a></span> 
+				</li>
+				<li>
+					<span><a href="https://owasp.org/www-project-top-ten/2017/A6_2017-Security_Misconfiguration.html">OWASP_2017_A06</a></span> 
+				</li>
+				<li>
+					 <span>POLICY_QA_STD = </span>
+				</li>
+				<li>
+					 <span>POLICY_PENTEST = </span>
+				</li>
+				<li>
+					<span><a href="https://www.zaproxy.org/docs/desktop/addons/common-library/alerttags/#systemic">SYSTEMIC</a></span> 
+				</li>
+			</ul>
+		</td>
+	</tr>
+	<tr>
+		<th scope="row">Alert description</th>
+		<td> 
+<p>The Content-Type header was either missing or empty.</p>
+ </td>
+	</tr>
+	
+	<tr>
+		<th scope="row">Request</th>
+		<td><details open="open">
+				<summary>Request line and header section (276 bytes)</summary>
+				
+				<pre><code>GET http://localhost:3002/_next/static/chunks/node_modules_48de47ca._.js/ HTTP/1.1
+host: localhost:3002
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36
+pragma: no-cache
+cache-control: no-cache
+
+</code></pre>
+				
+				
+			</details> <details class="request-body" open="open">
+				<summary>Request body (0 bytes)</summary>
+				
+				<pre><code></code></pre>
+				
+				
+			</details></td>
+	</tr>
+	<tr>
+		<th scope="row">Response</th>
+		<td><details open="open">
+				<summary>Status line and header section (262 bytes)</summary>
+				
+				<pre><code>HTTP/1.1 308 Permanent Redirect
+location: /_next/static/chunks/node_modules_48de47ca._.js
+Refresh: 0;url=/_next/static/chunks/node_modules_48de47ca._.js
+Date: Thu, 11 Jun 2026 07:29:56 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+content-length: 47
+
+</code></pre>
+				
+				
+			</details> <details class="response-body" open="open">
+				<summary>Response body (47 bytes)</summary>
+				
+				<pre><code>/_next/static/chunks/node_modules_48de47ca._.js</code></pre>
+				
+				
+			</details></td>
+	</tr>
+	<tr>
+		<th scope="row">Parameter</th>
+		<td><pre><code>content-type</code></pre></td>
+	</tr>
+	
+	
+	<tr>
+		<th scope="row">Solution</th>
+		<td> 
+<p>Ensure each page is setting the specific and appropriate content-type value for the content being delivered.</p>
+ </td>
+	</tr>
+</table>
+
+											</details></li>
+									</ol>
+								</li>
+								
+							</ol>
+						</li>
+						
+					</ol>
+				</li>
+				
+				<li id="alerts--risk-0-confidence-1">
+					<h3>
+						<span>Risk</span>=<span
+							class="risk-level">Informational</span>, <span>Confidence</span>=<span
+							class="confidence-level">Low</span> <span>(1)</span>
+					</h3>
+					<ol>
+						
+						<li class="alerts--site-li">
+							<h4>
+								<span class="site">http://localhost:3002</span> <span>(1)</span>
+							</h4>
+							<ol>
+								
+								<li>
+									<h5>
+										<a
+											href="#alert-type-1">Information Disclosure - Suspicious Comments</a> <span>(1)</span>
+									</h5>
+									<ol>
+										<li><details>
+												<summary>
+													<span class="request-method-n-url">GET http://localhost:3002/_next/static/chunks/4f748dba2d106a49.js</span>
+												</summary>
+												
+<table class="alerts-table">
+	<tr>
+		<th scope="row">Alert tags</th>
+		<td>
+			<ul class="alert-tags-list">
+				<li>
+					<span><a href="https://owasp.org/Top10/A01_2021-Broken_Access_Control/">OWASP_2021_A01</a></span> 
+				</li>
+				<li>
+					<span><a href="https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/01-Information_Gathering/05-Review_Webpage_Content_for_Information_Leakage">WSTG-v42-INFO-05</a></span> 
+				</li>
+				<li>
+					<span><a href="https://owasp.org/www-project-top-ten/2017/A3_2017-Sensitive_Data_Exposure.html">OWASP_2017_A03</a></span> 
+				</li>
+				<li>
+					 <span>POLICY_PENTEST = </span>
+				</li>
+				<li>
+					<span><a href="https://cwe.mitre.org/data/definitions/615.html">CWE-615</a></span> 
+				</li>
+			</ul>
+		</td>
+	</tr>
+	<tr>
+		<th scope="row">Alert description</th>
+		<td> 
+<p>The response appears to contain suspicious comments which may help an attacker.</p>
+ </td>
+	</tr>
+	<tr>
+		<th scope="row">Other info</th>
+		<td> 
+<p>The following pattern was used: \bBUG\b and was detected in likely comment: &quot;//nextjs.org/docs/messages/next-dynamic-api-wrong-context&quot;)),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E251&quot;,enumerable:!1,configurable:!0})}f&quot;, see evidence field for the suspicious comment/snippet.</p>
+ </td>
+	</tr>
+	<tr>
+		<th scope="row">Request</th>
+		<td><details open="open">
+				<summary>Request line and header section (306 bytes)</summary>
+				
+				<pre><code>GET http://localhost:3002/_next/static/chunks/4f748dba2d106a49.js HTTP/1.1
+host: localhost:3002
+user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36
+pragma: no-cache
+cache-control: no-cache
+referer: http://localhost:3002/_next
+
+</code></pre>
+				
+				
+			</details> <details class="request-body" open="open">
+				<summary>Request body (0 bytes)</summary>
+				
+				<pre><code></code></pre>
+				
+				
+			</details></td>
+	</tr>
+	<tr>
+		<th scope="row">Response</th>
+		<td><details open="open">
+				<summary>Status line and header section (838 bytes)</summary>
+				
+				<pre><code>HTTP/1.1 200 OK
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Content-Security-Policy: default-src &#39;self&#39;; script-src &#39;self&#39; &#39;unsafe-inline&#39; &#39;unsafe-eval&#39;; style-src &#39;self&#39; &#39;unsafe-inline&#39;; img-src &#39;self&#39; data: https:; connect-src &#39;self&#39; https://graph.microsoft.com https://login.microsoftonline.com; object-src &#39;none&#39;; base-uri &#39;self&#39;; frame-ancestors &#39;none&#39;; form-action &#39;self&#39;;
+Cache-Control: public, max-age=31536000, immutable
+Accept-Ranges: bytes
+Last-Modified: Thu, 11 Jun 2026 07:25:10 GMT
+ETag: W/&quot;b175-19eb5921674&quot;
+Content-Type: application/javascript; charset=UTF-8
+Content-Length: 45429
+Vary: Accept-Encoding
+Date: Thu, 11 Jun 2026 07:29:56 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+</code></pre>
+				
+				
+			</details> <details class="response-body">
+				<summary>Response body (45429 bytes)</summary>
+				
+				<pre><code>(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push([&quot;object&quot;==typeof document?document.currentScript:void 0,55682,(e,t,r)=&gt;{&quot;use strict&quot;;r._=function(e){return e&amp;&amp;e.__esModule?e:{default:e}}},32061,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{BailoutToCSRError:function(){return o},isBailoutToCSRError:function(){return u}});let n=&quot;BAILOUT_TO_CLIENT_SIDE_RENDERING&quot;;class o extends Error{constructor(e){super(&quot;Bail out to client-side rendering: &quot;+e),this.reason=e,this.digest=n}}function u(e){return&quot;object&quot;==typeof e&amp;&amp;null!==e&amp;&amp;&quot;digest&quot;in e&amp;&amp;e.digest===n}},90809,(e,t,r)=&gt;{&quot;use strict&quot;;function n(e){if(&quot;function&quot;!=typeof WeakMap)return null;var t=new WeakMap,r=new WeakMap;return(n=function(e){return e?r:t})(e)}r._=function(e,t){if(!t&amp;&amp;e&amp;&amp;e.__esModule)return e;if(null===e||&quot;object&quot;!=typeof e&amp;&amp;&quot;function&quot;!=typeof e)return{default:e};var r=n(t);if(r&amp;&amp;r.has(e))return r.get(e);var o={__proto__:null},u=Object.defineProperty&amp;&amp;Object.getOwnPropertyDescriptor;for(var a in e)if(&quot;default&quot;!==a&amp;&amp;Object.prototype.hasOwnProperty.call(e,a)){var c=u?Object.getOwnPropertyDescriptor(e,a):null;c&amp;&amp;(c.get||c.set)?Object.defineProperty(o,a,c):o[a]=e[a]}return o.default=e,r&amp;&amp;r.set(e,o),o}},50740,(e,t,r)=&gt;{&quot;use strict&quot;;var n=e.i(18392),o=Symbol.for(&quot;react.transitional.element&quot;),u=Symbol.for(&quot;react.portal&quot;),a=Symbol.for(&quot;react.fragment&quot;),c=Symbol.for(&quot;react.strict_mode&quot;),i=Symbol.for(&quot;react.profiler&quot;),s=Symbol.for(&quot;react.consumer&quot;),l=Symbol.for(&quot;react.context&quot;),f=Symbol.for(&quot;react.forward_ref&quot;),d=Symbol.for(&quot;react.suspense&quot;),p=Symbol.for(&quot;react.memo&quot;),y=Symbol.for(&quot;react.lazy&quot;),_=Symbol.iterator,b={isMounted:function(){return!1},enqueueForceUpdate:function(){},enqueueReplaceState:function(){},enqueueSetState:function(){}},h=Object.assign,E={};function m(e,t,r){this.props=e,this.context=t,this.refs=E,this.updater=r||b}function g(){}function R(e,t,r){this.props=e,this.context=t,this.refs=E,this.updater=r||b}m.prototype.isReactComponent={},m.prototype.setState=function(e,t){if(&quot;object&quot;!=typeof e&amp;&amp;&quot;function&quot;!=typeof e&amp;&amp;null!=e)throw Error(&quot;takes an object of state variables to update or a function which returns an object of state variables.&quot;);this.updater.enqueueSetState(this,e,t,&quot;setState&quot;)},m.prototype.forceUpdate=function(e){this.updater.enqueueForceUpdate(this,e,&quot;forceUpdate&quot;)},g.prototype=m.prototype;var O=R.prototype=new g;O.constructor=R,h(O,m.prototype),O.isPureReactComponent=!0;var v=Array.isArray;function j(){}var P={H:null,A:null,T:null,S:null},S=Object.prototype.hasOwnProperty;function T(e,t,r){var n=r.ref;return{$$typeof:o,type:e,key:t,ref:void 0!==n?n:null,props:r}}function w(e){return&quot;object&quot;==typeof e&amp;&amp;null!==e&amp;&amp;e.$$typeof===o}var D=/\/+/g;function A(e,t){var r,n;return&quot;object&quot;==typeof e&amp;&amp;null!==e&amp;&amp;null!=e.key?(r=&quot;&quot;+e.key,n={&quot;=&quot;:&quot;=0&quot;,&quot;:&quot;:&quot;=2&quot;},&quot;$&quot;+r.replace(/[=:]/g,function(e){return n[e]})):t.toString(36)}function x(e,t,r){if(null==e)return e;var n=[],a=0;return!function e(t,r,n,a,c){var i,s,l,f=typeof t;(&quot;undefined&quot;===f||&quot;boolean&quot;===f)&amp;&amp;(t=null);var d=!1;if(null===t)d=!0;else switch(f){case&quot;bigint&quot;:case&quot;string&quot;:case&quot;number&quot;:d=!0;break;case&quot;object&quot;:switch(t.$$typeof){case o:case u:d=!0;break;case y:return e((d=t._init)(t._payload),r,n,a,c)}}if(d)return c=c(t),d=&quot;&quot;===a?&quot;.&quot;+A(t,0):a,v(c)?(n=&quot;&quot;,null!=d&amp;&amp;(n=d.replace(D,&quot;$&amp;/&quot;)+&quot;/&quot;),e(c,r,n,&quot;&quot;,function(e){return e})):null!=c&amp;&amp;(w(c)&amp;&amp;(i=c,s=n+(null==c.key||t&amp;&amp;t.key===c.key?&quot;&quot;:(&quot;&quot;+c.key).replace(D,&quot;$&amp;/&quot;)+&quot;/&quot;)+d,c=T(i.type,s,i.props)),r.push(c)),1;d=0;var p=&quot;&quot;===a?&quot;.&quot;:a+&quot;:&quot;;if(v(t))for(var b=0;b&lt;t.length;b++)f=p+A(a=t[b],b),d+=e(a,r,n,f,c);else if(&quot;function&quot;==typeof(b=null===(l=t)||&quot;object&quot;!=typeof l?null:&quot;function&quot;==typeof(l=_&amp;&amp;l[_]||l[&quot;@@iterator&quot;])?l:null))for(t=b.call(t),b=0;!(a=t.next()).done;)f=p+A(a=a.value,b++),d+=e(a,r,n,f,c);else if(&quot;object&quot;===f){if(&quot;function&quot;==typeof t.then)return e(function(e){switch(e.status){case&quot;fulfilled&quot;:return e.value;case&quot;rejected&quot;:throw e.reason;default:switch(&quot;string&quot;==typeof e.status?e.then(j,j):(e.status=&quot;pending&quot;,e.then(function(t){&quot;pending&quot;===e.status&amp;&amp;(e.status=&quot;fulfilled&quot;,e.value=t)},function(t){&quot;pending&quot;===e.status&amp;&amp;(e.status=&quot;rejected&quot;,e.reason=t)})),e.status){case&quot;fulfilled&quot;:return e.value;case&quot;rejected&quot;:throw e.reason}}throw e}(t),r,n,a,c);throw Error(&quot;Objects are not valid as a React child (found: &quot;+(&quot;[object Object]&quot;===(r=String(t))?&quot;object with keys {&quot;+Object.keys(t).join(&quot;, &quot;)+&quot;}&quot;:r)+&quot;). If you meant to render a collection of children, use an array instead.&quot;)}return d}(e,n,&quot;&quot;,&quot;&quot;,function(e){return t.call(r,e,a++)}),n}function C(e){if(-1===e._status){var t=e._result;(t=t()).then(function(t){(0===e._status||-1===e._status)&amp;&amp;(e._status=1,e._result=t)},function(t){(0===e._status||-1===e._status)&amp;&amp;(e._status=2,e._result=t)}),-1===e._status&amp;&amp;(e._status=0,e._result=t)}if(1===e._status)return e._result.default;throw e._result}var M=&quot;function&quot;==typeof reportError?reportError:function(e){if(&quot;object&quot;==typeof window&amp;&amp;&quot;function&quot;==typeof window.ErrorEvent){var t=new window.ErrorEvent(&quot;error&quot;,{bubbles:!0,cancelable:!0,message:&quot;object&quot;==typeof e&amp;&amp;null!==e&amp;&amp;&quot;string&quot;==typeof e.message?String(e.message):String(e),error:e});if(!window.dispatchEvent(t))return}else if(&quot;object&quot;==typeof n.default&amp;&amp;&quot;function&quot;==typeof n.default.emit)return void n.default.emit(&quot;uncaughtException&quot;,e);console.error(e)};r.Children={map:x,forEach:function(e,t,r){x(e,function(){t.apply(this,arguments)},r)},count:function(e){var t=0;return x(e,function(){t++}),t},toArray:function(e){return x(e,function(e){return e})||[]},only:function(e){if(!w(e))throw Error(&quot;React.Children.only expected to receive a single React element child.&quot;);return e}},r.Component=m,r.Fragment=a,r.Profiler=i,r.PureComponent=R,r.StrictMode=c,r.Suspense=d,r.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE=P,r.__COMPILER_RUNTIME={__proto__:null,c:function(e){return P.H.useMemoCache(e)}},r.cache=function(e){return function(){return e.apply(null,arguments)}},r.cacheSignal=function(){return null},r.cloneElement=function(e,t,r){if(null==e)throw Error(&quot;The argument must be a React element, but you passed &quot;+e+&quot;.&quot;);var n=h({},e.props),o=e.key;if(null!=t)for(u in void 0!==t.key&amp;&amp;(o=&quot;&quot;+t.key),t)S.call(t,u)&amp;&amp;&quot;key&quot;!==u&amp;&amp;&quot;__self&quot;!==u&amp;&amp;&quot;__source&quot;!==u&amp;&amp;(&quot;ref&quot;!==u||void 0!==t.ref)&amp;&amp;(n[u]=t[u]);var u=arguments.length-2;if(1===u)n.children=r;else if(1&lt;u){for(var a=Array(u),c=0;c&lt;u;c++)a[c]=arguments[c+2];n.children=a}return T(e.type,o,n)},r.createContext=function(e){return(e={$$typeof:l,_currentValue:e,_currentValue2:e,_threadCount:0,Provider:null,Consumer:null}).Provider=e,e.Consumer={$$typeof:s,_context:e},e},r.createElement=function(e,t,r){var n,o={},u=null;if(null!=t)for(n in void 0!==t.key&amp;&amp;(u=&quot;&quot;+t.key),t)S.call(t,n)&amp;&amp;&quot;key&quot;!==n&amp;&amp;&quot;__self&quot;!==n&amp;&amp;&quot;__source&quot;!==n&amp;&amp;(o[n]=t[n]);var a=arguments.length-2;if(1===a)o.children=r;else if(1&lt;a){for(var c=Array(a),i=0;i&lt;a;i++)c[i]=arguments[i+2];o.children=c}if(e&amp;&amp;e.defaultProps)for(n in a=e.defaultProps)void 0===o[n]&amp;&amp;(o[n]=a[n]);return T(e,u,o)},r.createRef=function(){return{current:null}},r.forwardRef=function(e){return{$$typeof:f,render:e}},r.isValidElement=w,r.lazy=function(e){return{$$typeof:y,_payload:{_status:-1,_result:e},_init:C}},r.memo=function(e,t){return{$$typeof:p,type:e,compare:void 0===t?null:t}},r.startTransition=function(e){var t=P.T,r={};P.T=r;try{var n=e(),o=P.S;null!==o&amp;&amp;o(r,n),&quot;object&quot;==typeof n&amp;&amp;null!==n&amp;&amp;&quot;function&quot;==typeof n.then&amp;&amp;n.then(j,M)}catch(e){M(e)}finally{null!==t&amp;&amp;null!==r.types&amp;&amp;(t.types=r.types),P.T=t}},r.unstable_useCacheRefresh=function(){return P.H.useCacheRefresh()},r.use=function(e){return P.H.use(e)},r.useActionState=function(e,t,r){return P.H.useActionState(e,t,r)},r.useCallback=function(e,t){return P.H.useCallback(e,t)},r.useContext=function(e){return P.H.useContext(e)},r.useDebugValue=function(){},r.useDeferredValue=function(e,t){return P.H.useDeferredValue(e,t)},r.useEffect=function(e,t){return P.H.useEffect(e,t)},r.useId=function(){return P.H.useId()},r.useImperativeHandle=function(e,t,r){return P.H.useImperativeHandle(e,t,r)},r.useInsertionEffect=function(e,t){return P.H.useInsertionEffect(e,t)},r.useLayoutEffect=function(e,t){return P.H.useLayoutEffect(e,t)},r.useMemo=function(e,t){return P.H.useMemo(e,t)},r.useOptimistic=function(e,t){return P.H.useOptimistic(e,t)},r.useReducer=function(e,t,r){return P.H.useReducer(e,t,r)},r.useRef=function(e){return P.H.useRef(e)},r.useState=function(e){return P.H.useState(e)},r.useSyncExternalStore=function(e,t,r){return P.H.useSyncExternalStore(e,t,r)},r.useTransition=function(){return P.H.useTransition()},r.version=&quot;19.2.0-canary-0bdb9206-20250818&quot;},71645,(e,t,r)=&gt;{&quot;use strict&quot;;t.exports=e.r(50740)},54394,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{HTTPAccessErrorStatus:function(){return n},HTTP_ERROR_FALLBACK_ERROR_CODE:function(){return u},getAccessFallbackErrorTypeByStatus:function(){return i},getAccessFallbackHTTPStatus:function(){return c},isHTTPAccessFallbackError:function(){return a}});let n={NOT_FOUND:404,FORBIDDEN:403,UNAUTHORIZED:401},o=new Set(Object.values(n)),u=&quot;NEXT_HTTP_ERROR_FALLBACK&quot;;function a(e){if(&quot;object&quot;!=typeof e||null===e||!(&quot;digest&quot;in e)||&quot;string&quot;!=typeof e.digest)return!1;let[t,r]=e.digest.split(&quot;;&quot;);return t===u&amp;&amp;o.has(Number(r))}function c(e){return Number(e.digest.split(&quot;;&quot;)[1])}function i(e){switch(e){case 401:return&quot;unauthorized&quot;;case 403:return&quot;forbidden&quot;;case 404:return&quot;not-found&quot;;default:return}}(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},76963,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;RedirectStatusCode&quot;,{enumerable:!0,get:function(){return n}});var n=function(e){return e[e.SeeOther=303]=&quot;SeeOther&quot;,e[e.TemporaryRedirect=307]=&quot;TemporaryRedirect&quot;,e[e.PermanentRedirect=308]=&quot;PermanentRedirect&quot;,e}({});(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},68391,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{REDIRECT_ERROR_CODE:function(){return o},RedirectType:function(){return u},isRedirectError:function(){return a}});let n=e.r(76963),o=&quot;NEXT_REDIRECT&quot;;var u=function(e){return e.push=&quot;push&quot;,e.replace=&quot;replace&quot;,e}({});function a(e){if(&quot;object&quot;!=typeof e||null===e||!(&quot;digest&quot;in e)||&quot;string&quot;!=typeof e.digest)return!1;let t=e.digest.split(&quot;;&quot;),[r,u]=t,a=t.slice(2,-2).join(&quot;;&quot;),c=Number(t.at(-2));return r===o&amp;&amp;(&quot;replace&quot;===u||&quot;push&quot;===u)&amp;&amp;&quot;string&quot;==typeof a&amp;&amp;!isNaN(c)&amp;&amp;c in n.RedirectStatusCode}(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},65713,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;isNextRouterError&quot;,{enumerable:!0,get:function(){return u}});let n=e.r(54394),o=e.r(68391);function u(e){return(0,o.isRedirectError)(e)||(0,n.isHTTPAccessFallbackError)(e)}(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},61994,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{PathParamsContext:function(){return a},PathnameContext:function(){return u},SearchParamsContext:function(){return o}});let n=e.r(71645),o=(0,n.createContext)(null),u=(0,n.createContext)(null),a=(0,n.createContext)(null)},45955,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;workUnitAsyncStorageInstance&quot;,{enumerable:!0,get:function(){return n}});let n=(0,e.r(90317).createAsyncLocalStorage)()},21768,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{ACTION_HEADER:function(){return o},FLIGHT_HEADERS:function(){return d},NEXT_ACTION_NOT_FOUND_HEADER:function(){return m},NEXT_DID_POSTPONE_HEADER:function(){return _},NEXT_HMR_REFRESH_HASH_COOKIE:function(){return s},NEXT_HMR_REFRESH_HEADER:function(){return i},NEXT_IS_PRERENDER_HEADER:function(){return E},NEXT_REWRITTEN_PATH_HEADER:function(){return b},NEXT_REWRITTEN_QUERY_HEADER:function(){return h},NEXT_ROUTER_PREFETCH_HEADER:function(){return a},NEXT_ROUTER_SEGMENT_PREFETCH_HEADER:function(){return c},NEXT_ROUTER_STALE_TIME_HEADER:function(){return y},NEXT_ROUTER_STATE_TREE_HEADER:function(){return u},NEXT_RSC_UNION_QUERY:function(){return p},NEXT_URL:function(){return l},RSC_CONTENT_TYPE_HEADER:function(){return f},RSC_HEADER:function(){return n}});let n=&quot;rsc&quot;,o=&quot;next-action&quot;,u=&quot;next-router-state-tree&quot;,a=&quot;next-router-prefetch&quot;,c=&quot;next-router-segment-prefetch&quot;,i=&quot;next-hmr-refresh&quot;,s=&quot;__next_hmr_refresh_hash__&quot;,l=&quot;next-url&quot;,f=&quot;text/x-component&quot;,d=[n,u,a,i,c],p=&quot;_rsc&quot;,y=&quot;x-nextjs-stale-time&quot;,_=&quot;x-nextjs-postponed&quot;,b=&quot;x-nextjs-rewritten-path&quot;,h=&quot;x-nextjs-rewritten-query&quot;,E=&quot;x-nextjs-prerender&quot;,m=&quot;x-nextjs-action-not-found&quot;;(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},12718,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;InvariantError&quot;,{enumerable:!0,get:function(){return n}});class n extends Error{constructor(e,t){super(&quot;Invariant: &quot;+(e.endsWith(&quot;.&quot;)?e:e+&quot;.&quot;)+&quot; This is a bug in Next.js.&quot;,t),this.name=&quot;InvariantError&quot;}}},62141,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{getCacheSignal:function(){return y},getDraftModeProviderForCacheScope:function(){return p},getHmrRefreshHash:function(){return l},getPrerenderResumeDataCache:function(){return i},getRenderResumeDataCache:function(){return s},getRuntimeStagePromise:function(){return _},getServerComponentsHmrCache:function(){return d},isHmrRefresh:function(){return f},throwForMissingRequestStore:function(){return a},throwInvariantForMissingStore:function(){return c},workUnitAsyncStorage:function(){return n.workUnitAsyncStorageInstance}});let n=e.r(45955),o=e.r(21768),u=e.r(12718);function a(e){throw Object.defineProperty(Error(&quot;`&quot;.concat(e,&quot;` was called outside a request scope. Read more: https://nextjs.org/docs/messages/next-dynamic-api-wrong-context&quot;)),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E251&quot;,enumerable:!1,configurable:!0})}function c(){throw Object.defineProperty(new u.InvariantError(&quot;Expected workUnitAsyncStorage to have a store.&quot;),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E696&quot;,enumerable:!1,configurable:!0})}function i(e){switch(e.type){case&quot;prerender&quot;:case&quot;prerender-runtime&quot;:case&quot;prerender-ppr&quot;:case&quot;prerender-client&quot;:return e.prerenderResumeDataCache;case&quot;prerender-legacy&quot;:case&quot;request&quot;:case&quot;cache&quot;:case&quot;private-cache&quot;:case&quot;unstable-cache&quot;:return null;default:return e}}function s(e){switch(e.type){case&quot;request&quot;:return e.renderResumeDataCache;case&quot;prerender&quot;:case&quot;prerender-runtime&quot;:case&quot;prerender-client&quot;:if(e.renderResumeDataCache)return e.renderResumeDataCache;case&quot;prerender-ppr&quot;:return e.prerenderResumeDataCache;case&quot;cache&quot;:case&quot;private-cache&quot;:case&quot;unstable-cache&quot;:case&quot;prerender-legacy&quot;:return null;default:return e}}function l(e,t){if(e.dev)switch(t.type){case&quot;cache&quot;:case&quot;private-cache&quot;:case&quot;prerender&quot;:case&quot;prerender-runtime&quot;:return t.hmrRefreshHash;case&quot;request&quot;:var r;return null==(r=t.cookies.get(o.NEXT_HMR_REFRESH_HASH_COOKIE))?void 0:r.value}}function f(e,t){if(e.dev)switch(t.type){case&quot;cache&quot;:case&quot;private-cache&quot;:case&quot;request&quot;:var r;return null!=(r=t.isHmrRefresh)&amp;&amp;r}return!1}function d(e,t){if(e.dev)switch(t.type){case&quot;cache&quot;:case&quot;private-cache&quot;:case&quot;request&quot;:return t.serverComponentsHmrCache}}function p(e,t){if(e.isDraftMode)switch(t.type){case&quot;cache&quot;:case&quot;private-cache&quot;:case&quot;unstable-cache&quot;:case&quot;prerender-runtime&quot;:case&quot;request&quot;:return t.draftMode}}function y(e){switch(e.type){case&quot;prerender&quot;:case&quot;prerender-client&quot;:case&quot;prerender-runtime&quot;:return e.cacheSignal;case&quot;prerender-ppr&quot;:case&quot;prerender-legacy&quot;:case&quot;request&quot;:case&quot;cache&quot;:case&quot;private-cache&quot;:case&quot;unstable-cache&quot;:return null;default:return e}}function _(e){switch(e.type){case&quot;prerender-runtime&quot;:case&quot;private-cache&quot;:return e.runtimeStagePromise;case&quot;prerender&quot;:case&quot;prerender-client&quot;:case&quot;prerender-ppr&quot;:case&quot;prerender-legacy&quot;:case&quot;request&quot;:case&quot;cache&quot;:case&quot;unstable-cache&quot;:return null;default:return e}}},13258,(e,t,r)=&gt;{&quot;use strict&quot;;function n(e){return&quot;(&quot;===e[0]&amp;&amp;e.endsWith(&quot;)&quot;)}function o(e){return e.startsWith(&quot;@&quot;)&amp;&amp;&quot;@children&quot;!==e}function u(e,t){if(e.includes(a)){let e=JSON.stringify(t);return&quot;{}&quot;!==e?a+&quot;?&quot;+e:a}return e}Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{DEFAULT_SEGMENT_KEY:function(){return c},PAGE_SEGMENT_KEY:function(){return a},addSearchParamsIfPageSegment:function(){return u},isGroupSegment:function(){return n},isParallelRouteSegment:function(){return o}});let a=&quot;__PAGE__&quot;,c=&quot;__DEFAULT__&quot;},8372,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{AppRouterContext:function(){return o},GlobalLayoutRouterContext:function(){return a},LayoutRouterContext:function(){return u},MissingSlotContext:function(){return i},TemplateContext:function(){return c}});let n=e.r(55682)._(e.r(71645)),o=n.default.createContext(null),u=n.default.createContext(null),a=n.default.createContext(null),c=n.default.createContext(null),i=n.default.createContext(new Set)},59036,(e,t,r)=&gt;{&quot;use strict&quot;;function n(e){return Array.isArray(e)?e[1]:e}Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;getSegmentValue&quot;,{enumerable:!0,get:function(){return n}}),(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},34457,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;actionAsyncStorageInstance&quot;,{enumerable:!0,get:function(){return n}});let n=(0,e.r(90317).createAsyncLocalStorage)()},62266,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;actionAsyncStorage&quot;,{enumerable:!0,get:function(){return n.actionAsyncStorageInstance}});let n=e.r(34457)},24063,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{getRedirectError:function(){return a},getRedirectStatusCodeFromError:function(){return f},getRedirectTypeFromError:function(){return l},getURLFromRedirectError:function(){return s},permanentRedirect:function(){return i},redirect:function(){return c}});let n=e.r(76963),o=e.r(68391),u=&quot;undefined&quot;==typeof window?e.r(62266).actionAsyncStorage:void 0;function a(e,t,r){void 0===r&amp;&amp;(r=n.RedirectStatusCode.TemporaryRedirect);let u=Object.defineProperty(Error(o.REDIRECT_ERROR_CODE),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E394&quot;,enumerable:!1,configurable:!0});return u.digest=o.REDIRECT_ERROR_CODE+&quot;;&quot;+t+&quot;;&quot;+e+&quot;;&quot;+r+&quot;;&quot;,u}function c(e,t){var r;throw null!=t||(t=(null==u||null==(r=u.getStore())?void 0:r.isAction)?o.RedirectType.push:o.RedirectType.replace),a(e,t,n.RedirectStatusCode.TemporaryRedirect)}function i(e,t){throw void 0===t&amp;&amp;(t=o.RedirectType.replace),a(e,t,n.RedirectStatusCode.PermanentRedirect)}function s(e){return(0,o.isRedirectError)(e)?e.digest.split(&quot;;&quot;).slice(2,-2).join(&quot;;&quot;):null}function l(e){if(!(0,o.isRedirectError)(e))throw Object.defineProperty(Error(&quot;Not a redirect error&quot;),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E260&quot;,enumerable:!1,configurable:!0});return e.digest.split(&quot;;&quot;,2)[1]}function f(e){if(!(0,o.isRedirectError)(e))throw Object.defineProperty(Error(&quot;Not a redirect error&quot;),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E260&quot;,enumerable:!1,configurable:!0});return Number(e.digest.split(&quot;;&quot;).at(-2))}(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},22783,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;notFound&quot;,{enumerable:!0,get:function(){return o}});let n=&quot;&quot;+e.r(54394).HTTP_ERROR_FALLBACK_ERROR_CODE+&quot;;404&quot;;function o(){let e=Object.defineProperty(Error(n),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E394&quot;,enumerable:!1,configurable:!0});throw e.digest=n,e}(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},79854,(e,t,r)=&gt;{&quot;use strict&quot;;function n(){throw Object.defineProperty(Error(&quot;`forbidden()` is experimental and only allowed to be enabled when `experimental.authInterrupts` is enabled.&quot;),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E488&quot;,enumerable:!1,configurable:!0})}Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;forbidden&quot;,{enumerable:!0,get:function(){return n}}),e.r(54394).HTTP_ERROR_FALLBACK_ERROR_CODE,(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},22683,(e,t,r)=&gt;{&quot;use strict&quot;;function n(){throw Object.defineProperty(Error(&quot;`unauthorized()` is experimental and only allowed to be used when `experimental.authInterrupts` is enabled.&quot;),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E411&quot;,enumerable:!1,configurable:!0})}Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;unauthorized&quot;,{enumerable:!0,get:function(){return n}}),e.r(54394).HTTP_ERROR_FALLBACK_ERROR_CODE,(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},15507,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;unstable_rethrow&quot;,{enumerable:!0,get:function(){return function e(t){if((0,o.isNextRouterError)(t)||(0,n.isBailoutToCSRError)(t))throw t;t instanceof Error&amp;&amp;&quot;cause&quot;in t&amp;&amp;e(t.cause)}}});let n=e.r(32061),o=e.r(65713);(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},63138,(e,t,r)=&gt;{&quot;use strict&quot;;function n(e){return&quot;object&quot;==typeof e&amp;&amp;null!==e&amp;&amp;&quot;digest&quot;in e&amp;&amp;e.digest===o}Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{isHangingPromiseRejectionError:function(){return n},makeDevtoolsIOAwarePromise:function(){return s},makeHangingPromise:function(){return c}});let o=&quot;HANGING_PROMISE_REJECTION&quot;;class u extends Error{constructor(e,t){super(&quot;During prerendering, &quot;.concat(t,&quot; rejects when the prerender is complete. Typically these errors are handled by React but if you move &quot;).concat(t,&#39; to a different context by using `setTimeout`, `after`, or similar functions you may observe this error and you should handle it in that context. This occurred at route &quot;&#39;).concat(e,&#39;&quot;.&#39;)),this.route=e,this.expression=t,this.digest=o}}let a=new WeakMap;function c(e,t,r){if(e.aborted)return Promise.reject(new u(t,r));{let n=new Promise((n,o)=&gt;{let c=o.bind(null,new u(t,r)),i=a.get(e);if(i)i.push(c);else{let t=[c];a.set(e,t),e.addEventListener(&quot;abort&quot;,()=&gt;{for(let e=0;e&lt;t.length;e++)t[e]()},{once:!0})}});return n.catch(i),n}}function i(){}function s(e){return new Promise(t=&gt;{setTimeout(()=&gt;{t(e)},0)})}},67287,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;isPostpone&quot;,{enumerable:!0,get:function(){return o}});let n=Symbol.for(&quot;react.postpone&quot;);function o(e){return&quot;object&quot;==typeof e&amp;&amp;null!==e&amp;&amp;e.$$typeof===n}},76353,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{DynamicServerError:function(){return o},isDynamicServerError:function(){return u}});let n=&quot;DYNAMIC_SERVER_USAGE&quot;;class o extends Error{constructor(e){super(&quot;Dynamic server usage: &quot;+e),this.description=e,this.digest=n}}function u(e){return&quot;object&quot;==typeof e&amp;&amp;null!==e&amp;&amp;&quot;digest&quot;in e&amp;&amp;&quot;string&quot;==typeof e.digest&amp;&amp;e.digest===n}(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},43248,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{StaticGenBailoutError:function(){return o},isStaticGenBailoutError:function(){return u}});let n=&quot;NEXT_STATIC_GEN_BAILOUT&quot;;class o extends Error{constructor(...e){super(...e),this.code=n}}function u(e){return&quot;object&quot;==typeof e&amp;&amp;null!==e&amp;&amp;&quot;code&quot;in e&amp;&amp;e.code===n}(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},54839,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{METADATA_BOUNDARY_NAME:function(){return n},OUTLET_BOUNDARY_NAME:function(){return u},ROOT_LAYOUT_BOUNDARY_NAME:function(){return a},VIEWPORT_BOUNDARY_NAME:function(){return o}});let n=&quot;__next_metadata_boundary__&quot;,o=&quot;__next_viewport_boundary__&quot;,u=&quot;__next_outlet_boundary__&quot;,a=&quot;__next_root_layout_boundary__&quot;},29419,(e,t,r)=&gt;{&quot;use strict&quot;;var n=e.i(18392);Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{atLeastOneTask:function(){return a},scheduleImmediate:function(){return u},scheduleOnNextTick:function(){return o},waitAtLeastOneReactRenderTask:function(){return c}});let o=e=&gt;{Promise.resolve().then(()=&gt;{n.default.nextTick(e)})},u=e=&gt;{setImmediate(e)};function a(){return new Promise(e=&gt;u(e))}function c(){return new Promise(e=&gt;setImmediate(e))}},67673,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{Postpone:function(){return S},PreludeState:function(){return Y},abortAndThrowOnSynchronousRequestDataAccess:function(){return v},abortOnSynchronousPlatformIOAccess:function(){return R},accessedDynamicData:function(){return N},annotateDynamicAccess:function(){return L},consumeDynamicAccess:function(){return k},createDynamicTrackingState:function(){return y},createDynamicValidationState:function(){return _},createHangingInputAbortSignal:function(){return U},createRenderInBrowserAbortSignal:function(){return I},delayUntilRuntimeStage:function(){return K},formatDynamicAPIAccesses:function(){return H},getFirstDynamicReason:function(){return b},isDynamicPostpone:function(){return D},isPrerenderInterruptedError:function(){return M},logDisallowedDynamicError:function(){return z},markCurrentScopeAsDynamic:function(){return h},postponeWithTracking:function(){return T},throwIfDisallowedDynamic:function(){return V},throwToInterruptStaticGeneration:function(){return E},trackAllowedDynamicAccess:function(){return $},trackDynamicDataInDynamicRender:function(){return m},trackSynchronousPlatformIOAccessInDev:function(){return O},trackSynchronousRequestDataAccessInDev:function(){return P},useDynamicRouteParams:function(){return B},warnOnSyncDynamicError:function(){return j}});let n=function(e){return e&amp;&amp;e.__esModule?e:{default:e}}(e.r(71645)),o=e.r(76353),u=e.r(43248),a=e.r(62141),c=e.r(63599),i=e.r(63138),s=e.r(54839),l=e.r(29419),f=e.r(32061),d=e.r(12718),p=&quot;function&quot;==typeof n.default.unstable_postpone;function y(e){return{isDebugDynamicAccesses:e,dynamicAccesses:[],syncDynamicErrorWithStack:null}}function _(){return{hasSuspenseAboveBody:!1,hasDynamicMetadata:!1,hasDynamicViewport:!1,hasAllowedDynamic:!1,dynamicErrors:[]}}function b(e){var t;return null==(t=e.dynamicAccesses[0])?void 0:t.expression}function h(e,t,r){if(t)switch(t.type){case&quot;cache&quot;:case&quot;unstable-cache&quot;:case&quot;private-cache&quot;:return}if(!e.forceDynamic&amp;&amp;!e.forceStatic){if(e.dynamicShouldError)throw Object.defineProperty(new u.StaticGenBailoutError(&quot;Route &quot;.concat(e.route,&#39; with `dynamic = &quot;error&quot;` couldn\&#39;t be rendered statically because it used `&#39;).concat(r,&quot;`. See more info here: https://nextjs.org/docs/app/building-your-application/rendering/static-and-dynamic#dynamic-rendering&quot;)),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E553&quot;,enumerable:!1,configurable:!0});if(t)switch(t.type){case&quot;prerender-ppr&quot;:return T(e.route,r,t.dynamicTracking);case&quot;prerender-legacy&quot;:t.revalidate=0;let n=Object.defineProperty(new o.DynamicServerError(&quot;Route &quot;.concat(e.route,&quot; couldn&#39;t be rendered statically because it used &quot;).concat(r,&quot;. See more info here: https://nextjs.org/docs/messages/dynamic-server-error&quot;)),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E550&quot;,enumerable:!1,configurable:!0});throw e.dynamicUsageDescription=r,e.dynamicUsageStack=n.stack,n}}}function E(e,t,r){let n=Object.defineProperty(new o.DynamicServerError(&quot;Route &quot;.concat(t.route,&quot; couldn&#39;t be rendered statically because it used `&quot;).concat(e,&quot;`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error&quot;)),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E558&quot;,enumerable:!1,configurable:!0});throw r.revalidate=0,t.dynamicUsageDescription=e,t.dynamicUsageStack=n.stack,n}function m(e){switch(e.type){case&quot;cache&quot;:case&quot;unstable-cache&quot;:case&quot;private-cache&quot;:return}}function g(e,t,r){let n=C(&quot;Route &quot;.concat(e,&quot; needs to bail out of prerendering at this point because it used &quot;).concat(t,&quot;.&quot;));r.controller.abort(n);let o=r.dynamicTracking;o&amp;&amp;o.dynamicAccesses.push({stack:o.isDebugDynamicAccesses?Error().stack:void 0,expression:t})}function R(e,t,r,n){let o=n.dynamicTracking;g(e,t,n),o&amp;&amp;null===o.syncDynamicErrorWithStack&amp;&amp;(o.syncDynamicErrorWithStack=r)}function O(e){e.prerenderPhase=!1}function v(e,t,r,n){if(!1===n.controller.signal.aborted){g(e,t,n);let o=n.dynamicTracking;o&amp;&amp;null===o.syncDynamicErrorWithStack&amp;&amp;(o.syncDynamicErrorWithStack=r)}throw C(&quot;Route &quot;.concat(e,&quot; needs to bail out of prerendering at this point because it used &quot;).concat(t,&quot;.&quot;))}function j(e){e.syncDynamicErrorWithStack&amp;&amp;console.error(e.syncDynamicErrorWithStack)}let P=O;function S(e){let{reason:t,route:r}=e,n=a.workUnitAsyncStorage.getStore();T(r,t,n&amp;&amp;&quot;prerender-ppr&quot;===n.type?n.dynamicTracking:null)}function T(e,t,r){(function(){if(!p)throw Object.defineProperty(Error(&quot;Invariant: React.unstable_postpone is not defined. This suggests the wrong version of React was loaded. This is a bug in Next.js&quot;),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E224&quot;,enumerable:!1,configurable:!0})})(),r&amp;&amp;r.dynamicAccesses.push({stack:r.isDebugDynamicAccesses?Error().stack:void 0,expression:t}),n.default.unstable_postpone(w(e,t))}function w(e,t){return&quot;Route &quot;.concat(e,&quot; needs to bail out of prerendering at this point because it used &quot;).concat(t,&quot;. &quot;)+&quot;React throws this special object to indicate where. It should not be caught by your own try/catch. Learn more: https://nextjs.org/docs/messages/ppr-caught-error&quot;}function D(e){return&quot;object&quot;==typeof e&amp;&amp;null!==e&amp;&amp;&quot;string&quot;==typeof e.message&amp;&amp;A(e.message)}function A(e){return e.includes(&quot;needs to bail out of prerendering at this point because it used&quot;)&amp;&amp;e.includes(&quot;Learn more: https://nextjs.org/docs/messages/ppr-caught-error&quot;)}if(!1===A(w(&quot;%%%&quot;,&quot;^^^&quot;)))throw Object.defineProperty(Error(&quot;Invariant: isDynamicPostpone misidentified a postpone reason. This is a bug in Next.js&quot;),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E296&quot;,enumerable:!1,configurable:!0});let x=&quot;NEXT_PRERENDER_INTERRUPTED&quot;;function C(e){let t=Object.defineProperty(Error(e),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E394&quot;,enumerable:!1,configurable:!0});return t.digest=x,t}function M(e){return&quot;object&quot;==typeof e&amp;&amp;null!==e&amp;&amp;e.digest===x&amp;&amp;&quot;name&quot;in e&amp;&amp;&quot;message&quot;in e&amp;&amp;e instanceof Error}function N(e){return e.length&gt;0}function k(e,t){return e.dynamicAccesses.push(...t.dynamicAccesses),e.dynamicAccesses}function H(e){return e.filter(e=&gt;&quot;string&quot;==typeof e.stack&amp;&amp;e.stack.length&gt;0).map(e=&gt;{let{expression:t,stack:r}=e;return r=r.split(&quot;\n&quot;).slice(4).filter(e=&gt;!(e.includes(&quot;node_modules/next/&quot;)||e.includes(&quot; (&lt;anonymous&gt;)&quot;)||e.includes(&quot; (node:&quot;))).join(&quot;\n&quot;),&quot;Dynamic API Usage Debug - &quot;.concat(t,&quot;:\n&quot;).concat(r)})}function I(){let e=new AbortController;return e.abort(Object.defineProperty(new f.BailoutToCSRError(&quot;Render in Browser&quot;),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E721&quot;,enumerable:!1,configurable:!0})),e.signal}function U(e){switch(e.type){case&quot;prerender&quot;:case&quot;prerender-runtime&quot;:let t=new AbortController;if(e.cacheSignal)e.cacheSignal.inputReady().then(()=&gt;{t.abort()});else{let r=(0,a.getRuntimeStagePromise)(e);r?r.then(()=&gt;(0,l.scheduleOnNextTick)(()=&gt;t.abort())):(0,l.scheduleOnNextTick)(()=&gt;t.abort())}return t.signal;case&quot;prerender-client&quot;:case&quot;prerender-ppr&quot;:case&quot;prerender-legacy&quot;:case&quot;request&quot;:case&quot;cache&quot;:case&quot;private-cache&quot;:case&quot;unstable-cache&quot;:return}}function L(e,t){let r=t.dynamicTracking;r&amp;&amp;r.dynamicAccesses.push({stack:r.isDebugDynamicAccesses?Error().stack:void 0,expression:e})}function B(e){let t=c.workAsyncStorage.getStore(),r=a.workUnitAsyncStorage.getStore();if(t&amp;&amp;r)switch(r.type){case&quot;prerender-client&quot;:case&quot;prerender&quot;:{let o=r.fallbackRouteParams;o&amp;&amp;o.size&gt;0&amp;&amp;n.default.use((0,i.makeHangingPromise)(r.renderSignal,t.route,e));break}case&quot;prerender-ppr&quot;:{let n=r.fallbackRouteParams;if(n&amp;&amp;n.size&gt;0)return T(t.route,e,r.dynamicTracking);break}case&quot;prerender-runtime&quot;:throw Object.defineProperty(new d.InvariantError(&quot;`&quot;.concat(e,&quot;` was called during a runtime prerender. Next.js should be preventing &quot;).concat(e,&quot; from being included in server components statically, but did not in this case.&quot;)),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E771&quot;,enumerable:!1,configurable:!0});case&quot;cache&quot;:case&quot;private-cache&quot;:throw Object.defineProperty(new d.InvariantError(&quot;`&quot;.concat(e,&quot;` was called inside a cache scope. Next.js should be preventing &quot;).concat(e,&quot; from being included in server components statically, but did not in this case.&quot;)),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E745&quot;,enumerable:!1,configurable:!0})}}let X=/\n\s+at Suspense \(&lt;anonymous&gt;\)/,F=new RegExp(&quot;\\n\\s+at Suspense \\(&lt;anonymous&gt;\\)(?:(?!\\n\\s+at (?:&quot;.concat(&quot;body|div|main|section|article|aside|header|footer|nav|form|p|span|h1|h2|h3|h4|h5|h6&quot;,&quot;) \\(&lt;anonymous&gt;\\))[\\s\\S])*?\\n\\s+at &quot;).concat(s.ROOT_LAYOUT_BOUNDARY_NAME,&quot; \\([^\\n]*\\)&quot;)),G=new RegExp(&quot;\\n\\s+at &quot;.concat(s.METADATA_BOUNDARY_NAME,&quot;[\\n\\s]&quot;)),W=new RegExp(&quot;\\n\\s+at &quot;.concat(s.VIEWPORT_BOUNDARY_NAME,&quot;[\\n\\s]&quot;)),q=new RegExp(&quot;\\n\\s+at &quot;.concat(s.OUTLET_BOUNDARY_NAME,&quot;[\\n\\s]&quot;));function $(e,t,r,n){if(!q.test(t)){if(G.test(t)){r.hasDynamicMetadata=!0;return}if(W.test(t)){r.hasDynamicViewport=!0;return}if(F.test(t)){r.hasAllowedDynamic=!0,r.hasSuspenseAboveBody=!0;return}else if(X.test(t)){r.hasAllowedDynamic=!0;return}else{if(n.syncDynamicErrorWithStack)return void r.dynamicErrors.push(n.syncDynamicErrorWithStack);let o=function(e,t){let r=Object.defineProperty(Error(e),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E394&quot;,enumerable:!1,configurable:!0});return r.stack=r.name+&quot;: &quot;+e+t,r}(&#39;Route &quot;&#39;.concat(e.route,&#39;&quot;: A component accessed data, headers, params, searchParams, or a short-lived cache without a Suspense boundary nor a &quot;use cache&quot; above it. See more info: https://nextjs.org/docs/messages/next-prerender-missing-suspense&#39;),t);return void r.dynamicErrors.push(o)}}}var Y=function(e){return e[e.Full=0]=&quot;Full&quot;,e[e.Empty=1]=&quot;Empty&quot;,e[e.Errored=2]=&quot;Errored&quot;,e}({});function z(e,t){console.error(t),e.dev||(e.hasReadableErrorStacks?console.error(&#39;To get a more detailed stack trace and pinpoint the issue, start the app in development mode by running `next dev`, then open &quot;&#39;.concat(e.route,&#39;&quot; in your browser to investigate the error.&#39;)):console.error(&#39;To get a more detailed stack trace and pinpoint the issue, try one of the following:\n  - Start the app in development mode by running `next dev`, then open &quot;&#39;.concat(e.route,&#39;&quot; in your browser to investigate the error.\n  - Rerun the production build with `next build --debug-prerender` to generate better stack traces.&#39;)))}function V(e,t,r,n){if(0!==t){if(r.hasSuspenseAboveBody)return;if(n.syncDynamicErrorWithStack)throw z(e,n.syncDynamicErrorWithStack),new u.StaticGenBailoutError;let o=r.dynamicErrors;if(o.length&gt;0){for(let t=0;t&lt;o.length;t++)z(e,o[t]);throw new u.StaticGenBailoutError}if(r.hasDynamicViewport)throw console.error(&#39;Route &quot;&#39;.concat(e.route,&#39;&quot; has a `generateViewport` that depends on Request data (`cookies()`, etc...) or uncached external data (`fetch(...)`, etc...) without explicitly allowing fully dynamic rendering. See more info here: https://nextjs.org/docs/messages/next-prerender-dynamic-viewport&#39;)),new u.StaticGenBailoutError;if(1===t)throw console.error(&#39;Route &quot;&#39;.concat(e.route,&#39;&quot; did not produce a static shell and Next.js was unable to determine a reason. This is a bug in Next.js.&#39;)),new u.StaticGenBailoutError}else if(!1===r.hasAllowedDynamic&amp;&amp;r.hasDynamicMetadata)throw console.error(&#39;Route &quot;&#39;.concat(e.route,&#39;&quot; has a `generateMetadata` that depends on Request data (`cookies()`, etc...) or uncached external data (`fetch(...)`, etc...) when the rest of the route does not. See more info here: https://nextjs.org/docs/messages/next-prerender-dynamic-metadata&#39;)),new u.StaticGenBailoutError}function K(e,t){return e.runtimeStagePromise?e.runtimeStagePromise.then(()=&gt;t):t}},91414,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;unstable_rethrow&quot;,{enumerable:!0,get:function(){return function e(t){if((0,a.isNextRouterError)(t)||(0,u.isBailoutToCSRError)(t)||(0,i.isDynamicServerError)(t)||(0,c.isDynamicPostpone)(t)||(0,o.isPostpone)(t)||(0,n.isHangingPromiseRejectionError)(t))throw t;t instanceof Error&amp;&amp;&quot;cause&quot;in t&amp;&amp;e(t.cause)}}});let n=e.r(63138),o=e.r(67287),u=e.r(32061),a=e.r(65713),c=e.r(67673),i=e.r(76353);(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},90508,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;unstable_rethrow&quot;,{enumerable:!0,get:function(){return n}});let n=&quot;undefined&quot;==typeof window?e.r(91414).unstable_rethrow:e.r(15507).unstable_rethrow;(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},92805,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{ReadonlyURLSearchParams:function(){return l},RedirectType:function(){return o.RedirectType},forbidden:function(){return a.forbidden},notFound:function(){return u.notFound},permanentRedirect:function(){return n.permanentRedirect},redirect:function(){return n.redirect},unauthorized:function(){return c.unauthorized},unstable_isUnrecognizedActionError:function(){return f},unstable_rethrow:function(){return i.unstable_rethrow}});let n=e.r(24063),o=e.r(68391),u=e.r(22783),a=e.r(79854),c=e.r(22683),i=e.r(90508);class s extends Error{constructor(){super(&quot;Method unavailable on `ReadonlyURLSearchParams`. Read more: https://nextjs.org/docs/app/api-reference/functions/use-search-params#updating-searchparams&quot;)}}class l extends URLSearchParams{append(){throw new s}delete(){throw new s}set(){throw new s}sort(){throw new s}}function f(){throw Object.defineProperty(Error(&quot;`unstable_isUnrecognizedActionError` can only be used on the client.&quot;),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E776&quot;,enumerable:!1,configurable:!0})}(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},13957,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{ServerInsertedHTMLContext:function(){return o},useServerInsertedHTML:function(){return u}});let n=e.r(90809)._(e.r(71645)),o=n.default.createContext(null);function u(e){let t=(0,n.useContext)(o);t&amp;&amp;t(e)}},92838,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{UnrecognizedActionError:function(){return n},unstable_isUnrecognizedActionError:function(){return o}});class n extends Error{constructor(...e){super(...e),this.name=&quot;UnrecognizedActionError&quot;}}function o(e){return!!(e&amp;&amp;&quot;object&quot;==typeof e&amp;&amp;e instanceof n)}(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},95863,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),Object.defineProperty(r,&quot;bailoutToClientRendering&quot;,{enumerable:!0,get:function(){return a}});let n=e.r(32061),o=e.r(63599),u=e.r(62141);function a(e){let t=o.workAsyncStorage.getStore();if(null==t?void 0:t.forceStatic)return;let r=u.workUnitAsyncStorage.getStore();if(r)switch(r.type){case&quot;prerender&quot;:case&quot;prerender-runtime&quot;:case&quot;prerender-client&quot;:case&quot;prerender-ppr&quot;:case&quot;prerender-legacy&quot;:throw Object.defineProperty(new n.BailoutToCSRError(e),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E394&quot;,enumerable:!1,configurable:!0})}}(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)},76562,(e,t,r)=&gt;{&quot;use strict&quot;;Object.defineProperty(r,&quot;__esModule&quot;,{value:!0}),!function(e,t){for(var r in t)Object.defineProperty(e,r,{enumerable:!0,get:t[r]})}(r,{ReadonlyURLSearchParams:function(){return i.ReadonlyURLSearchParams},RedirectType:function(){return i.RedirectType},ServerInsertedHTMLContext:function(){return s.ServerInsertedHTMLContext},forbidden:function(){return i.forbidden},notFound:function(){return i.notFound},permanentRedirect:function(){return i.permanentRedirect},redirect:function(){return i.redirect},unauthorized:function(){return i.unauthorized},unstable_isUnrecognizedActionError:function(){return l.unstable_isUnrecognizedActionError},unstable_rethrow:function(){return i.unstable_rethrow},useParams:function(){return _},usePathname:function(){return p},useRouter:function(){return y},useSearchParams:function(){return d},useSelectedLayoutSegment:function(){return h},useSelectedLayoutSegments:function(){return b},useServerInsertedHTML:function(){return s.useServerInsertedHTML}});let n=e.r(71645),o=e.r(8372),u=e.r(61994),a=e.r(59036),c=e.r(13258),i=e.r(92805),s=e.r(13957),l=e.r(92838),f=&quot;undefined&quot;==typeof window?e.r(67673).useDynamicRouteParams:void 0;function d(){let t=(0,n.useContext)(u.SearchParamsContext),r=(0,n.useMemo)(()=&gt;t?new i.ReadonlyURLSearchParams(t):null,[t]);if(&quot;undefined&quot;==typeof window){let{bailoutToClientRendering:t}=e.r(95863);t(&quot;useSearchParams()&quot;)}return r}function p(){return null==f||f(&quot;usePathname()&quot;),(0,n.useContext)(u.PathnameContext)}function y(){let e=(0,n.useContext)(o.AppRouterContext);if(null===e)throw Object.defineProperty(Error(&quot;invariant expected app router to be mounted&quot;),&quot;__NEXT_ERROR_CODE&quot;,{value:&quot;E238&quot;,enumerable:!1,configurable:!0});return e}function _(){return null==f||f(&quot;useParams()&quot;),(0,n.useContext)(u.PathParamsContext)}function b(e){void 0===e&amp;&amp;(e=&quot;children&quot;),null==f||f(&quot;useSelectedLayoutSegments()&quot;);let t=(0,n.useContext)(o.LayoutRouterContext);return t?function e(t,r,n,o){let u;if(void 0===n&amp;&amp;(n=!0),void 0===o&amp;&amp;(o=[]),n)u=t[1][r];else{var i;let e=t[1];u=null!=(i=e.children)?i:Object.values(e)[0]}if(!u)return o;let s=u[0],l=(0,a.getSegmentValue)(s);return!l||l.startsWith(c.PAGE_SEGMENT_KEY)?o:(o.push(l),e(u,r,!1,o))}(t.parentTree,e):null}function h(e){void 0===e&amp;&amp;(e=&quot;children&quot;),null==f||f(&quot;useSelectedLayoutSegment()&quot;);let t=b(e);if(!t||0===t.length)return null;let r=&quot;children&quot;===e?t[0]:t[t.length-1];return r===c.DEFAULT_SEGMENT_KEY?null:r}(&quot;function&quot;==typeof r.default||&quot;object&quot;==typeof r.default&amp;&amp;null!==r.default)&amp;&amp;void 0===r.default.__esModule&amp;&amp;(Object.defineProperty(r.default,&quot;__esModule&quot;,{value:!0}),Object.assign(r.default,r),t.exports=r.default)}]);</code></pre>
+				
+				
+			</details></td>
+	</tr>
+	
+	
+	<tr>
+		<th scope="row">Evidence</th>
+		<td><pre><code>bug</code></pre></td>
+	</tr>
+	<tr>
+		<th scope="row">Solution</th>
+		<td> 
+<p>Remove all comments that return information that may help an attacker and fix any underlying problems they refer to.</p>
+ </td>
+	</tr>
+</table>
+
+											</details></li>
+									</ol>
+								</li>
+								
+							</ol>
+						</li>
+						
+					</ol>
+				</li>
+				  
+			</ol>
+		</section>
+
+		<section id="appendix" class="appendix">
+			<h2>Appendix</h2>
+
+			<section id="alert-types" class="alert-types">
+				<h3>Alert Types</h3>
+				<p class="alert-types-intro">This section contains additional information on the types of alerts in the report.</p>
+				<ol>
+					<li
+						id="alert-type-0">
+						<h4>Content-Type Header Missing</h4>
+						<table class="alert-types-table">
+							<tr>
+								<th scope="row">Source</th>
+								<td>
+									
+									   <span>raised by a passive scanner</span> <span>(<a
+										href="https://www.zaproxy.org/docs/alerts/10019/">Content-Type Header Missing</a>)
+									</span>   
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">CWE ID</th>
+								<td><a
+									href="https://cwe.mitre.org/data/definitions/345.html">345</a></td>
+							</tr>
+							<tr>
+								<th scope="row">WASC ID</th>
+								<td>12</td>
+							</tr>
+							<tr>
+								<th scope="row">Reference</th>
+								<td>
+									<ol>
+										<li><a
+											href="https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/compatibility/gg622941(v=vs.85)">https://learn.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/compatibility/gg622941(v=vs.85)</a></li>
+									</ol>
+								</td>
+							</tr>
+						</table>
+					</li>
+					<li
+						id="alert-type-1">
+						<h4>Information Disclosure - Suspicious Comments</h4>
+						<table class="alert-types-table">
+							<tr>
+								<th scope="row">Source</th>
+								<td>
+									
+									   <span>raised by a passive scanner</span> <span>(<a
+										href="https://www.zaproxy.org/docs/alerts/10027/">Information Disclosure - Suspicious Comments</a>)
+									</span>   
+								</td>
+							</tr>
+							<tr>
+								<th scope="row">CWE ID</th>
+								<td><a
+									href="https://cwe.mitre.org/data/definitions/615.html">615</a></td>
+							</tr>
+							<tr>
+								<th scope="row">WASC ID</th>
+								<td>13</td>
+							</tr>
+							
+						</table>
+					</li>
+				</ol>
+			</section>
+		</section>
+		 
+	</main>
+</body>
+</html>
+
+
+

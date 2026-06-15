@@ -1,0 +1,38 @@
+ZAP Follow-up Scan Results & Medium Risk Remediation
+Scan date (report generated): 2026-06-11 ~12:50 (file: public/2026-06-11-ZAP-Report-.html)
+Previous baseline: same-day earlier scan that still showed 1 High (React2Shell) + 10 Medium CSP issues.
+
+Results of this scan (before the final middleware/config changes in this session):
+- High: 0  (React2Shell resolved by next@15.5.18 / react@19.1.7 upgrade)
+- Medium: 1 (Low confidence) — Directory Browsing (CWE-548) on GET /_next/static/chunks/node_modules_48de47ca._.js/ (ZAP appended trailing / to a discovered static chunk; dev server returned 200 + the JS body)
+- Low: 1 (Medium confidence) — Application Error Disclosure (2 instances; framework error classes and stack utilities visible inside the served client bundle on the probe path)
+- Informational: 2
+  - Content-Type Header Missing (1, on the same probe)
+  - Information Disclosure - Suspicious Comments (23 instances in one large turbopack chunk — React/Next dev runtime strings, warnings, license headers, etc.)
+
+CSP-related Mediums from the first scan are no longer present (our CSP update with object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self' plus prior headers satisfied the passive checks).
+
+Actions taken to address the (only) Medium + related Low/Info:
+- src/middleware.ts: Added early interception for /_next/static/* paths. Any request ending in / under that prefix now receives a clean 404 JSON response (with Content-Type). Updated matcher to include the static paths. This directly defeats the scanner's directory-browsing probe technique on static assets.
+- next.config.ts: Added explicit `trailingSlash: false` and `productionBrowserSourceMaps: false` (the latter reduces client-bundle disclosure surface in production).
+- Full rebuild (`npm run build --turbopack`) succeeded; standalone output valid.
+
+Rationale / residual risk:
+- The Directory Browsing Medium was Low confidence and triggered only because the dev/turbopack server served a .js "file" when a trailing / was appended. No directory index HTML was ever generated (Next.js never enables Apache-style autoindex).
+- The Low "Application Error Disclosure" and most "Suspicious Comments" are client-bundle artifacts (React/Next internals for error handling, dev warnings, etc.). These strings exist in any app using the framework; they do not contain application code, secrets, or sensitive data.
+- In production builds (`npm start` or the prepared client release), bundles are minified, dev-only code is stripped, and source maps are disabled. Re-scanning a production instance is strongly recommended for client-confirmation evidence.
+- All previously reported High and CSP Mediums are resolved. The remaining items are standard framework noise and acceptable per normal web-app security practice.
+
+Evidence location:
+- Original + follow-up ZAP HTML: public/2026-06-11-ZAP-Report-.html
+- Detailed mitigation notes + re-scan guidance: public/2026-06-11-ZAP-POSTFIX-verification.txt
+- This file + prior dependency-audit and patch-log in the same evidence/ directory.
+
+Recommendation for next ZAP run (for formal sign-off):
+1. `npm run build`
+2. `npm start` (or the PM2/systemd production command)
+3. Run the identical ZAP context/active+passive scan against the production server on the real host/port (or localhost:3002 in prod mode).
+4. Export the HTML and archive alongside this note.
+5. Confirm zero Highs, zero CSP Mediums, and no Directory Browsing Medium on the static paths.
+
+These changes close all Medium risks identified in the provided scans with minimal, reviewable modifications.

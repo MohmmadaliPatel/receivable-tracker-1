@@ -1,0 +1,3 @@
+{
+  "/api/forwarding-rules/[id]/route": "app/api/forwarding-rules/[id]/route.js"
+}
