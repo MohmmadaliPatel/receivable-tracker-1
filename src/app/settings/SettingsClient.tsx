@@ -44,6 +44,14 @@ export default function SettingsClient() {
   const [basePath, setBasePath] = useState('emails');
   const [companyDisplayName, setCompanyDisplayName] = useState('');
 
+  // Self-service password change (enforces server password policy + audits)
+  const [pwCurrent, setPwCurrent] = useState('');
+  const [pwNew, setPwNew] = useState('');
+  const [pwConfirm, setPwConfirm] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwSaved, setPwSaved] = useState(false);
+  const [pwError, setPwError] = useState<string | null>(null);
+
   useEffect(() => {
     fetch('/api/settings')
       .then((r) => r.json())
@@ -85,6 +93,42 @@ export default function SettingsClient() {
       setError(err.message || 'Failed to save');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPwError(null);
+    setPwSaved(false);
+    if (!pwNew || pwNew !== pwConfirm) {
+      setPwError('New passwords do not match');
+      return;
+    }
+    if (!pwCurrent) {
+      setPwError('Current password is required');
+      return;
+    }
+    setPwSaving(true);
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: pwCurrent, newPassword: pwNew }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setPwError(d.error || 'Failed to change password');
+        return;
+      }
+      setPwSaved(true);
+      setPwCurrent('');
+      setPwNew('');
+      setPwConfirm('');
+      // Clear after short delay
+      setTimeout(() => setPwSaved(false), 2500);
+    } catch {
+      setPwError('Network error');
+    } finally {
+      setPwSaving(false);
     }
   };
 
@@ -251,6 +295,51 @@ export default function SettingsClient() {
             <code className="block mt-2 bg-white border border-gray-200 px-3 py-2 rounded-lg font-mono">
               YYYY-MM-DD_HH-mm_CONF.pdf &nbsp;·&nbsp; YYYY-MM-DD_HH-mm_CONF.eml
             </code>
+          </div>
+        </div>
+
+        {/* Change Password (self-service, policy enforced) */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <h2 className="text-base font-semibold text-gray-900">Change Password</h2>
+          <p className="text-sm text-gray-500 mt-1 mb-4">Update your own password. The configured password policy (length, upper/lower/digit, special character) is enforced. Current password is required to re-authenticate before changing credentials.</p>
+
+          <div className="grid grid-cols-1 gap-3 max-w-md">
+            <input
+              type="password"
+              value={pwCurrent}
+              onChange={(e) => setPwCurrent(e.target.value)}
+              placeholder="Current password (required)"
+              required
+              className="px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25"
+            />
+            <p className="text-xs text-gray-500 -mt-2">Required to confirm you are changing your own password.</p>
+            <input
+              type="password"
+              value={pwNew}
+              onChange={(e) => setPwNew(e.target.value)}
+              placeholder="New password (min 12, upper, lower, digit; special if policy requires)"
+              className="px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25"
+            />
+            <input
+              type="password"
+              value={pwConfirm}
+              onChange={(e) => setPwConfirm(e.target.value)}
+              placeholder="Confirm new password"
+              className="px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25"
+            />
+          </div>
+
+          {pwError && <p className="mt-2 text-sm text-red-600">{pwError}</p>}
+          {pwSaved && <p className="mt-2 text-sm text-emerald-700">Password changed successfully.</p>}
+
+          <div className="mt-3">
+            <button
+              onClick={handleChangePassword}
+              disabled={pwSaving || !pwNew}
+              className="px-4 py-2 text-sm bg-neutral-900 text-white rounded-xl hover:bg-neutral-800 disabled:opacity-50"
+            >
+              {pwSaving ? 'Changing…' : 'Change Password'}
+            </button>
           </div>
         </div>
 

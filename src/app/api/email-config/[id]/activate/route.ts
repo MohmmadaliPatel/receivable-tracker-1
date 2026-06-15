@@ -1,33 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/simple-auth';
+import { requireAdminSession } from '@/lib/require-admin';
 import { EmailConfigService } from '@/lib/email-config-service';
-import { cookies } from 'next/headers';
-
-// Helper to get authenticated user
-async function getAuthenticatedUser() {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get('session_token')?.value;
-
-  if (!sessionToken) {
-    return null;
-  }
-
-  return await getSession(sessionToken);
-}
+import { writeAuditLog, requestMeta } from '@/lib/audit-log';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getAuthenticatedUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const admin = await requireAdminSession();
+    if (!admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
     const { id } = await params;
     const config = await EmailConfigService.setActiveConfig(id);
+
+    const meta = requestMeta(request);
+    await writeAuditLog({
+      action: 'EMAIL_CONFIG_ACTIVATE',
+      success: true,
+      userId: admin.userId,
+      username: admin.username,
+      resource: id,
+      ...meta,
+      details: { name: config.name },
+    });
 
     return NextResponse.json({ config });
   } catch (error) {

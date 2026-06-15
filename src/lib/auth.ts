@@ -2,6 +2,14 @@ import { NextAuthOptions } from "next-auth"
 import AzureADProvider from "next-auth/providers/azure-ad"
 import CredentialsProvider from "next-auth/providers/credentials"
 
+// LEGACY / DEMO ONLY — This NextAuth configuration (and DEMO_MODE / AZURE_* envs) powers an older Outlook delta-sync demo path.
+// It is NOT used by the main application:
+// - Primary login: src/app/api/auth/login + src/lib/simple-auth.ts (DB sessions, bcrypt, lockout, RBAC).
+// - Email sending/fetching/forwarding/replies: EmailConfig rows + src/lib/graph-mail-service.ts + email-fetch/forward/tracking (client-credentials, app-only; no delegated user tokens).
+// - Public confirmation links: jose HS256 JWTs (email-action-jwt) + public verify routes.
+// DEMO_MODE and the Azure provider here have no effect on the above flows or on EmailConfig validation/activation/cron.
+// See also: README Legacy note, env examples, src/app/api/auth/[...nextauth]/route.ts, and src/lib/email-service.ts (the only other DEMO check, also legacy-only).
+
 // Utility function to refresh access token
 async function refreshAccessToken(token: any) {
   try {
@@ -65,10 +73,10 @@ const DemoProvider = CredentialsProvider({
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    // Demo provider for testing without Azure AD
+    // Demo provider for testing without Azure AD (LEGACY only — see file header).
     ...(process.env.DEMO_MODE === 'true' ? [DemoProvider] : []),
 
-    // Azure AD provider (only if credentials are provided)
+    // Azure AD provider (only if credentials are provided) (LEGACY only — does not affect main simple-auth or Graph EmailConfig).
     ...(process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_SECRET ? [
       AzureADProvider({
         clientId: process.env.AZURE_CLIENT_ID,

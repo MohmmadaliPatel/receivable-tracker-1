@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { getSession } from '@/lib/simple-auth';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@prisma/client';
+import { writeAuditLog, requestMeta } from '@/lib/audit-log';
 
 async function requireAdmin() {
   const cookieStore = await cookies();
@@ -57,6 +58,15 @@ export async function PATCH(
       where: { id },
       data: data as Prisma.EmailBodyTemplateUpdateInput,
     });
+    const meta = requestMeta(request);
+    await writeAuditLog({
+      action: 'EMAIL_TEMPLATE_UPDATE',
+      success: true,
+      userId: admin?.userId ?? null,
+      username: admin?.username ?? null,
+      resource: id,
+      ...meta,
+    });
     return NextResponse.json({ template });
   } catch {
     return NextResponse.json({ error: 'Not found or invalid data' }, { status: 404 });
@@ -65,7 +75,7 @@ export async function PATCH(
 
 // DELETE /api/masters/email-body-templates/[id]
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const admin = await requireAdmin();
@@ -74,6 +84,15 @@ export async function DELETE(
   const { id } = await params;
   try {
     await prisma.emailBodyTemplate.delete({ where: { id } });
+    const meta = requestMeta(request);
+    await writeAuditLog({
+      action: 'EMAIL_TEMPLATE_DELETE',
+      success: true,
+      userId: admin.userId,
+      username: admin.username,
+      resource: id,
+      ...meta,
+    });
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });

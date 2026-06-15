@@ -1,30 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cronService } from '@/lib/cron-service';
+import { writeAuditLog, requestMeta } from '@/lib/audit-log';
+import { requireAdminSession } from '@/lib/require-admin';
 
 export async function POST(request: NextRequest) {
+  const admin = await requireAdminSession();
+  if (!admin) {
+    return NextResponse.json({ error: 'Admin access required for cron control' }, { status: 403 });
+  }
   try {
     const body = await request.json();
     const { action, configId } = body;
 
+    const meta = requestMeta(request);
     if (action === 'start') {
       if (configId) {
         await cronService.startJobForConfig(configId);
-        return NextResponse.json({ success: true, message: 'Cron job started' });
       } else {
         cronService.start();
-        return NextResponse.json({ success: true, message: 'Cron service started' });
       }
+      await writeAuditLog({
+        action: 'CRON_START',
+        success: true,
+        userId: admin.userId,
+        username: admin.username,
+        resource: configId || undefined,
+        ...meta,
+      });
+      return NextResponse.json({ success: true, message: configId ? 'Cron job started' : 'Cron service started' });
     } else if (action === 'stop') {
       if (configId) {
         cronService.stopJobForConfig(configId);
-        return NextResponse.json({ success: true, message: 'Cron job stopped' });
       } else {
         cronService.stop();
-        return NextResponse.json({ success: true, message: 'Cron service stopped' });
       }
+      await writeAuditLog({
+        action: 'CRON_STOP',
+        success: true,
+        userId: admin.userId,
+        username: admin.username,
+        resource: configId || undefined,
+        ...meta,
+      });
+      return NextResponse.json({ success: true, message: configId ? 'Cron job stopped' : 'Cron service stopped' });
     } else if (action === 'reload') {
       cronService.stop();
       await cronService.loadAndStartJobs();
+      await writeAuditLog({
+        action: 'CRON_RELOAD',
+        success: true,
+        userId: admin.userId,
+        username: admin.username,
+        ...meta,
+      });
       return NextResponse.json({ success: true, message: 'Cron jobs reloaded' });
     }
 

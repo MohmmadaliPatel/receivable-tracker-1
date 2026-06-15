@@ -3,6 +3,7 @@ import Sidebar from "@/components/Sidebar";
 import EmailConfigManager from "@/components/EmailConfigManager";
 import { getSession } from '@/lib/simple-auth';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 
 async function getUser() {
   const cookieStore = await cookies();
@@ -13,6 +14,10 @@ async function getUser() {
 
 export default async function EmailConfigPage() {
   const user = await getUser();
+
+  if (!user || user.role !== 'admin') {
+    redirect('/');
+  }
 
   return (
     <AuthGuard>

@@ -3,10 +3,13 @@ import { EmailFetchService, GraphEmail } from './email-fetch-service';
 import { EmailConfig } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
+import { isDebug, debugLog } from './debug';
 
 export class EmailTrackingService {
-  // Log email to text file for testing
+  // Log email to text file for testing/debug (guarded: PII-heavy, only in debug or non-prod).
+  // logs/ may contain email metadata/PII — operator responsibility to rotate/disable per client 3/7 notes.
   static async logEmailToFile(graphEmail: GraphEmail, senderEmail: string) {
+    if (!isDebug()) return; // skip in prod
     try {
       const logDir = path.join(process.cwd(), 'logs');
       if (!fs.existsSync(logDir)) {
@@ -30,10 +33,9 @@ Body Preview: ${graphEmail.bodyPreview || 'N/A'}
 `;
 
       fs.appendFileSync(logFile, logEntry, 'utf8');
-      console.log(`📝 [Email Log] Email logged to: ${logFile}`);
+      debugLog(`📝 [Email Log] Email logged to: ${logFile}`);
     } catch (error) {
       console.error('❌ [Email Log] Error logging email to file:', error);
-      // Don't fail the tracking if file logging fails
     }
   }
 

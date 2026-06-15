@@ -1,21 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { getSession } from '@/lib/simple-auth';
+import { requireAdminSession } from '@/lib/require-admin';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-
-async function requireAdmin() {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get('session_token')?.value;
-  if (!sessionToken) return null;
-  const session = await getSession(sessionToken);
-  if (!session || session.role !== 'admin') return null;
-  return session;
-}
+import { validatePassword } from '@/lib/password-policy';
+import { writeAuditLog, requestMeta } from '@/lib/audit-log';
 
 // GET /api/users — list all users (admin only)
 export async function GET() {
-  const admin = await requireAdmin();
+  const admin = await requireAdminSession();
   if (!admin) return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
 
   const users = await prisma.user.findMany({
@@ -38,9 +30,10 @@ export async function GET() {
 
 // POST /api/users — create new user (admin only)
 export async function POST(request: NextRequest) {
-  const admin = await requireAdmin();
+  const admin = await requireAdminSession();
   if (!admin) return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
 
+  const meta = requestMeta(request);
   const body = await request.json();
   const {
     username,
@@ -57,8 +50,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
   }
 
-  if (password.length < 4) {
-    return NextResponse.json({ error: 'Password must be at least 4 characters' }, { status: 400 });
+  const policy = validatePassword(password);
+  if (!policy.valid) {
+    return NextResponse.json({ error: policy.errors.join('; ') }, { status: 400 });
   }
 
   const existing = await prisma.user.findFirst({
@@ -68,7 +62,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Username or email already exists' }, { status: 409 });
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcrypt.hash(password, 12); // cost 12 (OWASP baseline 2024+; tune for CPU; was 10)
 
   const user = await prisma.user.create({
     data: {
@@ -92,6 +86,16 @@ export async function POST(request: NextRequest) {
       accessConfirmMsme: true,
       createdAt: true,
     },
+  });
+
+  await writeAuditLog({
+    action: 'USER_CREATE',
+    success: true,
+    userId: admin.userId,
+    username: admin.username,
+    resource: user.id,
+    ...meta,
+    details: { createdUsername: user.username, role: user.role },
   });
 
   return NextResponse.json({ user }, { status: 201 });

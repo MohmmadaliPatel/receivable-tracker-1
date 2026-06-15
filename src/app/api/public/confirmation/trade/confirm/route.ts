@@ -3,6 +3,7 @@ import { patchConfirmationRaw } from '@/lib/confirmation-repository';
 import { verifyPublicConfirmationToken } from '@/lib/public-confirmation-verify';
 import { CONFIRMATION_STATUSES } from '@/lib/confirmation-service';
 import { loadTradeGroupRows } from '@/lib/trade-email-group';
+import { writeAuditLog, requestMeta } from '@/lib/audit-log';
 
 export async function POST(request: NextRequest) {
   let body: { token?: string };
@@ -35,6 +36,18 @@ export async function POST(request: NextRequest) {
       ...(row.id === record.id ? { emailActionConsumedAt: new Date() as Date } : {}),
     });
   }
+
+  const meta = requestMeta(request);
+  await writeAuditLog({
+    action: 'PUBLIC_RESPONSE_CONFIRM',
+    success: true,
+    userId: null,
+    username: null,
+    resource: record.id,
+    ip: meta.ip,
+    userAgent: meta.userAgent,
+    details: { module: record.module },
+  });
 
   return NextResponse.json({ success: true });
 }

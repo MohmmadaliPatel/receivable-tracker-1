@@ -1,6 +1,7 @@
 import { Client } from '@microsoft/microsoft-graph-client';
 import { EmailConfig } from '@prisma/client';
 import { EmailFetchService } from './email-fetch-service';
+import { isDebug } from './debug';
 
 // Get access token using client credentials flow
 async function getAccessToken(config: EmailConfig): Promise<string> {

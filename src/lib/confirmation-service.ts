@@ -3,6 +3,7 @@ import { GraphMailService, MailAttachment } from './graph-mail-service';
 import { EmailConfigService } from './email-config-service';
 import * as fs from 'fs';
 import * as path from 'path';
+import { isDebug } from './debug'; // used to guard any future Graph/token detail logs (high PII risk areas already reduced in fetch/tracking)
 import { randomUUID } from 'crypto';
 import type {
   EmailBodyTemplate,

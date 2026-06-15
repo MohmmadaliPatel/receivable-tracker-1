@@ -3,6 +3,7 @@ import { patchConfirmationRaw } from '@/lib/confirmation-repository';
 import { verifyPublicConfirmationToken } from '@/lib/public-confirmation-verify';
 import { listTradeQueryGroup } from '@/lib/public-confirmation-queries';
 import { CONFIRMATION_STATUSES } from '@/lib/confirmation-service';
+import { writeAuditLog, requestMeta } from '@/lib/audit-log';
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('token');
@@ -109,6 +110,18 @@ export async function POST(request: NextRequest) {
         : {}),
     });
   }
+
+  const meta = requestMeta(request);
+  await writeAuditLog({
+    action: 'PUBLIC_RESPONSE_QUERY',
+    success: true,
+    userId: null,
+    username: null,
+    resource: record.id,
+    ip: meta.ip,
+    userAgent: meta.userAgent,
+    details: { module: record.module, lines: lines.length },
+  });
 
   return NextResponse.json({ success: true });
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getSession } from '@/lib/simple-auth';
 import { getOrCreateSettings, updateSettings } from '@/lib/confirmation-service';
+import { writeAuditLog, requestMeta } from '@/lib/audit-log';
 
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
@@ -42,6 +43,22 @@ export async function PUT(request: NextRequest) {
     ...(clampedInterval !== undefined && { replyCheckIntervalMinutes: clampedInterval }),
     ...(emailSaveBasePath !== undefined && { emailSaveBasePath }),
     ...(normalizedCompany !== undefined && { companyDisplayName: normalizedCompany }),
+  });
+
+  const meta = requestMeta(request);
+  await writeAuditLog({
+    action: 'SETTINGS_UPDATE',
+    success: true,
+    userId: user.userId,
+    username: user.username,
+    resource: user.userId,
+    ...meta,
+    details: {
+      autoReplyCheck,
+      replyCheckIntervalMinutes: clampedInterval,
+      emailSaveBasePath: emailSaveBasePath !== undefined,
+      companyDisplayName: normalizedCompany !== undefined,
+    },
   });
 
   return NextResponse.json({ settings });

@@ -4,6 +4,7 @@ import { getSession } from '@/lib/simple-auth';
 import { prisma } from '@/lib/prisma';
 import { userCanAccessModule } from '@/lib/module-access';
 import type { ModuleKey } from '@/lib/module-types';
+import { writeAuditLog, requestMeta } from '@/lib/audit-log';
 
 async function getSessionUser() {
   const cookieStore = await cookies();
@@ -131,6 +132,19 @@ export async function POST(request: NextRequest) {
         typeof body.plainBody === 'string' && body.plainBody.trim() ? body.plainBody.trim() : null,
       isDefault: !!body.isDefault,
     },
+  });
+
+  const meta = requestMeta(request);
+  const actorId = (user as any)?.userId ?? (user as any)?.id ?? null;
+  const actorName = (user as any)?.username ?? null;
+  await writeAuditLog({
+    action: 'EMAIL_TEMPLATE_CREATE',
+    success: true,
+    userId: actorId,
+    username: actorName,
+    resource: created.id,
+    ...meta,
+    details: { name: created.name, slug: created.slug },
   });
 
   return NextResponse.json({ template: created });

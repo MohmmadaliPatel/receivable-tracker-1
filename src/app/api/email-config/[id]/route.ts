@@ -1,31 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/simple-auth';
+import { requireAdminSession } from '@/lib/require-admin';
 import { EmailConfigService } from '@/lib/email-config-service';
 import { GraphMailService } from '@/lib/graph-mail-service';
 import { cronService } from '@/lib/cron-service';
-import { cookies } from 'next/headers';
-
-// Helper to get authenticated user
-async function getAuthenticatedUser() {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get('session_token')?.value;
-
-  if (!sessionToken) {
-    return null;
-  }
-
-  return await getSession(sessionToken);
-}
+import { writeAuditLog, requestMeta } from '@/lib/audit-log';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getAuthenticatedUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const admin = await requireAdminSession();
+    if (!admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
     const { id } = await params;
@@ -35,7 +22,9 @@ export async function GET(
       return NextResponse.json({ error: 'Configuration not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ config });
+    // Mask secret on read responses (see comment in route.ts list GET). Only create/update POST/PUT responses may return the (new) secret value for admin to copy once.
+    const masked = (config as any).msClientSecret ? { ...(config as any), msClientSecret: '***' } : config;
+    return NextResponse.json({ config: masked });
   } catch (error) {
     console.error('Error fetching email config:', error);
     return NextResponse.json(
@@ -50,10 +39,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getAuthenticatedUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const admin = await requireAdminSession();
+    if (!admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
     const { id } = await params;
@@ -86,6 +74,17 @@ export async function PUT(
       console.error('Error reloading cron job:', error);
     }
 
+    const meta = requestMeta(request);
+    await writeAuditLog({
+      action: 'EMAIL_CONFIG_UPDATE',
+      success: true,
+      userId: admin.userId,
+      username: admin.username,
+      resource: id,
+      ...meta,
+      details: { name: config.name },
+    });
+
     return NextResponse.json({ config });
   } catch (error) {
     console.error('Error updating email config:', error);
@@ -101,14 +100,23 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await getAuthenticatedUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const admin = await requireAdminSession();
+    if (!admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
     const { id } = await params;
     await EmailConfigService.deleteConfig(id);
+
+    const meta = requestMeta(request);
+    await writeAuditLog({
+      action: 'EMAIL_CONFIG_DELETE',
+      success: true,
+      userId: admin.userId,
+      username: admin.username,
+      resource: id,
+      ...meta,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

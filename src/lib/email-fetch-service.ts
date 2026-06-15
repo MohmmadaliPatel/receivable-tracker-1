@@ -2,6 +2,7 @@ import { Client } from '@microsoft/microsoft-graph-client';
 import { EmailConfig } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
+import { isDebug, debugLog, debugWarn } from './debug';
 
 // Get access token using client credentials flow
 async function getAccessToken(config: EmailConfig): Promise<string> {
@@ -14,11 +15,13 @@ async function getAccessToken(config: EmailConfig): Promise<string> {
     grant_type: 'client_credentials',
   });
 
-  console.log('🔐 [Token] Requesting access token');
-  console.log('🔐 [Token] Token URL:', tokenUrl);
-  console.log('🔐 [Token] Client ID:', config.msClientId);
-  console.log('🔐 [Token] Tenant ID:', config.msTenantId);
-  console.log('🔐 [Token] Client Secret:', config.msClientSecret ? '***' + config.msClientSecret.slice(-4) : 'MISSING');
+  if (isDebug()) {
+    debugLog('🔐 [Token] Requesting access token (debug only)');
+    debugLog('🔐 [Token] Token URL:', tokenUrl);
+    debugLog('🔐 [Token] Client ID:', config.msClientId);
+    debugLog('🔐 [Token] Tenant ID:', config.msTenantId);
+  }
+  // Never log client secret or full tokens outside debug.
 
   try {
     const response = await fetch(tokenUrl, {
@@ -29,39 +32,35 @@ async function getAccessToken(config: EmailConfig): Promise<string> {
       body: params,
     });
 
-    console.log('🔐 [Token] Response status:', response.status, response.statusText);
+    if (isDebug()) {
+      debugLog('🔐 [Token] Response status:', response.status, response.statusText);
+    }
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('❌ [Token] Token request failed:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: data.error,
-        error_description: data.error_description,
-        error_codes: data.error_codes,
-        correlation_id: data.correlation_id,
-        fullResponse: data,
-      });
+      console.error('❌ [Token] Token request failed (status only in prod):', response.status);
+      if (isDebug()) {
+        console.error('❌ [Token] Token request failed (debug):', { error: data.error, error_description: data.error_description });
+      }
       throw new Error(`Token request failed: ${data.error_description || data.error || 'Unknown error'}`);
     }
 
     if (!data.access_token) {
-      console.error('❌ [Token] No access token in response:', data);
+      console.error('❌ [Token] No access token in response');
       throw new Error('No access token received from token endpoint');
     }
 
-    console.log('✅ [Token] Access token obtained successfully');
-    console.log('🔑 [Token] Token type:', data.token_type);
-    console.log('🔑 [Token] Expires in:', data.expires_in, 'seconds');
-    console.log('🔑 [Token] Token preview:', data.access_token.substring(0, 30) + '...');
+    if (isDebug()) {
+      debugLog('✅ [Token] Access token obtained successfully (debug)');
+      debugLog('🔑 [Token] Expires in:', data.expires_in, 'seconds');
+      debugLog('🔑 [Token] Token preview:', data.access_token.substring(0, 30) + '...');
+    }
 
     return data.access_token;
   } catch (error: any) {
-    console.error('❌ [Token] Error getting access token:', {
-      message: error.message,
-      stack: error.stack,
-    });
+    console.error('❌ [Token] Error getting access token (message only):', error?.message || error);
+    if (isDebug() && error?.stack) console.error(error.stack);
     if (error.message) {
       throw error;
     }
@@ -119,18 +118,20 @@ export class EmailFetchService {
     limit: number = 50
   ): Promise<GraphEmail[]> {
     try {
-      console.log('📧 [Email Fetch] Starting email fetch process');
-      console.log('📧 [Email Fetch] Parameters:', {
-        fromEmail: config.fromEmail,
-        senderEmail: senderEmail,
-        limit: limit,
-        tenantId: config.msTenantId,
-        clientId: config.msClientId,
-      });
+      if (isDebug()) {
+        debugLog('📧 [Email Fetch] Starting email fetch process (debug params only)');
+        debugLog('📧 [Email Fetch] Parameters (debug):', {
+          fromEmail: config.fromEmail,
+          senderEmail: senderEmail,
+          limit: limit,
+        });
+      }
 
       const accessToken = await getAccessToken(config);
-      console.log('✅ [Email Fetch] Access token obtained successfully');
-      console.log('🔑 [Email Fetch] Token preview:', accessToken.substring(0, 20) + '...');
+      if (isDebug()) {
+        debugLog('✅ [Email Fetch] Access token obtained successfully (debug)');
+        debugLog('🔑 [Email Fetch] Token preview (debug):', accessToken.substring(0, 20) + '...');
+      }
 
       // Microsoft Graph API filter syntax for sender emails
       // Properly escape the email address
@@ -149,12 +150,9 @@ export class EmailFetchService {
       });
       
       const url = `${baseUrl}?${params.toString()}`;
-      console.log('🌐 [Email Fetch] Request URL:', url);
-      console.log('🌐 [Email Fetch] Request params:', {
-        select,
-        orderBy,
-        top: limit * 2,
-      });
+      if (isDebug()) {
+        debugLog('🌐 [Email Fetch] Request URL (debug):', url);
+      }
       
       const response = await fetch(url, {
         headers: {
@@ -163,7 +161,9 @@ export class EmailFetchService {
         },
       });
 
-      console.log('📡 [Email Fetch] Response status:', response.status, response.statusText);
+      if (isDebug()) {
+        debugLog('📡 [Email Fetch] Response status (debug):', response.status, response.statusText);
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -178,15 +178,14 @@ export class EmailFetchService {
       }
 
       const data = await response.json();
-      console.log('📦 [Email Fetch] Response data summary:', {
-        totalEmailsFetched: data.value?.length || 0,
-        hasNextLink: !!data['@odata.nextLink'],
-        hasDeltaLink: !!data['@odata.deltaLink'],
-        odataContext: data['@odata.context'],
-      });
+      if (isDebug()) {
+        debugLog('📦 [Email Fetch] Response data summary (debug):', { total: data.value?.length || 0 });
+      }
 
       let emails: GraphEmail[] = data.value || [];
-      console.log('📬 [Email Fetch] Raw emails fetched:', emails.length);
+      if (isDebug()) {
+        debugLog('📬 [Email Fetch] Raw emails fetched (debug):', emails.length);
+      }
       
       // Log detailed information about all fetched emails
       if (emails.length > 0) {
@@ -241,7 +240,7 @@ export class EmailFetchService {
       
       // Filter client-side for emails sent to the sender
       // This is more reliable than OData filter with 'any' operator
-      console.log('🔍 [Email Fetch] Filtering emails for sender:', senderEmail);
+      if (isDebug()) { debugLog('🔍 [Email Fetch] Filtering (debug) for sender:', senderEmail); }
       const beforeFilterCount = emails.length;
       const emailData: any[] = [];
       emails = emails.filter((email) => {
@@ -275,42 +274,42 @@ export class EmailFetchService {
         return matches;
       }).slice(0, limit); // Limit to requested amount
 
-      // INSERT_YOUR_CODE
-      // Save the emailData array to a text file for debugging/auditing
-      try {
-        const fs = require('fs');
-        const path = require('path');
-        const debugLogsDir = path.join(process.cwd(), 'logs');
-        if (!fs.existsSync(debugLogsDir)) {
-          fs.mkdirSync(debugLogsDir, { recursive: true });
-        }
-        const debugFilePath = path.join(debugLogsDir, 'filtered-emails-debug.txt');
-        const timestamp = new Date().toISOString();
-        const fileContents =
-          `================= ${timestamp} =================\n` +
-          `Sender: ${senderEmail}\n` +
-          `Total non-matching emails: ${emailData.length}\n` +
-          JSON.stringify(emailData, null, 2) +
-          '\n\n';
+      // Debug-only file write for non-matching emails (was unconditional with INSERT_YOUR_CODE).
+      // Guarded: never runs in production unless DEBUG=true. May contain PII/metadata; operator must rotate logs/ or disable.
+      if (isDebug()) {
+        try {
+          const fs = require('fs');
+          const path = require('path');
+          const debugLogsDir = path.join(process.cwd(), 'logs');
+          if (!fs.existsSync(debugLogsDir)) {
+            fs.mkdirSync(debugLogsDir, { recursive: true });
+          }
+          const debugFilePath = path.join(debugLogsDir, 'filtered-emails-debug.txt');
+          const timestamp = new Date().toISOString();
+          const fileContents =
+            `================= ${timestamp} =================\n` +
+            `Sender: ${senderEmail}\n` +
+            `Total non-matching emails: ${emailData.length}\n` +
+            JSON.stringify(emailData, null, 2) +
+            '\n\n';
 
-        fs.appendFileSync(debugFilePath, fileContents, 'utf8');
-        console.log('📝 [Email Fetch Debug] Non-matching sender emails written to:', debugFilePath);
-      } catch (err) {
-        console.error('❌ [Email Fetch Debug] Failed to write debug email data to file:', err);
+          fs.appendFileSync(debugFilePath, fileContents, 'utf8');
+          debugLog('📝 [Email Fetch Debug] Non-matching sender emails written to:', debugFilePath);
+        } catch (err) {
+          console.error('❌ [Email Fetch Debug] Failed to write debug email data to file:', err);
+        }
       }
       
-      console.log('✅ [Email Fetch] Filtering complete:', {
-        beforeFilter: beforeFilterCount,
-        afterFilter: emails.length,
-        senderEmail: senderEmail,
-      });
+      if (isDebug()) {
+        debugLog('✅ [Email Fetch] Filtering complete:', {
+          beforeFilter: beforeFilterCount,
+          afterFilter: emails.length,
+          senderEmail: senderEmail,
+        });
+      }
       
       if (emails.length === 0 && beforeFilterCount > 0) {
-        console.warn('⚠️  [Email Fetch] No emails matched the sender filter!');
-        console.warn('⚠️  [Email Fetch] This might mean:');
-        console.warn('   - The sender email does not match exactly (case-sensitive comparison)');
-        console.warn('   - The emails are in CC or BCC instead of To');
-        console.warn('   - The sender email format is different');
+        debugWarn('⚠️  [Email Fetch] No emails matched the sender filter (debug details only)');
       }
 
       // Fetch attachments for emails that have them

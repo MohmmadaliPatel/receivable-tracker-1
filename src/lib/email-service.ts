@@ -62,7 +62,8 @@ export class EmailService {
     maxEmails: number = 100
   ): Promise<DeltaSyncResult> {
     try {
-      // Demo mode: return mock data
+      // LEGACY demo path only (delta sync / old Outlook demo). Does NOT affect the active EmailConfig + GraphMailService + email-fetch/forward flows used by the confirmation modules.
+      // Main app uses per-EmailConfig ms* secrets via client-credentials (see graph-mail-service, email-fetch-service, cron-service, etc.).
       if (!accessToken || process.env.DEMO_MODE === 'true') {
         return this.getMockEmails(userId, filter, maxEmails);
       }

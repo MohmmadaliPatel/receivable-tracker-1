@@ -61,7 +61,7 @@ export default function Sidebar({ user }: SidebarProps) {
   ];
 
   const bottomNav: { name: string; href: string; icon: LucideIcon }[] = [
-    { name: 'Email Configuration', href: '/email-config', icon: Server },
+    ...(user?.role === 'admin' ? [{ name: 'Email Configuration', href: '/email-config', icon: Server }] : []),
     // { name: 'Documents', href: '/documents', icon: FolderOpen }, // temporarily hidden
     { name: 'Reports', href: '/reports', icon: BarChart3 },
     { name: 'Settings', href: '/settings', icon: SlidersHorizontal },

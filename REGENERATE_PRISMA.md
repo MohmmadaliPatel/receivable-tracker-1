@@ -1,30 +1,23 @@
-# Regenerating Prisma Client
+# Database notes (development)
 
-The Prisma client needs to be regenerated to include the new Forwarder model.
+For **production deployment**, see [docs/DATABASE.md](docs/DATABASE.md).
 
-## Steps:
+## Quick commands
 
-1. **Stop your Next.js dev server** (if running) - Press Ctrl+C in the terminal where it's running
+```bash
+npm run db:migrate    # apply migrations
+npm run db:push       # sync schema (development only)
+npm run db:seed       # bootstrap admin (dev; use FORCE_SEED=1 in controlled prod setup)
+```
 
-2. **Regenerate Prisma Client:**
-   ```bash
-   npx prisma generate
-   ```
+Postinstall runs `prisma generate` automatically.
 
-3. **Restart your dev server:**
-   ```bash
-   npm run dev
-   ```
+## Regenerating Prisma client
 
-## Alternative (if the above doesn't work):
+If the client is out of sync after schema changes:
 
-If you get a file lock error, try:
-1. Close all terminals and VS Code/Cursor
-2. Open a new terminal
-3. Run: `npx prisma generate`
-4. Start the dev server again
+1. Stop the running server.
+2. `npx prisma generate`
+3. Restart.
 
-The database table has already been created, you just need to regenerate the Prisma client to use it.
-
-
-
+If file-lock errors occur, close editors and retry in a fresh shell.

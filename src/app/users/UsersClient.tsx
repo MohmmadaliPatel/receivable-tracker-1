@@ -285,7 +285,7 @@ function UserModal({
               required={!isEdit}
               minLength={4}
               className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900/25"
-              placeholder={isEdit ? '••••••••' : 'Min 4 characters'}
+              placeholder={isEdit ? '••••••••' : 'Min 12 chars, upper, lower, digit'}
             />
           </div>
 

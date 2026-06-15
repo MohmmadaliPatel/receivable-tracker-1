@@ -7,7 +7,9 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  // Use DATABASE_URL env var (see sample-env.txt and env.ubuntu-server.example).
+  // After changing this line, run: npx prisma generate
+  url      = env("DATABASE_URL")
 }
 
 model Session {
@@ -15,9 +17,27 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
+  lastActivity DateTime @default(now())
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  action    String
+  userId    String?
+  username  String?
+  ip        String?
+  userAgent String?
+  success   Boolean  @default(true)
+  resource  String?
+  details   String?
+
+  @@index([createdAt])
+  @@index([action])
+  @@map("audit_logs")
 }
 
 model User {
@@ -30,6 +50,14 @@ model User {
   accessTradePayable       Boolean @default(true)
   accessTradeReceivable    Boolean @default(true)
   accessConfirmMsme       Boolean @default(true)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  // lockoutCount tracks how many times this account has entered a locked state due to consecutive failures.
+  // When it reaches 3 (i.e. the lockout "happens the third time"), adminResetRequired is set and the
+  // account can no longer be unlocked by time expiry; an admin must reset the password (which clears
+  // the flag, the count, attempts, and lockedUntil).
+  lockoutCount        Int       @default(0)
+  adminResetRequired  Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]

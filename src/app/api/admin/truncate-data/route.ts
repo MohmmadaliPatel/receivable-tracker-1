@@ -1,29 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/simple-auth';
 import { prisma } from '@/lib/prisma';
-import { cookies } from 'next/headers';
-
-// Helper to get authenticated user
-async function getAuthenticatedUser() {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get('session_token')?.value;
-
-  if (!sessionToken) {
-    return null;
-  }
-
-  return await getSession(sessionToken);
-}
+import { requireAdminSession } from '@/lib/require-admin';
+import { writeAuditLog, requestMeta } from '@/lib/audit-log';
 
 export async function POST(request: NextRequest) {
-  try {
-    const user = await getAuthenticatedUser();
+  const meta = requestMeta(request);
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const admin = await requireAdminSession();
+
+    if (!admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    // Confirm action from request body
     const body = await request.json();
     if (body.confirm !== 'DELETE_ALL_DATA') {
       return NextResponse.json(
@@ -34,30 +23,12 @@ export async function POST(request: NextRequest) {
 
     console.log('🗑️  [Truncate] Starting data truncation...');
 
-    // Delete in order to respect foreign key constraints
-    // 1. Delete EmailReply first (depends on EmailTracking)
     const deletedReplies = await prisma.emailReply.deleteMany({});
-    console.log(`✅ [Truncate] Deleted ${deletedReplies.count} email replies`);
-
-    // 2. Delete EmailTracking (depends on Sender and EmailConfig)
     const deletedTrackings = await prisma.emailTracking.deleteMany({});
-    console.log(`✅ [Truncate] Deleted ${deletedTrackings.count} email trackings`);
-
-    // 3. Delete ForwardingRule (depends on Sender)
     const deletedRules = await prisma.forwardingRule.deleteMany({});
-    console.log(`✅ [Truncate] Deleted ${deletedRules.count} forwarding rules`);
-
-    // 4. Delete Sender (depends on User)
     const deletedSenders = await prisma.sender.deleteMany({});
-    console.log(`✅ [Truncate] Deleted ${deletedSenders.count} senders`);
-
-    // 5. Delete Forwarder (depends on User)
     const deletedForwarders = await prisma.forwarder.deleteMany({});
-    console.log(`✅ [Truncate] Deleted ${deletedForwarders.count} forwarders`);
-
-    // 6. Delete Email (standalone, no dependencies)
     const deletedEmails = await prisma.email.deleteMany({});
-    console.log(`✅ [Truncate] Deleted ${deletedEmails.count} emails`);
 
     const summary = {
       emailReplies: deletedReplies.count,
@@ -68,6 +39,16 @@ export async function POST(request: NextRequest) {
       emails: deletedEmails.count,
     };
 
+    await writeAuditLog({
+      action: 'DATA_TRUNCATE',
+      success: true,
+      userId: admin.userId,
+      username: admin.username,
+      resource: 'operational_data',
+      ...meta,
+      details: summary,
+    });
+
     console.log('✅ [Truncate] Data truncation completed:', summary);
 
     return NextResponse.json({
@@ -75,13 +56,9 @@ export async function POST(request: NextRequest) {
       message: 'Data truncated successfully',
       deleted: summary,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal server error';
     console.error('❌ [Truncate] Error truncating data:', error);
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-
-

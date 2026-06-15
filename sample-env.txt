@@ -15,3 +15,21 @@ NEXTAUTH_SECRET=demo_secret_key_for_development_only
 
 # Database Configuration
 DATABASE_URL="file:./dev.db"
+
+EMAIL_ACTION_JWT_SECRET=replace-with-at-least-32-char-random-for-email-magic-links-jose-hs256  # REQUIRED; min 32 chars. Generate: openssl rand -base64 32. Used for public confirmation links. Never commit.
+NEXTAUTH_SECRET=demo_secret_key_for_development_only  # Legacy (NextAuth); replace with long random in non-demo. Main auth uses simple-auth sessions.
+NEXT_PUBLIC_APP_BASE_URL=http://localhost:3002
+
+# Security (optional — defaults apply if omitted)
+PASSWORD_MIN_LENGTH=12
+PASSWORD_REQUIRE_UPPERCASE=true
+PASSWORD_REQUIRE_LOWERCASE=true
+PASSWORD_REQUIRE_DIGIT=true
+PASSWORD_REQUIRE_SPECIAL_CHAR=true  # Required by default (stronger policy). Set false only if needed for legacy compatibility.
+LOCKOUT_MAX_ATTEMPTS=3  # After 3 consecutive failures the account is locked for LOCKOUT_DURATION_MINUTES. On the 3rd lockout event, adminResetRequired is set and only an admin password reset can unlock the account.
+LOCKOUT_DURATION_MINUTES=15
+SESSION_MAX_AGE_DAYS=7
+SESSION_IDLE_TIMEOUT_MINUTES=30
+AUDIT_LOG_RETENTION_DAYS=90
+# CRON_API_SECRET — REQUIRED in production to restrict POST /api/cron (start/stop/reload) to bearer token only (middleware + admin route also gate). Use a long random value (e.g. openssl rand -base64 32). If unset, cron control is denied.
+CRON_API_SECRET=replace-with-long-random-in-production

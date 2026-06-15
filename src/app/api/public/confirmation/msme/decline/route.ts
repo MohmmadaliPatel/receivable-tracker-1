@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { patchConfirmationRaw } from '@/lib/confirmation-repository';
 import { verifyPublicConfirmationToken } from '@/lib/public-confirmation-verify';
 import { CONFIRMATION_STATUSES } from '@/lib/confirmation-service';
+import { writeAuditLog, requestMeta } from '@/lib/audit-log';
 
 export async function POST(request: NextRequest) {
   let body: { token?: string };
@@ -28,6 +29,18 @@ export async function POST(request: NextRequest) {
     emailActionConsumedAt: new Date(),
     status: CONFIRMATION_STATUSES.RESPONSE_RECEIVED,
     responseReceivedAt: new Date(),
+  });
+
+  const meta = requestMeta(request);
+  await writeAuditLog({
+    action: 'PUBLIC_RESPONSE_DECLINE',
+    success: true,
+    userId: null,
+    username: null,
+    resource: record.id,
+    ip: meta.ip,
+    userAgent: meta.userAgent,
+    details: { module: record.module },
   });
 
   return NextResponse.json({ success: true });

@@ -1,32 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSession } from '@/lib/simple-auth';
+import { requireAdminSession } from '@/lib/require-admin';
 import { EmailConfigService } from '@/lib/email-config-service';
 import { cronService } from '@/lib/cron-service';
-import { cookies } from 'next/headers';
-
-// Helper to get authenticated user
-async function getAuthenticatedUser() {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get('session_token')?.value;
-
-  if (!sessionToken) {
-    return null;
-  }
-
-  return await getSession(sessionToken);
-}
+import { writeAuditLog, requestMeta } from '@/lib/audit-log';
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const admin = await requireAdminSession();
+    if (!admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
     const configs = await EmailConfigService.getAllConfigs();
 
-    return NextResponse.json({ configs });
+    // Mask secrets on read (never echo msClientSecret in list responses). Secrets are accepted on create/update and echoed back only in the create response for immediate copy by admin; subsequent GETs are masked.
+    const masked = configs.map((c: any) => (c.msClientSecret ? { ...c, msClientSecret: '***' } : c));
+    return NextResponse.json({ configs: masked });
   } catch (error) {
     console.error('Error fetching email configs:', error);
     return NextResponse.json(
@@ -38,10 +27,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getAuthenticatedUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const admin = await requireAdminSession();
+    if (!admin) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -55,7 +43,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const config = await EmailConfigService.createConfig(user.userId, {
+    const config = await EmailConfigService.createConfig(admin.userId, {
       name,
       type: type || 'graph',
       msTenantId,
@@ -70,7 +58,6 @@ export async function POST(request: NextRequest) {
       reminderDurationUnit: reminderDurationUnit || 'hours',
     });
 
-    // Start cron job if config is active and cron enabled
     try {
       if (config.isActive && config.cronEnabled) {
         await cronService.startJobForConfig(config.id);
@@ -78,6 +65,17 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error('Error starting cron job:', error);
     }
+
+    const meta = requestMeta(request);
+    await writeAuditLog({
+      action: 'EMAIL_CONFIG_CREATE',
+      success: true,
+      userId: admin.userId,
+      username: admin.username,
+      resource: config.id,
+      ...meta,
+      details: { name: config.name },
+    });
 
     return NextResponse.json({ config }, { status: 201 });
   } catch (error) {

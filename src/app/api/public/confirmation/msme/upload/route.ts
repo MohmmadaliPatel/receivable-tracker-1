@@ -4,6 +4,7 @@ import * as path from 'path';
 import { patchConfirmationRaw } from '@/lib/confirmation-repository';
 import { verifyPublicConfirmationToken } from '@/lib/public-confirmation-verify';
 import { CONFIRMATION_STATUSES } from '@/lib/confirmation-service';
+import { writeAuditLog, requestMeta } from '@/lib/audit-log';
 
 function safeSegment(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 180);
@@ -67,6 +68,18 @@ export async function POST(request: NextRequest) {
     emailActionConsumedAt: new Date(),
     status: CONFIRMATION_STATUSES.RESPONSE_RECEIVED,
     responseReceivedAt: new Date(),
+  });
+
+  const meta = requestMeta(request);
+  await writeAuditLog({
+    action: 'PUBLIC_RESPONSE_UPLOAD',
+    success: true,
+    userId: null,
+    username: null,
+    resource: record.id,
+    ip: meta.ip,
+    userAgent: meta.userAgent,
+    details: { module: record.module, files: saved.length },
   });
 
   return NextResponse.json({ success: true, files: saved.length });

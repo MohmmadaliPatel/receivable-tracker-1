@@ -4,6 +4,7 @@ import { SenderService } from './sender-service';
 import { EmailTrackingService } from './email-tracking-service';
 import { GraphMailService } from './graph-mail-service';
 import { checkRepliesForConfirmations, getOrCreateSettings } from './confirmation-service';
+import { isDebug, debugLog } from './debug';
 
 interface CronJob {
   intervalId: NodeJS.Timeout | null;
@@ -105,14 +106,14 @@ class CronService {
   // Run the cron job for a config
   async runCronJob(configId: string) {
     try {
-      console.log(`🔄 [Cron] Running job for config ${configId} at ${new Date().toISOString()}`);
+      if (isDebug()) debugLog(`🔄 [Cron] Running job for config ${configId} (debug)`);
       
       const config = await prisma.emailConfig.findUnique({
         where: { id: configId },
       });
 
       if (!config || !config.isActive || !config.cronEnabled) {
-        console.log(`⏭️  [Cron] Config ${configId} is not active or cron disabled, stopping job`);
+        if (isDebug()) debugLog(`⏭️  [Cron] Config ${configId} inactive, stopping (debug)`);
         this.stopJobForConfig(configId);
         return;
       }
@@ -121,11 +122,11 @@ class CronService {
       const senders = await SenderService.getSendersByUserId(config.userId);
 
       if (senders.length === 0) {
-        console.log(`ℹ️  [Cron] No senders found for config ${configId}`);
+        if (isDebug()) debugLog(`ℹ️  [Cron] No senders for ${configId} (debug)`);
         return;
       }
 
-      console.log(`📧 [Cron] Processing ${senders.length} senders for config ${configId}`);
+      if (isDebug()) debugLog(`📧 [Cron] Processing ${senders.length} senders for ${configId} (debug)`);
 
       // Sync emails for each sender
       for (const sender of senders) {
