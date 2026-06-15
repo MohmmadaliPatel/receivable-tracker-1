@@ -24,6 +24,7 @@ mkdir -p "$OUT"
 cp -R "$STANDALONE/." "$OUT/"
 mkdir -p "$OUT/.next"
 cp -R "$ROOT/.next/static" "$OUT/.next/static"
+rm -rf "$OUT/public"
 cp -R "$ROOT/public" "$OUT/public"
 
 mkdir -p "$OUT/prisma"
