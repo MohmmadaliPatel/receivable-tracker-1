@@ -129,6 +129,7 @@ cat > "$OUT/.gitignore" <<'EOF'
 .env
 .env.*
 !.env.example
+node_modules/
 node_modules/.cache
 *.log
 dev.db
