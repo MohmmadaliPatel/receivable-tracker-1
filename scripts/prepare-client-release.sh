@@ -92,6 +92,11 @@ rm -rf \
   "$OUT/client-release-staging" \
   "$OUT/public/2026-06-11-ZAP-POSTFIX-verification.txt" \
   "$OUT/public/2026-06-11-ZAP-Report-.html" \
+  "$OUT/prisma/dev.db" \
+  "$OUT/prisma/dev-smoke.db" \
+  "$OUT/prisma/dev-csp-smoke.db" \
+  "$OUT/prisma/dev123.db" \
+  "$OUT/prisma/backups" \
   2>/dev/null || true
 
 trim_client_package_json() {
