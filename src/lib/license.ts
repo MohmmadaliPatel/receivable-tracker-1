@@ -11,14 +11,25 @@ interface LicenseClaims extends JWTPayload {
   lic?: string;
 }
 
+function normalizeEnvSecret(value: string | undefined): string {
+  let s = (value ?? '').trim();
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'"))
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+  return s;
+}
+
 function signingKey(): Uint8Array | null {
-  const secret = process.env.LICENSE_SIGNING_SECRET?.trim();
+  const secret = normalizeEnvSecret(process.env.LICENSE_SIGNING_SECRET);
   if (!secret || secret.length < 32) return null;
   return new TextEncoder().encode(secret);
 }
 
 function readLicenseToken(token?: string): string {
-  return (token ?? process.env.LICENSE ?? '').trim();
+  return normalizeEnvSecret(token ?? process.env.LICENSE);
 }
 
 function claimsToStatus(payload: LicenseClaims, expired: boolean): LicenseStatus {

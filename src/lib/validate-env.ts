@@ -3,7 +3,7 @@
  * Enforces critical security / deploy requirements before the app accepts traffic.
  *
  * - EMAIL_ACTION_JWT_SECRET must be present, >=32 chars, not a placeholder.
- * - LICENSE + LICENSE_SIGNING_SECRET required in production; license must be valid and not expired.
+ * - LICENSE + LICENSE_SIGNING_SECRET recommended in production; invalid/expired licenses are enforced at runtime (middleware), not at startup.
  * - In production: DEMO_MODE must not be true; CRON_API_SECRET should be set (middleware will deny cron otherwise); NEXT_PUBLIC_APP_BASE_URL must be set (and preferably https).
  * - Throws on critical misconfig so deploys fail fast (visible in PM2/docker logs).
  *
@@ -30,11 +30,11 @@ export function validateEnv(): void {
       errors.push('DEMO_MODE must not be true in production (legacy/demo auth paths must be disabled)');
     }
     if (!process.env.LICENSE?.trim()) {
-      errors.push('LICENSE must be set in production (generate with scripts/license-generator.html)');
+      console.warn('⚠️  LICENSE is not set — users will see the license contact page until a valid license is configured.');
     }
     const licenseSecret = (process.env.LICENSE_SIGNING_SECRET || '').trim();
     if (!licenseSecret || licenseSecret.length < 32) {
-      errors.push('LICENSE_SIGNING_SECRET must be set and at least 32 characters (same secret used when generating licenses)');
+      console.warn('⚠️  LICENSE_SIGNING_SECRET is missing or too short — license verification will fail until configured.');
     }
     if (!cron) {
       // Not fatal (middleware + route now deny), but warn loudly.
@@ -59,7 +59,7 @@ export function validateEnv(): void {
   }
 }
 
-/** Async license validation — run after sync validateEnv() on startup. */
+/** Async license validation — informational at startup; runtime enforcement is in middleware. */
 export async function validateLicenseAtStartup(): Promise<void> {
   const isProd = process.env.NODE_ENV === 'production';
   const hasLicense = !!(process.env.LICENSE || '').trim();
@@ -72,11 +72,7 @@ export async function validateLicenseAtStartup(): Promise<void> {
   const { verifyLicense, licenseStatusMessage } = await import('@/lib/license');
   const status = await verifyLicense();
   if (!status.ok) {
-    const msg = `License validation failed: ${licenseStatusMessage(status)}`;
-    console.error(msg);
-    if (isProd || hasLicense) {
-      throw new Error(msg);
-    }
+    console.warn(`⚠️  [License] ${licenseStatusMessage(status)} — app will start; users are redirected to /license-expired.`);
   } else {
     console.log(`✅ [License] Active for "${status.customer}" until ${status.expiresAt.toISOString().slice(0, 10)}`);
   }
