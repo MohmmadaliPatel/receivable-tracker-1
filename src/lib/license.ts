@@ -1,7 +1,7 @@
 import { jwtVerify, type JWTPayload } from 'jose';
-import { LICENSE_CONTACT, LICENSE_PRODUCT_ID } from '@/lib/license-config';
+import { LICENSE_CONTACT, LICENSE_PRODUCT_ID, LICENSE_SIGNING_SECRET } from '@/lib/license-config';
 
-export type LicenseFailureReason = 'missing' | 'misconfigured' | 'invalid' | 'expired' | 'wrong_product';
+export type LicenseFailureReason = 'missing' | 'invalid' | 'expired' | 'wrong_product';
 
 export type LicenseStatus =
   | { ok: true; customer: string; expiresAt: Date }
@@ -11,7 +11,7 @@ interface LicenseClaims extends JWTPayload {
   lic?: string;
 }
 
-function normalizeEnvSecret(value: string | undefined): string {
+function normalizeEnvValue(value: string | undefined): string {
   let s = (value ?? '').trim();
   if (
     (s.startsWith('"') && s.endsWith('"')) ||
@@ -22,14 +22,12 @@ function normalizeEnvSecret(value: string | undefined): string {
   return s;
 }
 
-function signingKey(): Uint8Array | null {
-  const secret = normalizeEnvSecret(process.env.LICENSE_SIGNING_SECRET);
-  if (!secret || secret.length < 32) return null;
-  return new TextEncoder().encode(secret);
+function signingKey(): Uint8Array {
+  return new TextEncoder().encode(LICENSE_SIGNING_SECRET);
 }
 
 function readLicenseToken(token?: string): string {
-  return normalizeEnvSecret(token ?? process.env.LICENSE);
+  return normalizeEnvValue(token ?? process.env.LICENSE);
 }
 
 function claimsToStatus(payload: LicenseClaims, expired: boolean): LicenseStatus {
@@ -59,9 +57,6 @@ export async function verifyLicense(token?: string): Promise<LicenseStatus> {
   }
 
   const key = signingKey();
-  if (!key) {
-    return { ok: false, reason: 'misconfigured' };
-  }
 
   try {
     const { payload } = await jwtVerify(license, key, { algorithms: ['HS256'] });
@@ -107,8 +102,6 @@ export function licenseStatusMessage(status: LicenseStatus): string {
   switch (status.reason) {
     case 'missing':
       return 'No license key is configured. Add LICENSE to your environment file.';
-    case 'misconfigured':
-      return 'License verification is not configured on this server (LICENSE_SIGNING_SECRET missing or too short).';
     case 'expired':
       return status.expiresAt
         ? `Your license expired on ${formatLicenseExpiry(status.expiresAt)}.`

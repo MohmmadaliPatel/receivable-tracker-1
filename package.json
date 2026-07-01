@@ -14,7 +14,9 @@
     "docs:client-pdfs": "tsx scripts/generate-client-confirmation-pdfs.ts",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
-    "client:prepare": "bash scripts/prepare-client-release.sh"
+    "client:prepare": "bash scripts/prepare-client-release.sh",
+    "client:publish": "bash scripts/publish-client-release.sh",
+    "client:publish:win": "scripts\\publish-client-release.bat"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -96,8 +96,7 @@
       <h1>Taxteck License Generator</h1>
       <p class="subtitle">
         Vendor tool — open this file locally in a browser. Generates a signed <code>LICENSE</code> value
-        for the Taxteck Email Auto Manager <code>.env</code> file. Keep <code>LICENSE_SIGNING_SECRET</code>
-        private; it must match on the server that verifies licenses.
+        for the Taxteck Email Auto Manager <code>.env</code> file.
       </p>
 
       <form id="form">
@@ -115,10 +114,6 @@
           </div>
         </div>
 
-        <label for="secret">LICENSE_SIGNING_SECRET (min 32 characters)</label>
-        <input id="secret" type="password" placeholder="Same value as on the deployment server" required minlength="32" />
-        <p class="hint">Generate once: <code>openssl rand -base64 32</code></p>
-
         <div class="actions">
           <button type="submit">Generate license</button>
           <button type="button" class="secondary" id="copyBtn" disabled>Copy LICENSE value</button>
@@ -131,7 +126,6 @@
 
       <div class="box">
         <strong>.env example</strong><br />
-        LICENSE_SIGNING_SECRET=your-32-char-or-longer-secret<br />
         LICENSE=paste-generated-token-here
       </div>
     </div>
@@ -139,6 +133,7 @@
 
   <script>
     const PRODUCT_ID = 'taxteck-email-auto';
+    const SIGNING_SECRET = 'TaxteckEmailAutoManager-HSDR-LicenseKey-v1-2026';
 
     function base64UrlEncodeBytes(bytes) {
       let binary = '';
@@ -191,7 +186,6 @@
       const customer = document.getElementById('customer').value.trim();
       const expiry = expiryInput.value;
       const issued = issuedInput.value || expiry;
-      const secret = document.getElementById('secret').value;
 
       if (!customer) {
         message.textContent = 'Enter a customer / organization name.';
@@ -200,11 +194,6 @@
       }
       if (!expiry) {
         message.textContent = 'Select an expiry date.';
-        message.className = 'msg error';
-        return;
-      }
-      if (secret.length < 32) {
-        message.textContent = 'LICENSE_SIGNING_SECRET must be at least 32 characters.';
         message.className = 'msg error';
         return;
       }
@@ -223,7 +212,7 @@
           iat: iat,
           exp: exp,
           lic: PRODUCT_ID,
-        }, secret);
+        }, SIGNING_SECRET);
 
         output.value = token;
         copyBtn.disabled = false;

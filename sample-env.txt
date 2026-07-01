@@ -36,5 +36,4 @@ CRON_API_SECRET=replace-with-long-random-in-production
 
 # Software license (optional in local dev; required in production)
 # Generate with scripts/license-generator.html (vendor tool — open locally in a browser).
-LICENSE_SIGNING_SECRET=replace-with-at-least-32-char-random-for-license-signing
 LICENSE=

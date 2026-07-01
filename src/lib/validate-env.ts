@@ -3,7 +3,7 @@
  * Enforces critical security / deploy requirements before the app accepts traffic.
  *
  * - EMAIL_ACTION_JWT_SECRET must be present, >=32 chars, not a placeholder.
- * - LICENSE + LICENSE_SIGNING_SECRET recommended in production; invalid/expired licenses are enforced at runtime (middleware), not at startup.
+ * - LICENSE recommended in production; invalid/expired licenses are enforced at runtime (middleware), not at startup.
  * - In production: DEMO_MODE must not be true; CRON_API_SECRET should be set (middleware will deny cron otherwise); NEXT_PUBLIC_APP_BASE_URL must be set (and preferably https).
  * - Throws on critical misconfig so deploys fail fast (visible in PM2/docker logs).
  *
@@ -31,10 +31,6 @@ export function validateEnv(): void {
     }
     if (!process.env.LICENSE?.trim()) {
       console.warn('⚠️  LICENSE is not set — users will see the license contact page until a valid license is configured.');
-    }
-    const licenseSecret = (process.env.LICENSE_SIGNING_SECRET || '').trim();
-    if (!licenseSecret || licenseSecret.length < 32) {
-      console.warn('⚠️  LICENSE_SIGNING_SECRET is missing or too short — license verification will fail until configured.');
     }
     if (!cron) {
       // Not fatal (middleware + route now deny), but warn loudly.
