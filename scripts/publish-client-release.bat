@@ -147,29 +147,38 @@ if not "%SKIP_SMOKE_TEST%"=="1" (
 
 :smoke_done
 
-if not exist "%CLIENT_DELIVERY_DIR%\.git" (
-  echo Client worktree not found at:
-  echo   %CLIENT_DELIVERY_DIR%
-  echo.
-  set /p CLONE_CLIENT=Clone client-delivery worktree there? [Y/N]: 
-  if /I not "!CLONE_CLIENT!"=="Y" (
-    echo Set CLIENT_DELIVERY_DIR to your client-delivery git clone and re-run.
+git -C "%CLIENT_DELIVERY_DIR%" rev-parse --is-inside-work-tree >nul 2>&1
+if not errorlevel 1 goto worktree_ok
+
+echo Client delivery git worktree not found at:
+echo   %CLIENT_DELIVERY_DIR%
+echo.
+set /p CLONE_CLIENT=Clone client-delivery worktree there? [Y/N]: 
+if /I not "!CLONE_CLIENT!"=="Y" (
+  echo Set CLIENT_DELIVERY_DIR to your client-delivery git clone and re-run.
+  exit /b 1
+)
+if exist "%CLIENT_DELIVERY_DIR%" (
+  echo ERROR: %CLIENT_DELIVERY_DIR% already exists and is not a git worktree.
+  exit /b 1
+)
+git clone -b client-delivery "%ORIGIN_REMOTE%" "%CLIENT_DELIVERY_DIR%"
+if errorlevel 1 (
+  git clone "%CLIENT_REMOTE%" "%CLIENT_DELIVERY_DIR%"
+  if errorlevel 1 (
+    echo ERROR: Could not clone client worktree.
     exit /b 1
   )
-  git clone -b client-delivery "%ORIGIN_REMOTE%" "%CLIENT_DELIVERY_DIR%"
-  if errorlevel 1 (
-    git clone "%CLIENT_REMOTE%" "%CLIENT_DELIVERY_DIR%"
-    if errorlevel 1 (
-      echo ERROR: Could not clone client worktree.
-      exit /b 1
-    )
-    pushd "%CLIENT_DELIVERY_DIR%"
-    git fetch origin client-delivery 2>nul
-    git checkout client-delivery 2>nul
-    if errorlevel 1 git checkout -b client-delivery
-    popd
-  )
+  pushd "%CLIENT_DELIVERY_DIR%"
+  git fetch origin client-delivery 2>nul
+  git checkout client-delivery 2>nul
+  if errorlevel 1 git checkout -b client-delivery
+  popd
 )
+
+:worktree_ok
+echo Using client worktree: %CLIENT_DELIVERY_DIR%
+echo.
 
 echo ==^> Syncing staging to client worktree...
 for /f "delims=" %%P in ('"%BASH%" -lc "cygpath -u '%STAGING%'"') do set "STAGING_UNIX=%%P"

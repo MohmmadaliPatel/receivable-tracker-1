@@ -18,10 +18,43 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 NEXT_PUBLIC_APP_BASE_URL="${NEXT_PUBLIC_APP_BASE_URL:-https://confirm.example.com}"
-CLIENT_DELIVERY_DIR="${CLIENT_DELIVERY_DIR:-$ROOT/../email-auto-client-delivery}"
 STAGING="$ROOT/client-release-staging"
 CLIENT_REMOTE="${CLIENT_REMOTE:-https://github.com/MohmmadaliPatel/receivable-tracker-1-cl.git}"
 ORIGIN_REMOTE="${ORIGIN_REMOTE:-https://github.com/MohmmadaliPatel/receivable-tracker-1.git}"
+
+is_git_repo() {
+  git -C "$1" rev-parse --is-inside-work-tree >/dev/null 2>&1
+}
+
+find_client_delivery_worktree() {
+  git worktree list --porcelain | awk '
+    $1 == "worktree" { path = $2 }
+    $1 == "branch" && $2 ~ /client-delivery$/ { print path; exit }
+  '
+}
+
+resolve_client_delivery_dir() {
+  local candidate="${1:-}"
+
+  if [[ -n "$candidate" ]] && is_git_repo "$candidate"; then
+    cd "$candidate" && pwd
+    return 0
+  fi
+
+  local from_worktree
+  from_worktree="$(find_client_delivery_worktree || true)"
+  if [[ -n "$from_worktree" ]] && is_git_repo "$from_worktree"; then
+    cd "$from_worktree" && pwd
+    return 0
+  fi
+
+  return 1
+}
+
+CLIENT_DELIVERY_DIR="${CLIENT_DELIVERY_DIR:-$ROOT/../email-auto-client-delivery}"
+if ! CLIENT_DELIVERY_DIR="$(resolve_client_delivery_dir "$CLIENT_DELIVERY_DIR")"; then
+  CLIENT_DELIVERY_DIR="${CLIENT_DELIVERY_DIR:-$ROOT/../email-auto-client-delivery}"
+fi
 
 echo ""
 echo "============================================================"
@@ -84,21 +117,55 @@ EOF
   echo ""
 fi
 
-if [[ ! -d "$CLIENT_DELIVERY_DIR/.git" ]]; then
-  echo "Client worktree not found at: $CLIENT_DELIVERY_DIR"
-  read -r -p "Clone client-delivery worktree there? [y/N]: " CLONE_CLIENT
-  if [[ "$CLONE_CLIENT" =~ ^[Yy]$ ]]; then
-    git clone -b client-delivery "$ORIGIN_REMOTE" "$CLIENT_DELIVERY_DIR" 2>/dev/null || {
-      git clone "$CLIENT_REMOTE" "$CLIENT_DELIVERY_DIR"
-      git -C "$CLIENT_DELIVERY_DIR" fetch origin client-delivery 2>/dev/null || true
-      git -C "$CLIENT_DELIVERY_DIR" checkout client-delivery 2>/dev/null || git -C "$CLIENT_DELIVERY_DIR" checkout -b client-delivery
-    }
+if ! is_git_repo "$CLIENT_DELIVERY_DIR"; then
+  echo "Client delivery git worktree not found."
+  echo "  Tried: ${CLIENT_DELIVERY_DIR:-$ROOT/../email-auto-client-delivery}"
+  echo ""
+  if [[ -e "${CLIENT_DELIVERY_DIR:-$ROOT/../email-auto-client-delivery}" ]]; then
+    echo "That path exists but is not a git worktree."
+    echo "If this repo already has a worktree, run: git worktree list"
+    echo ""
+  fi
+  read -r -p "Create a new client-delivery worktree at ../email-auto-client-delivery? [y/N]: " ADD_WORKTREE
+  if [[ "$ADD_WORKTREE" =~ ^[Yy]$ ]]; then
+    TARGET="$ROOT/../email-auto-client-delivery"
+    if [[ -e "$TARGET" ]]; then
+      echo "ERROR: $TARGET already exists. Remove it or set CLIENT_DELIVERY_DIR to an empty path." >&2
+      exit 1
+    fi
+    git fetch origin client-delivery 2>/dev/null || true
+    git worktree add -B client-delivery "$TARGET" origin/client-delivery 2>/dev/null || \
+      git worktree add -B client-delivery "$TARGET" client-delivery 2>/dev/null || \
+      git worktree add -B client-delivery "$TARGET"
+    CLIENT_DELIVERY_DIR="$(cd "$TARGET" && pwd)"
   else
-    echo "Set CLIENT_DELIVERY_DIR to your client-delivery git clone and re-run." >&2
-    exit 1
+    read -r -p "Clone client-delivery into a new folder? [y/N]: " CLONE_CLIENT
+    if [[ "$CLONE_CLIENT" =~ ^[Yy]$ ]]; then
+      read -r -p "Clone path: " CLONE_PATH
+      CLONE_PATH="${CLONE_PATH:-$ROOT/../receivable-tracker-1-cl-worktree}"
+      if [[ -e "$CLONE_PATH" ]]; then
+        echo "ERROR: $CLONE_PATH already exists." >&2
+        exit 1
+      fi
+      git clone -b client-delivery "$ORIGIN_REMOTE" "$CLONE_PATH" 2>/dev/null || {
+        git clone "$CLIENT_REMOTE" "$CLONE_PATH"
+        git -C "$CLONE_PATH" fetch origin client-delivery 2>/dev/null || true
+        git -C "$CLONE_PATH" checkout client-delivery 2>/dev/null || git -C "$CLONE_PATH" checkout -b client-delivery
+      }
+      CLIENT_DELIVERY_DIR="$(cd "$CLONE_PATH" && pwd)"
+    else
+      echo "Set CLIENT_DELIVERY_DIR to your client-delivery git worktree and re-run." >&2
+      exit 1
+    fi
   fi
 fi
 
+echo "Using client worktree: $CLIENT_DELIVERY_DIR"
+BRANCH="$(git -C "$CLIENT_DELIVERY_DIR" branch --show-current)"
+if [[ "$BRANCH" != "client-delivery" ]]; then
+  echo "WARNING: worktree is on branch '$BRANCH' (expected client-delivery)."
+fi
+echo ""
 echo "==> Syncing staging to client worktree..."
 rsync -a --delete --exclude='.git' --exclude='node_modules' "$STAGING/" "$CLIENT_DELIVERY_DIR/"
 
