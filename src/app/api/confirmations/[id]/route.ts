@@ -11,6 +11,7 @@ import {
 } from '@/lib/confirmation-repository';
 import { fetchConfirmationOrForbidden } from '@/lib/confirmation-record-auth';
 import { loadTradeGroupRows } from '@/lib/trade-email-group';
+import { auditActivity, moduleLabel } from '@/lib/audit-route';
 
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
@@ -72,6 +73,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       : {}),
   });
 
+  await auditActivity(request, user, 'CONFIRMATION_UPDATE', {
+    success: true,
+    resource: id,
+    details: {
+      module: gate.record.module,
+      moduleLabel: moduleLabel(gate.record.module),
+      entityName: record.entityName,
+      emailTo: record.emailTo,
+    },
+  });
+
   return NextResponse.json({ record });
 }
 
@@ -109,6 +121,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         : {}),
     });
     const record = await findUnifiedById(id);
+    await auditActivity(request, user, 'CONFIRMATION_RESET_RESPONSE', {
+      success: true,
+      resource: id,
+      details: {
+        module: existing.module,
+        moduleLabel: moduleLabel(existing.module),
+        entityName: existing.entityName,
+      },
+    });
     return NextResponse.json({ record });
   }
 
@@ -125,6 +146,17 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   if (!gate.ok) return NextResponse.json({ error: gate.status === 404 ? 'Not found' : 'Forbidden' }, { status: gate.status });
 
   await deleteConfirmationRow(gate.record.module, id);
+
+  await auditActivity(request, user, 'CONFIRMATION_DELETE', {
+    success: true,
+    resource: id,
+    details: {
+      module: gate.record.module,
+      moduleLabel: moduleLabel(gate.record.module),
+      entityName: gate.record.entityName,
+      category: gate.record.category,
+    },
+  });
 
   return NextResponse.json({ success: true });
 }

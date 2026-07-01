@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { countSentTodayAllModules } from '@/lib/confirmation-repository';
 import { userCanAccessModule } from '@/lib/module-access';
 import { sendFollowup, CONFIRMATION_STATUSES, isEmailBodyTemplateAllowedForPurpose } from '@/lib/confirmation-service';
+import { auditActivity, moduleLabel } from '@/lib/audit-route';
 
 import { parseModuleSegment } from '../../_utils';
 
@@ -90,6 +91,20 @@ export async function POST(
       errors.push({ id: rec.id, error: result.error || 'Follow-up failed' });
     }
   }
+
+  await auditActivity(request, user, 'EMAIL_BULK_FOLLOWUP', {
+    success: sent > 0 || errors.length === 0,
+    details: {
+      module: key,
+      moduleLabel: moduleLabel(key),
+      sent,
+      attempted: candidates.length,
+      failed: errors.length,
+      templateId,
+      remainingDailyEmails: remaining,
+      errors: errors.slice(0, 10),
+    },
+  });
 
   return NextResponse.json({
     success: true,

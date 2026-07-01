@@ -6,6 +6,7 @@ import { userCanAccessModule } from '@/lib/module-access';
 import type { ModuleKey } from '@/lib/module-types';
 import { escapeCsvCell } from '@/lib/csv-encoding';
 import { ROUND_TRIP_HEADERS } from '@/lib/module-round-trip';
+import { auditActivity, moduleLabel } from '@/lib/audit-route';
 
 import { parseModuleSegment } from '../../_utils';
 
@@ -18,7 +19,7 @@ async function auth() {
 
 // GET /api/modules/[segment]/export — CSV round-trip template with current data
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ segment: string }> }
 ) {
   const user = await auth();
@@ -64,6 +65,16 @@ export async function GET(
         ? 'trade-receivables'
         : 'confirm-msme';
   const csv = lines.join('\n');
+
+  await auditActivity(request, user, 'MODULE_EXPORT', {
+    success: true,
+    details: {
+      module: key,
+      moduleLabel: moduleLabel(key),
+      recordCount: records.length,
+    },
+  });
+
   return new NextResponse(csv, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',

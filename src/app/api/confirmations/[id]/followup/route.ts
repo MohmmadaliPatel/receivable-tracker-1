@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { getSession } from '@/lib/simple-auth';
 import { sendFollowup } from '@/lib/confirmation-service';
 import { fetchConfirmationOrForbidden } from '@/lib/confirmation-record-auth';
+import { auditActivity, moduleLabel } from '@/lib/audit-route';
 
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
@@ -30,9 +31,34 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     emailBodyTemplateId: emailBody ? null : templateId,
   });
 
+  const record = gate.record;
   if (!result.success) {
+    await auditActivity(request, user, 'EMAIL_FOLLOWUP', {
+      success: false,
+      resource: id,
+      details: {
+        module: record.module,
+        moduleLabel: moduleLabel(record.module),
+        entityName: record.entityName,
+        emailTo: record.emailTo,
+        error: result.error || 'Follow-up failed',
+        templateId,
+      },
+    });
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
+
+  await auditActivity(request, user, 'EMAIL_FOLLOWUP', {
+    success: true,
+    resource: id,
+    details: {
+      module: record.module,
+      moduleLabel: moduleLabel(record.module),
+      entityName: record.entityName,
+      emailTo: record.emailTo,
+      templateId,
+    },
+  });
 
   return NextResponse.json({ success: true });
 }

@@ -6,6 +6,7 @@ import { countSentTodayAllModules } from '@/lib/confirmation-repository';
 import { userCanAccessModule } from '@/lib/module-access';
 import { sendConfirmation, CONFIRMATION_STATUSES, isEmailBodyTemplateAllowedForPurpose } from '@/lib/confirmation-service';
 import { resolveTradeAnchorId } from '@/lib/trade-email-group';
+import { auditActivity, moduleLabel } from '@/lib/audit-route';
 
 import { parseModuleSegment } from '../../_utils';
 
@@ -69,6 +70,7 @@ export async function POST(
   let remaining = Math.max(0, DAILY_EMAIL_LIMIT - sentToday);
 
   let sent = 0;
+  let attempted = 0;
   const errors: { id: string; error: string }[] = [];
 
   if (key === 'confirm_msme') {
@@ -80,6 +82,7 @@ export async function POST(
       },
       orderBy: [{ entityName: 'asc' }, { createdAt: 'asc' }],
     });
+    attempted = candidates.length;
 
     for (const rec of candidates) {
       if (remaining <= 0) break;
@@ -93,64 +96,69 @@ export async function POST(
         errors.push({ id: rec.id, error: result.error || 'Send failed' });
       }
     }
+  } else {
+    const tradeMod = key === 'trade_payable' ? 'trade_payable' : 'trade_receivable';
+    const candidates =
+      key === 'trade_payable'
+        ? await prisma.tradePayableConfirmation.findMany({
+            where: {
+              userId: user.userId,
+              ...idFilter,
+              ...(includeOnlyNotSent ? { status: CONFIRMATION_STATUSES.NOT_SENT } : {}),
+            },
+            orderBy: [{ entityName: 'asc' }, { createdAt: 'asc' }],
+          })
+        : await prisma.tradeReceivableConfirmation.findMany({
+            where: {
+              userId: user.userId,
+              ...idFilter,
+              ...(includeOnlyNotSent ? { status: CONFIRMATION_STATUSES.NOT_SENT } : {}),
+            },
+            orderBy: [{ entityName: 'asc' }, { createdAt: 'asc' }],
+          });
 
-    return NextResponse.json({
-      success: true,
-      sent,
-      attempted: candidates.length,
-      failed: errors.length,
-      errors,
-      remainingDailyEmails: remaining,
-      dailyLimit: DAILY_EMAIL_LIMIT,
-    });
-  }
+    const seenAnchors = new Set<string>();
+    const anchorQueue: string[] = [];
+    for (const rec of candidates) {
+      const aid = await resolveTradeAnchorId(rec.id, tradeMod);
+      if (seenAnchors.has(aid)) continue;
+      seenAnchors.add(aid);
+      anchorQueue.push(aid);
+    }
+    attempted = anchorQueue.length;
 
-  const tradeMod = key === 'trade_payable' ? 'trade_payable' : 'trade_receivable';
-  const candidates =
-    key === 'trade_payable'
-      ? await prisma.tradePayableConfirmation.findMany({
-          where: {
-            userId: user.userId,
-            ...idFilter,
-            ...(includeOnlyNotSent ? { status: CONFIRMATION_STATUSES.NOT_SENT } : {}),
-          },
-          orderBy: [{ entityName: 'asc' }, { createdAt: 'asc' }],
-        })
-      : await prisma.tradeReceivableConfirmation.findMany({
-          where: {
-            userId: user.userId,
-            ...idFilter,
-            ...(includeOnlyNotSent ? { status: CONFIRMATION_STATUSES.NOT_SENT } : {}),
-          },
-          orderBy: [{ entityName: 'asc' }, { createdAt: 'asc' }],
-        });
+    for (const anchorId of anchorQueue) {
+      if (remaining <= 0) break;
 
-  const seenAnchors = new Set<string>();
-  const anchorQueue: string[] = [];
-  for (const rec of candidates) {
-    const aid = await resolveTradeAnchorId(rec.id, tradeMod);
-    if (seenAnchors.has(aid)) continue;
-    seenAnchors.add(aid);
-    anchorQueue.push(aid);
-  }
+      const result = await sendConfirmation(anchorId, user.userId, undefined, undefined, sendOpts);
 
-  for (const anchorId of anchorQueue) {
-    if (remaining <= 0) break;
-
-    const result = await sendConfirmation(anchorId, user.userId, undefined, undefined, sendOpts);
-
-    if (result.success) {
-      sent++;
-      remaining--;
-    } else {
-      errors.push({ id: anchorId, error: result.error || 'Send failed' });
+      if (result.success) {
+        sent++;
+        remaining--;
+      } else {
+        errors.push({ id: anchorId, error: result.error || 'Send failed' });
+      }
     }
   }
+
+  await auditActivity(request, user, 'EMAIL_BULK_SEND', {
+    success: sent > 0 || errors.length === 0,
+    details: {
+      module: key,
+      moduleLabel: moduleLabel(key),
+      sent,
+      attempted,
+      failed: errors.length,
+      templateId,
+      remainingDailyEmails: remaining,
+      errors: errors.slice(0, 10),
+    },
+  });
 
   return NextResponse.json({
     success: true,
     sent,
-    attempted: anchorQueue.length,
+    attempted,
     failed: errors.length,
     errors,
     remainingDailyEmails: remaining,

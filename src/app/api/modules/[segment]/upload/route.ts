@@ -15,6 +15,7 @@ import {
 import { maybeHydrateMsmeFromPartyMasters } from '@/lib/masters-msme-hook';
 import { parseListingUploadFiscal } from '@/lib/listing-upload-fiscal';
 import { prisma } from '@/lib/prisma';
+import { auditActivity, moduleLabel } from '@/lib/audit-route';
 
 import { parseModuleSegment } from '../../_utils';
 
@@ -43,16 +44,24 @@ export async function POST(
   const mode = (formData.get('mode') as string) || 'append';
   const replaceMode = mode === 'replace' ? 'replace' : 'append';
 
-  if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+  const auditFail = async (error: string, extra?: Record<string, unknown>) => {
+    await auditActivity(request, user, 'LISTING_UPLOAD', {
+      success: false,
+      resource: file?.name ?? null,
+      details: { module: key, moduleLabel: moduleLabel(key), fileName: file?.name, mode: replaceMode, error, ...extra },
+    });
+  };
+
+  if (!file) {
+    await auditFail('No file provided');
+    return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+  }
 
   if (key === 'confirm_msme') {
-    return NextResponse.json(
-      {
-        error:
-          'Confirm MSME is populated from Vendor master. Upload vendor master / Trade Payables listing (same file updates TP + vendors) or RT India email workbook, then open Confirm MSME.',
-      },
-      { status: 400 }
-    );
+    const err =
+      'Confirm MSME is populated from Vendor master. Upload vendor master / Trade Payables listing (same file updates TP + vendors) or RT India email workbook, then open Confirm MSME.';
+    await auditFail(err);
+    return NextResponse.json({ error: err }, { status: 400 });
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -63,10 +72,12 @@ export async function POST(
     rows = parseTradeListingFile(buffer, filename);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
+    await auditFail(`Failed to parse file: ${msg}`);
     return NextResponse.json({ error: `Failed to parse file: ${msg}` }, { status: 400 });
   }
 
   if (rows.length === 0) {
+    await auditFail('File is empty or has no data rows', { totalRows: 0 });
     return NextResponse.json({ error: 'File is empty or has no data rows' }, { status: 400 });
   }
 
@@ -77,21 +88,20 @@ export async function POST(
   const mapped = rows.map(mapper).filter((m) => m.entityName && m.entityName !== 'Unknown');
 
   if (mapped.length === 0) {
-    return NextResponse.json(
-      {
-        error:
-          'No valid rows. Ensure the file matches the expected listing format (Company Code row present).',
-      },
-      { status: 400 }
-    );
+    const err =
+      'No valid rows. Ensure the file matches the expected listing format (Company Code row present).';
+    await auditFail(err, { totalRows: rows.length, validRows: 0 });
+    return NextResponse.json({ error: err }, { status: 400 });
   }
 
   if (key !== 'trade_payable' && key !== 'trade_receivable') {
+    await auditFail('Invalid module for listing import');
     return NextResponse.json({ error: 'Invalid module for listing import' }, { status: 400 });
   }
 
   const fiscalParsed = parseListingUploadFiscal(formData);
   if (!fiscalParsed.ok) {
+    await auditFail(fiscalParsed.error);
     return NextResponse.json({ error: fiscalParsed.error }, { status: 400 });
   }
 
@@ -128,6 +138,8 @@ export async function POST(
     });
   } catch (e) {
     await prisma.tradeListingUpload.delete({ where: { id: upload.id } }).catch(() => {});
+    const msg = e instanceof Error ? e.message : String(e);
+    await auditFail(msg || 'Import failed', { listingUploadId: upload.id });
     throw e;
   }
 
@@ -135,6 +147,24 @@ export async function POST(
   if (key === 'trade_payable') {
     msmeHydrated = await maybeHydrateMsmeFromPartyMasters(user);
   }
+
+  await auditActivity(request, user, 'LISTING_UPLOAD', {
+    success: true,
+    resource: upload.id,
+    details: {
+      module: key,
+      moduleLabel: moduleLabel(key),
+      fileName: file.name,
+      mode: replaceMode,
+      imported,
+      totalRows: rows.length,
+      skipped: rows.length - mapped.length,
+      listingUploadId: upload.id,
+      reportingFiscalYear: fiscalParsed.reportingFiscalYear,
+      reportingFiscalQuarter: fiscalParsed.reportingFiscalQuarter,
+      ...(msmeHydrated ? { msmeHydrated } : {}),
+    },
+  });
 
   return NextResponse.json({
     success: true,

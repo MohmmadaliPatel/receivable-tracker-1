@@ -8,6 +8,7 @@ import type { ModuleKey } from '@/lib/module-types';
 import { parseCSV } from '@/lib/csv-encoding';
 import { mapRoundTripCsvRow } from '@/lib/module-round-trip';
 import { normalizeSapCode } from '@/lib/confirmation-repository';
+import { auditActivity, moduleLabel } from '@/lib/audit-route';
 
 import { parseModuleSegment } from '../../_utils';
 
@@ -40,7 +41,13 @@ export async function POST(
 
   const formData = await request.formData();
   const file = formData.get('file') as File | null;
-  if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+  if (!file) {
+    await auditActivity(request, user, 'CSV_IMPORT', {
+      success: false,
+      details: { module: key, moduleLabel: moduleLabel(key), error: 'No file provided' },
+    });
+    return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+  }
 
   const text = Buffer.from(await file.arrayBuffer()).toString('utf-8');
   let rows: Record<string, string>[];
@@ -48,9 +55,19 @@ export async function POST(
     rows = parseCSV(text);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
+    await auditActivity(request, user, 'CSV_IMPORT', {
+      success: false,
+      resource: file.name,
+      details: { module: key, moduleLabel: moduleLabel(key), fileName: file.name, error: `Invalid CSV: ${msg}` },
+    });
     return NextResponse.json({ error: `Invalid CSV: ${msg}` }, { status: 400 });
   }
   if (rows.length === 0) {
+    await auditActivity(request, user, 'CSV_IMPORT', {
+      success: false,
+      resource: file.name,
+      details: { module: key, moduleLabel: moduleLabel(key), fileName: file.name, error: 'File is empty' },
+    });
     return NextResponse.json({ error: 'File is empty' }, { status: 400 });
   }
 
@@ -142,8 +159,26 @@ export async function POST(
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
+    await auditActivity(request, user, 'CSV_IMPORT', {
+      success: false,
+      resource: file.name,
+      details: { module: key, moduleLabel: moduleLabel(key), fileName: file.name, error: msg || 'Import failed' },
+    });
     return NextResponse.json({ error: msg || 'Import failed' }, { status: 400 });
   }
+
+  await auditActivity(request, user, 'CSV_IMPORT', {
+    success: true,
+    resource: file.name,
+    details: {
+      module: key,
+      moduleLabel: moduleLabel(key),
+      fileName: file.name,
+      created,
+      updated,
+      totalRows: rows.length,
+    },
+  });
 
   return NextResponse.json({
     success: true,

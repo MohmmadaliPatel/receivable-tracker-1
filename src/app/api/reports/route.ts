@@ -19,6 +19,7 @@ import {
   buildReportWebSummary,
   isAttemptedOutbound,
 } from '@/lib/report-format';
+import { auditActivity } from '@/lib/audit-route';
 
 async function getAuthUser() {
   const cookieStore = await cookies();
@@ -144,6 +145,17 @@ export async function GET(req: NextRequest) {
       : variant === 'detail' ? stringifyDetailCsvRows(enrichedForCsv, deps)
       : stringifyBusinessThreadCsvRows(threadsForExecutiveCsv, deps);
 
+    await auditActivity(req, user, 'REPORT_EXPORT', {
+      success: true,
+      details: {
+        variant,
+        attemptedOnly,
+        recordCount: enrichedForCsv.length,
+        threadCount: threadsForExecutiveCsv.length,
+        filterIds: recordFilter ? [...recordFilter] : null,
+      },
+    });
+
     return new NextResponse(csvBody, {
       headers: {
         'Content-Type': 'text/csv; charset=utf-8',
@@ -162,6 +174,15 @@ export async function GET(req: NextRequest) {
   }));
 
   const threadsJson = threadsAll.map(threadWireFormat);
+
+  await auditActivity(req, user, 'REPORT_VIEW', {
+    success: true,
+    details: {
+      attemptedOnly,
+      recordCount: enrichedAll.length,
+      threadCount: threadsAll.length,
+    },
+  });
 
   return NextResponse.json({
     records: enrichedJson,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { securityConfig } from '@/lib/security-config';
+import { shouldEnforceLicense, verifyLicense } from '@/lib/license';
 
 const PUBLIC_API_PREFIXES = ['/api/auth/', '/api/public/'];
 
@@ -9,6 +10,10 @@ function isPublicApiPath(pathname: string): boolean {
 
 function isCronPath(pathname: string): boolean {
   return pathname === '/api/cron' || pathname.startsWith('/api/cron/');
+}
+
+function isLicenseExempt(pathname: string): boolean {
+  return pathname === '/license-expired';
 }
 
 async function sessionIsValid(request: NextRequest): Promise<boolean> {
@@ -24,6 +29,34 @@ async function sessionIsValid(request: NextRequest): Promise<boolean> {
   if (!res.ok) return false;
   const data = await res.json();
   return data.authenticated === true;
+}
+
+async function enforceLicense(request: NextRequest, pathname: string): Promise<NextResponse | null> {
+  if (!shouldEnforceLicense()) return null;
+
+  const status = await verifyLicense();
+
+  if (pathname === '/license-expired') {
+    if (status.ok) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    return null;
+  }
+
+  if (isLicenseExempt(pathname)) return null;
+
+  if (status.ok) return null;
+
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.json(
+      { error: 'License invalid or expired', code: status.reason },
+      { status: 403 }
+    );
+  }
+
+  const url = request.nextUrl.clone();
+  url.pathname = '/license-expired';
+  return NextResponse.redirect(url);
 }
 
 export async function middleware(request: NextRequest) {
@@ -49,6 +82,9 @@ export async function middleware(request: NextRequest) {
     }
     return NextResponse.next();
   }
+
+  const licenseGate = await enforceLicense(request, pathname);
+  if (licenseGate) return licenseGate;
 
   if (!pathname.startsWith('/api/')) {
     return NextResponse.next();
@@ -83,7 +119,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Run middleware for API routes (auth/cron) and _next/static assets so we can enforce
-  // no-directory-browsing behavior on trailing-slash probes against built chunks.
-  matcher: ['/api/:path*', '/_next/static/:path*'],
+  // Static asset hardening + license gate for all app/API routes.
+  matcher: ['/_next/static/:path*', '/((?!_next/static|_next/image|favicon.ico).*)'],
 };

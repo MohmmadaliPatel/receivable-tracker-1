@@ -10,11 +10,6 @@ interface EmailConfig {
   msClientId: string;
   fromEmail: string;
   isActive: boolean;
-  cronEnabled?: boolean;
-  cronIntervalMinutes?: number;
-  reminderEnabled?: boolean;
-  reminderDurationHours?: number;
-  reminderDurationUnit?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -31,11 +26,6 @@ export default function EmailConfigManager() {
     msClientSecret: '',
     fromEmail: '',
     isActive: true,
-    cronEnabled: false,
-    cronIntervalMinutes: 10,
-    reminderEnabled: false,
-    reminderDurationHours: 24,
-    reminderDurationUnit: 'hours',
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -93,23 +83,8 @@ export default function EmailConfigManager() {
         msClientSecret: '',
         fromEmail: '',
         isActive: true,
-        cronEnabled: false,
-        cronIntervalMinutes: 10,
-        reminderEnabled: false,
-        reminderDurationHours: 24,
-        reminderDurationUnit: 'hours',
       });
       fetchConfigs();
-      // Reload cron jobs after config update
-      try {
-        await fetch('/api/cron', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'reload' }),
-        });
-      } catch (err) {
-        console.error('Error reloading cron:', err);
-      }
     } catch (err: any) {
       setError(err.message || 'An error occurred');
     }
@@ -121,14 +96,9 @@ export default function EmailConfigManager() {
       name: config.name,
       msTenantId: config.msTenantId,
       msClientId: config.msClientId,
-      msClientSecret: '', // Don't show secret
+      msClientSecret: '',
       fromEmail: config.fromEmail,
       isActive: config.isActive,
-      cronEnabled: config.cronEnabled || false,
-      cronIntervalMinutes: config.cronIntervalMinutes || 10,
-      reminderEnabled: config.reminderEnabled || false,
-      reminderDurationHours: config.reminderDurationHours || 24,
-      reminderDurationUnit: config.reminderDurationUnit || 'hours',
     });
     setShowForm(true);
   };
@@ -208,11 +178,6 @@ export default function EmailConfigManager() {
               msClientSecret: '',
               fromEmail: '',
               isActive: true,
-              cronEnabled: false,
-              cronIntervalMinutes: 10,
-              reminderEnabled: false,
-              reminderDurationHours: 24,
-              reminderDurationUnit: 'hours',
             });
           }}
           className="px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors"
@@ -322,117 +287,6 @@ export default function EmailConfigManager() {
               </label>
             </div>
 
-            <div className="border-t border-gray-200 pt-4 mt-4">
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">Automatic Email Fetching (Cron)</h4>
-              
-              <div className="flex items-center mb-3">
-                <input
-                  type="checkbox"
-                  id="cronEnabled"
-                  checked={formData.cronEnabled}
-                  onChange={(e) => setFormData({ ...formData, cronEnabled: e.target.checked })}
-                  className="mr-2"
-                />
-                <label htmlFor="cronEnabled" className="text-sm text-black font-medium">
-                  Enable automatic email fetching
-                </label>
-              </div>
-
-              {formData.cronEnabled && (
-                <div>
-                  <label className="block text-sm text-black font-medium mb-1">
-                    Fetch Interval (minutes) *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="1440"
-                    value={formData.cronIntervalMinutes}
-                    onChange={(e) => setFormData({ ...formData, cronIntervalMinutes: parseInt(e.target.value) || 10 })}
-                    required={formData.cronEnabled}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black"
-                    placeholder="10"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    How often to automatically fetch emails and check for replies (1-1440 minutes)
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-gray-200 pt-4 mt-4">
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">Reminder Emails</h4>
-              
-              <div className="flex items-center mb-3">
-                <input
-                  type="checkbox"
-                  id="reminderEnabled"
-                  checked={formData.reminderEnabled}
-                  onChange={(e) => setFormData({ ...formData, reminderEnabled: e.target.checked })}
-                  className="mr-2"
-                />
-                <label htmlFor="reminderEnabled" className="text-sm text-black font-medium">
-                  Enable reminder emails for forwarded emails without replies
-                </label>
-              </div>
-
-              {formData.reminderEnabled && (
-                <div>
-                  <div className="flex gap-4 mb-2">
-                    <div className="flex-1">
-                      <label className="block text-sm text-black font-medium mb-1">
-                        Reminder Duration *
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max={formData.reminderDurationUnit === 'hours' ? '720' : '43200'}
-                        value={formData.reminderDurationHours}
-                        onChange={(e) => setFormData({ ...formData, reminderDurationHours: parseInt(e.target.value) || (formData.reminderDurationUnit === 'hours' ? 24 : 1440) })}
-                        required={formData.reminderEnabled}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black"
-                        placeholder={formData.reminderDurationUnit === 'hours' ? '24' : '1440'}
-                      />
-                    </div>
-                    <div className="w-32">
-                      <label className="block text-sm text-black font-medium mb-1">
-                        Unit *
-                      </label>
-                      <select
-                        value={formData.reminderDurationUnit}
-                        onChange={(e) => {
-                          const newUnit = e.target.value;
-                          // Convert value when switching units
-                          let newValue = formData.reminderDurationHours;
-                          if (newUnit === 'minutes' && formData.reminderDurationUnit === 'hours') {
-                            newValue = formData.reminderDurationHours * 60;
-                          } else if (newUnit === 'hours' && formData.reminderDurationUnit === 'minutes') {
-                            newValue = Math.round(formData.reminderDurationHours / 60);
-                          }
-                          setFormData({ 
-                            ...formData, 
-                            reminderDurationUnit: newUnit,
-                            reminderDurationHours: newValue || (newUnit === 'hours' ? 24 : 1440)
-                          });
-                        }}
-                        required={formData.reminderEnabled}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black"
-                      >
-                        <option value="hours">Hours</option>
-                        <option value="minutes">Minutes</option>
-                      </select>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Send reminder email if no reply is received within this duration
-                    {formData.reminderDurationUnit === 'hours' 
-                      ? ' (1-720 hours)' 
-                      : ' (1-43200 minutes / 720 hours)'}
-                  </p>
-                </div>
-              )}
-            </div>
-
             <div className="flex space-x-3">
               <button
                 type="submit"
@@ -493,18 +347,6 @@ export default function EmailConfigManager() {
                     <p>
                       <span className="font-medium">From Email:</span> {config.fromEmail}
                     </p>
-                    {config.cronEnabled && (
-                      <p className="mt-2">
-                        <span className="font-medium">Auto Fetch:</span>{' '}
-                        <span className="text-emerald-800 font-semibold">Enabled</span> - Every {config.cronIntervalMinutes || 10} minutes
-                      </p>
-                    )}
-                    {config.reminderEnabled && (
-                      <p className="mt-2">
-                        <span className="font-medium">Reminders:</span>{' '}
-                        <span className="text-neutral-800 font-semibold">Enabled</span> - After {config.reminderDurationHours || 24} {config.reminderDurationUnit === 'minutes' ? 'minutes' : 'hours'}
-                      </p>
-                    )}
                   </div>
                 </div>
                 <div className="flex flex-col space-y-2 ml-4">

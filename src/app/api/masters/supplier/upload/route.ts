@@ -11,6 +11,7 @@ import {
 import { maybeHydrateMsmeFromPartyMasters } from '@/lib/masters-msme-hook';
 import { parseListingUploadFiscal } from '@/lib/listing-upload-fiscal';
 import { prisma } from '@/lib/prisma';
+import { auditActivity, moduleLabel } from '@/lib/audit-route';
 
 async function auth() {
   const cookieStore = await cookies();
@@ -30,8 +31,28 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData();
   const file = formData.get('file') as File | null;
   const mode = (formData.get('mode') as string) === 'replace' ? 'replace' : 'append';
+  const key = 'trade_receivable' as const;
 
-  if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+  const auditFail = async (error: string, extra?: Record<string, unknown>) => {
+    await auditActivity(request, user, 'LISTING_UPLOAD', {
+      success: false,
+      resource: file?.name ?? null,
+      details: {
+        module: key,
+        moduleLabel: moduleLabel(key),
+        source: 'supplier_master',
+        fileName: file?.name,
+        mode,
+        error,
+        ...extra,
+      },
+    });
+  };
+
+  if (!file) {
+    await auditFail('No file provided');
+    return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+  }
 
   const name = file.name.toLowerCase();
 
@@ -41,25 +62,27 @@ export async function POST(request: NextRequest) {
     rows = parseTradeListingFile(buffer, name);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    await auditFail(`Failed to parse: ${msg}`);
     return NextResponse.json({ error: `Failed to parse: ${msg}` }, { status: 400 });
   }
 
   if (rows.length === 0) {
+    await auditFail('File is empty or has no data rows', { totalRows: 0 });
     return NextResponse.json({ error: 'File is empty or has no data rows' }, { status: 400 });
   }
 
   const mapped = rows.map(mapTradeReceivableExcelRow).filter((m) => m.entityName && m.entityName !== 'Unknown');
   if (mapped.length === 0) {
-    return NextResponse.json(
-      { error: 'No valid rows. Ensure the file matches the Trade Receivables listing format.' },
-      { status: 400 }
-    );
+    const err = 'No valid rows. Ensure the file matches the Trade Receivables listing format.';
+    await auditFail(err, { totalRows: rows.length, validRows: 0 });
+    return NextResponse.json({ error: err }, { status: 400 });
   }
 
   const fkMap = await buildEntityContactFkMap();
 
   const fiscalParsed = parseListingUploadFiscal(formData);
   if (!fiscalParsed.ok) {
+    await auditFail(fiscalParsed.error);
     return NextResponse.json({ error: fiscalParsed.error }, { status: 400 });
   }
 
@@ -96,10 +119,29 @@ export async function POST(request: NextRequest) {
     });
   } catch (e) {
     await prisma.tradeListingUpload.delete({ where: { id: upload.id } }).catch(() => {});
+    const msg = e instanceof Error ? e.message : String(e);
+    await auditFail(msg || 'Import failed', { listingUploadId: upload.id });
     throw e;
   }
 
   const msmeHydrated = await maybeHydrateMsmeFromPartyMasters(user);
+
+  await auditActivity(request, user, 'LISTING_UPLOAD', {
+    success: true,
+    resource: upload.id,
+    details: {
+      module: key,
+      moduleLabel: moduleLabel(key),
+      source: 'supplier_master',
+      fileName: file.name,
+      mode,
+      imported,
+      totalRows: rows.length,
+      skipped: rows.length - mapped.length,
+      listingUploadId: upload.id,
+      msmeHydrated,
+    },
+  });
 
   return NextResponse.json({
     success: true,

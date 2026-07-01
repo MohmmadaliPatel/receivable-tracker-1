@@ -29,7 +29,29 @@ export type AuditAction =
   | 'CRON_STOP'
   | 'AUDIT_LOG_VIEW'
   | 'AUDIT_LOG_EXPORT'
-  | 'PASSWORD_CHANGE';
+  | 'LOG_FILE_VIEW'
+  | 'LOG_FILE_DOWNLOAD'
+  | 'PASSWORD_CHANGE'
+  | 'LISTING_UPLOAD'
+  | 'CSV_IMPORT'
+  | 'RT_MASTER_UPLOAD'
+  | 'CONFIRMATION_CREATE'
+  | 'CONFIRMATION_UPDATE'
+  | 'CONFIRMATION_DELETE'
+  | 'CONFIRMATION_RESET_RESPONSE'
+  | 'EMAIL_SEND'
+  | 'EMAIL_BULK_SEND'
+  | 'EMAIL_FOLLOWUP'
+  | 'EMAIL_BULK_FOLLOWUP'
+  | 'ATTACHMENT_UPLOAD'
+  | 'ATTACHMENT_DELETE'
+  | 'ENTITY_ATTACHMENT_UPLOAD'
+  | 'REPORT_VIEW'
+  | 'REPORT_EXPORT'
+  | 'MODULE_EXPORT'
+  | 'EMAIL_GENERIC_SEND'
+  | 'EMAIL_REMINDER'
+  | 'EMAIL_FORWARD';
 
 export interface AuditLogInput {
   action: AuditAction | string;
@@ -67,7 +89,7 @@ export async function writeAuditLog(input: AuditLogInput): Promise<void> {
     // Fail-open for availability, but for high-risk actions (per client questionnaire section 7) we log loudly
     // and also append to a local fallback file so operator/SIEM can still capture if DB write fails.
     // High-risk: auth, pw, user mgmt, data truncate, email config, templates, cron, public responses, audit access.
-    const highRisk = /^(LOGIN_|LOGOUT|PASSWORD_CHANGE|USER_|DATA_TRUNCATE|EMAIL_CONFIG_|EMAIL_TEMPLATE_|PUBLIC_RESPONSE_|CRON_|AUDIT_LOG_)/.test(String(input.action));
+    const highRisk = /^(LOGIN_|LOGOUT|PASSWORD_CHANGE|USER_|DATA_TRUNCATE|EMAIL_CONFIG_|EMAIL_TEMPLATE_|PUBLIC_RESPONSE_|CRON_|AUDIT_LOG_|LOG_FILE_)/.test(String(input.action));
     const msg = `[AuditLog] Failed to write action=${input.action} success=${input.success ?? true}: ${err}`;
     console.error(msg);
     if (highRisk) {

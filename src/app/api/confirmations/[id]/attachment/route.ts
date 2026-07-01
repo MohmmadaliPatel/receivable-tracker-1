@@ -5,6 +5,7 @@ import { patchConfirmationRaw } from '@/lib/confirmation-repository';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fetchConfirmationOrForbidden } from '@/lib/confirmation-record-auth';
+import { auditActivity, moduleLabel } from '@/lib/audit-route';
 
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
@@ -45,6 +46,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     attachmentName: file.name,
   });
 
+  await auditActivity(request, user, 'ATTACHMENT_UPLOAD', {
+    success: true,
+    resource: id,
+    details: {
+      module: gate.record.module,
+      moduleLabel: moduleLabel(gate.record.module),
+      entityName: gate.record.entityName,
+      fileName: file.name,
+    },
+  });
+
   return NextResponse.json({ success: true, attachmentName: file.name });
 }
 
@@ -63,6 +75,17 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   }
 
   await patchConfirmationRaw(gate.record.module, id, { attachmentPath: null, attachmentName: null });
+
+  await auditActivity(request, user, 'ATTACHMENT_DELETE', {
+    success: true,
+    resource: id,
+    details: {
+      module: gate.record.module,
+      moduleLabel: moduleLabel(gate.record.module),
+      entityName: record.entityName,
+      attachmentName: record.attachmentName,
+    },
+  });
 
   return NextResponse.json({ success: true });
 }

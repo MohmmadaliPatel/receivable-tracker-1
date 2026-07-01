@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Taxteck License Generator</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #0f172a;
+      --accent-hover: #1e293b;
+      --success: #047857;
+      --error: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(135deg, #f8fafc 0%, #ffffff 50%, #f1f5f9 100%);
+      color: var(--text);
+      padding: 24px;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 10px 40px rgba(15, 23, 42, 0.06);
+    }
+    h1 { margin: 0 0 8px; font-size: 1.75rem; }
+    .subtitle { color: var(--muted); margin: 0 0 24px; font-size: 0.95rem; line-height: 1.5; }
+    label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 6px; }
+    input, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.95rem;
+      margin-bottom: 16px;
+      font-family: inherit;
+    }
+    textarea {
+      min-height: 120px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+      resize: vertical;
+    }
+    .hint { font-size: 0.8rem; color: var(--muted); margin: -10px 0 16px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 600px) { .row { grid-template-columns: 1fr; } }
+    button {
+      appearance: none;
+      border: none;
+      background: var(--accent);
+      color: white;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: var(--accent-hover); }
+    button.secondary {
+      background: #e2e8f0;
+      color: #0f172a;
+      margin-left: 8px;
+    }
+    button.secondary:hover { background: #cbd5e1; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+    .msg { margin-top: 12px; font-size: 0.875rem; }
+    .msg.error { color: var(--error); }
+    .msg.success { color: var(--success); }
+    .box {
+      margin-top: 24px;
+      padding: 16px;
+      background: #f8fafc;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    code { background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Taxteck License Generator</h1>
+      <p class="subtitle">
+        Vendor tool — open this file locally in a browser. Generates a signed <code>LICENSE</code> value
+        for the Taxteck Email Auto Manager <code>.env</code> file. Keep <code>LICENSE_SIGNING_SECRET</code>
+        private; it must match on the server that verifies licenses.
+      </p>
+
+      <form id="form">
+        <label for="customer">Licensed organization / customer name</label>
+        <input id="customer" type="text" placeholder="e.g. ABC & Associates" required />
+
+        <div class="row">
+          <div>
+            <label for="expiry">Expiry date</label>
+            <input id="expiry" type="date" required />
+          </div>
+          <div>
+            <label for="issued">Issued on (optional)</label>
+            <input id="issued" type="date" />
+          </div>
+        </div>
+
+        <label for="secret">LICENSE_SIGNING_SECRET (min 32 characters)</label>
+        <input id="secret" type="password" placeholder="Same value as on the deployment server" required minlength="32" />
+        <p class="hint">Generate once: <code>openssl rand -base64 32</code></p>
+
+        <div class="actions">
+          <button type="submit">Generate license</button>
+          <button type="button" class="secondary" id="copyBtn" disabled>Copy LICENSE value</button>
+        </div>
+        <p id="message" class="msg" aria-live="polite"></p>
+
+        <label for="output" style="margin-top: 20px;">LICENSE (paste into .env)</label>
+        <textarea id="output" readonly placeholder="Generated license token will appear here…"></textarea>
+      </form>
+
+      <div class="box">
+        <strong>.env example</strong><br />
+        LICENSE_SIGNING_SECRET=your-32-char-or-longer-secret<br />
+        LICENSE=paste-generated-token-here
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PRODUCT_ID = 'taxteck-email-auto';
+
+    function base64UrlEncodeBytes(bytes) {
+      let binary = '';
+      const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+      arr.forEach(function (b) { binary += String.fromCharCode(b); });
+      return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    function base64UrlEncodeJson(obj) {
+      const json = JSON.stringify(obj);
+      const bytes = new TextEncoder().encode(json);
+      return base64UrlEncodeBytes(bytes);
+    }
+
+    async function signLicenseJwt(payload, secret) {
+      const header = { alg: 'HS256', typ: 'JWT' };
+      const headerB64 = base64UrlEncodeJson(header);
+      const payloadB64 = base64UrlEncodeJson(payload);
+      const signingInput = headerB64 + '.' + payloadB64;
+      const enc = new TextEncoder();
+      const key = await crypto.subtle.importKey(
+        'raw',
+        enc.encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+      );
+      const signature = await crypto.subtle.sign('HMAC', key, enc.encode(signingInput));
+      return signingInput + '.' + base64UrlEncodeBytes(new Uint8Array(signature));
+    }
+
+    const expiryInput = document.getElementById('expiry');
+    const issuedInput = document.getElementById('issued');
+    const output = document.getElementById('output');
+    const message = document.getElementById('message');
+    const copyBtn = document.getElementById('copyBtn');
+
+    const defaultExpiry = new Date();
+    defaultExpiry.setFullYear(defaultExpiry.getFullYear() + 1);
+    expiryInput.value = defaultExpiry.toISOString().slice(0, 10);
+    issuedInput.value = new Date().toISOString().slice(0, 10);
+
+    document.getElementById('form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      message.textContent = '';
+      message.className = 'msg';
+      output.value = '';
+      copyBtn.disabled = true;
+
+      const customer = document.getElementById('customer').value.trim();
+      const expiry = expiryInput.value;
+      const issued = issuedInput.value || expiry;
+      const secret = document.getElementById('secret').value;
+
+      if (!customer) {
+        message.textContent = 'Enter a customer / organization name.';
+        message.className = 'msg error';
+        return;
+      }
+      if (!expiry) {
+        message.textContent = 'Select an expiry date.';
+        message.className = 'msg error';
+        return;
+      }
+      if (secret.length < 32) {
+        message.textContent = 'LICENSE_SIGNING_SECRET must be at least 32 characters.';
+        message.className = 'msg error';
+        return;
+      }
+
+      const exp = Math.floor(new Date(expiry + 'T23:59:59').getTime() / 1000);
+      const iat = Math.floor(new Date(issued + 'T00:00:00').getTime() / 1000);
+      if (!Number.isFinite(exp) || exp <= iat) {
+        message.textContent = 'Expiry date must be after the issued date.';
+        message.className = 'msg error';
+        return;
+      }
+
+      try {
+        const token = await signLicenseJwt({
+          sub: customer,
+          iat: iat,
+          exp: exp,
+          lic: PRODUCT_ID,
+        }, secret);
+
+        output.value = token;
+        copyBtn.disabled = false;
+        message.textContent = 'License generated. Copy the token into LICENSE in your .env file.';
+        message.className = 'msg success';
+      } catch (err) {
+        message.textContent = 'Failed to generate license: ' + (err && err.message ? err.message : String(err));
+        message.className = 'msg error';
+      }
+    });
+
+    copyBtn.addEventListener('click', async function () {
+      if (!output.value) return;
+      try {
+        await navigator.clipboard.writeText(output.value);
+        message.textContent = 'Copied to clipboard.';
+        message.className = 'msg success';
+      } catch {
+        output.select();
+        document.execCommand('copy');
+        message.textContent = 'Copied to clipboard.';
+        message.className = 'msg success';
+      }
+    });
+  </script>
+</body>
+</html>

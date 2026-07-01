@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as path from 'path';
+import SettingsLogsPanel from './SettingsLogsPanel';
 
 interface AppSettings {
   id: string;
@@ -31,7 +31,7 @@ function FolderPathPreview({ basePath }: { basePath: string }) {
   );
 }
 
-export default function SettingsClient() {
+export default function SettingsClient({ isAdmin = false }: { isAdmin?: boolean }) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -141,7 +141,7 @@ export default function SettingsClient() {
   }
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-8 max-w-6xl">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
@@ -342,6 +342,12 @@ export default function SettingsClient() {
             </button>
           </div>
         </div>
+
+        {isAdmin && (
+          <div className="mt-2">
+            <SettingsLogsPanel />
+          </div>
+        )}
 
         {/* Save button */}
         <div className="flex items-center justify-between">

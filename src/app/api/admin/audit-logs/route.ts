@@ -63,15 +63,6 @@ export async function GET(request: NextRequest) {
     prisma.auditLog.count({ where }),
   ]);
 
-  await writeAuditLog({
-    action: 'AUDIT_LOG_VIEW',
-    success: true,
-    userId: admin.userId,
-    username: admin.username,
-    ...meta,
-    details: { format: 'json', from: fromStr, to: toStr, actionFilter: action, limit, page },
-  });
-
   return NextResponse.json({
     logs,
     pagination: { page, limit, total, pages: Math.ceil(total / limit) },

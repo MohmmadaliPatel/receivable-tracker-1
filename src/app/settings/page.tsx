@@ -19,7 +19,7 @@ export default async function SettingsPage() {
       <div className="flex min-h-screen bg-gray-50">
         <Sidebar user={user ? { username: user.username, name: user.name, role: user.role } : undefined} />
         <div className="flex-1">
-          <SettingsClient />
+          <SettingsClient isAdmin={user?.role === 'admin'} />
         </div>
       </div>
     </AuthGuard>

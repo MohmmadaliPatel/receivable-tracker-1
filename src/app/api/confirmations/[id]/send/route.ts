@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { getSession } from '@/lib/simple-auth';
 import { sendConfirmation } from '@/lib/confirmation-service';
 import { fetchConfirmationOrForbidden } from '@/lib/confirmation-record-auth';
+import { auditActivity, moduleLabel } from '@/lib/audit-route';
 
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
@@ -31,9 +32,37 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     emailBodyTemplateId: emailBody ? null : templateId,
   });
 
+  const record = gate.record;
   if (!result.success) {
+    await auditActivity(request, user, 'EMAIL_SEND', {
+      success: false,
+      resource: id,
+      details: {
+        module: record.module,
+        moduleLabel: moduleLabel(record.module),
+        entityName: record.entityName,
+        category: record.category,
+        emailTo: record.emailTo,
+        error: result.error || 'Send failed',
+        templateId,
+      },
+    });
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
+
+  await auditActivity(request, user, 'EMAIL_SEND', {
+    success: true,
+    resource: id,
+    details: {
+      module: record.module,
+      moduleLabel: moduleLabel(record.module),
+      entityName: record.entityName,
+      category: record.category,
+      emailTo: record.emailTo,
+      templateId,
+      configId: configId || null,
+    },
+  });
 
   return NextResponse.json({ success: true });
 }

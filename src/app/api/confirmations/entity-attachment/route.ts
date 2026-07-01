@@ -6,6 +6,7 @@ import type { ModuleKey } from '@/lib/module-types';
 import { MODULE_KEYS } from '@/lib/module-types';
 import * as fs from 'fs';
 import * as path from 'path';
+import { auditActivity, moduleLabel } from '@/lib/audit-route';
 
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
@@ -67,7 +68,19 @@ export async function POST(request: NextRequest) {
       : entityName
         ? `entity "${entityName}"`
         : `category "${category}"`;
-    return NextResponse.json({ error: `No records found for ${scope}` }, { status: 404 });
+    const err = `No records found for ${scope}`;
+    await auditActivity(request, user, 'ENTITY_ATTACHMENT_UPLOAD', {
+      success: false,
+      resource: file.name,
+      details: {
+        entityName,
+        category,
+        module: moduleStr,
+        fileName: file.name,
+        error: err,
+      },
+    });
+    return NextResponse.json({ error: err }, { status: 404 });
   }
 
   const safeEntity = entityName
@@ -100,6 +113,19 @@ export async function POST(request: NextRequest) {
       updatedCount += r.count;
     }
   }
+
+  await auditActivity(request, user, 'ENTITY_ATTACHMENT_UPLOAD', {
+    success: true,
+    resource: file.name,
+    details: {
+      entityName,
+      category,
+      module: moduleStr,
+      moduleLabel: moduleStr && isModuleKey(moduleStr) ? moduleLabel(moduleStr) : 'All modules',
+      fileName: file.name,
+      updatedCount,
+    },
+  });
 
   return NextResponse.json({
     success: true,

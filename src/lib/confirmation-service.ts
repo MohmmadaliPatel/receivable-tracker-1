@@ -266,6 +266,17 @@ function encodeTokenForUrl(token: string): string {
   return encodeURIComponent(token);
 }
 
+/** Reuse the active nonce so follow-up emails do not invalidate earlier magic links. */
+function resolveEmailActionNonce(record: {
+  emailActionNonce?: string | null;
+  emailActionConsumedAt?: Date | null;
+}): string {
+  if (!record.emailActionConsumedAt && record.emailActionNonce?.trim()) {
+    return record.emailActionNonce.trim();
+  }
+  return randomUUID();
+}
+
 export function tradeActionButtonsHtml(ctx: EmailMagicLinkContext): string {
   const t = encodeTokenForUrl(ctx.token);
   const base = ctx.baseUrl.replace(/\/$/, '');
@@ -564,12 +575,12 @@ export async function buildConfirmationPreviewHtml(opts: {
 
   const withMagic = async (): Promise<string> => {
     try {
-      const newNonce = randomUUID();
+      const actionNonce = resolveEmailActionNonce(record);
       const baseUrl = getAppBaseUrl();
       const typ = mod === 'confirm_msme' ? 'msme' : 'trade';
       const token = await signEmailActionToken({
         recordId: jwtRecordId,
-        nonce: newNonce,
+        nonce: actionNonce,
         module: mod,
         typ,
       });
@@ -869,19 +880,62 @@ async function fetchSentMessage(
     console.log('[Confirmation] fetchSentMessage $search URL:', url);
 
     const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        ConsistencyLevel: 'eventual',
+      },
     });
 
     if (!res.ok) {
       const errBody = await res.text();
       console.error(`[Confirmation] fetchSentMessage HTTP ${res.status}:`, errBody);
-      return null;
+    } else {
+      const data = await res.json();
+      const messages: any[] = data.value || [];
+      const targetTs = sentAfter.getTime();
+
+      const ranked = messages
+        .filter((m: any) => m?.sentDateTime)
+        .map((m: any) => ({
+          msg: m,
+          dist: Math.abs(new Date(m.sentDateTime).getTime() - targetTs),
+          exactSubj: m.subject === subject,
+        }))
+        .sort((a, b) =>
+          Number(b.exactSubj) - Number(a.exactSubj) || a.dist - b.dist,
+        );
+
+      const msg = ranked[0]?.msg;
+
+      if (msg) {
+        if (messages.length >= 35) {
+          console.warn('[Confirmation] fetchSentMessage: large candidate pool — ambiguous match possible for:', subject.slice(0, 60));
+        }
+        console.log('[Confirmation] Captured sent message — id:', msg.id, 'conversationId:', msg.conversationId, 'subject:', msg.subject);
+        return { messageId: msg.id, conversationId: msg.conversationId };
+      }
+
+      console.warn('[Confirmation] fetchSentMessage: no message found in SentItems for subject:', subject);
     }
+  } catch (err) {
+    console.error('[Confirmation] fetchSentMessage exception:', err);
+  }
+
+  // Fallback: list recent Sent Items when $search is unavailable or inconclusive.
+  try {
+    const accessToken = await GraphMailService.getAccessToken(config);
+    const userPrincipal = encodeURIComponent(config.fromEmail);
+    const url = `https://graph.microsoft.com/v1.0/users/${userPrincipal}/mailFolders/SentItems/messages`
+      + `?$top=25&$orderby=sentDateTime desc&$select=id,conversationId,subject,sentDateTime`;
+
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return null;
 
     const data = await res.json();
     const messages: any[] = data.value || [];
     const targetTs = sentAfter.getTime();
-
     const ranked = messages
       .filter((m: any) => m?.sentDateTime)
       .map((m: any) => ({
@@ -894,20 +948,12 @@ async function fetchSentMessage(
       );
 
     const msg = ranked[0]?.msg;
+    if (!msg) return null;
 
-    if (!msg) {
-      console.warn('[Confirmation] fetchSentMessage: no message found in SentItems for subject:', subject);
-      return null;
-    }
-
-    if (messages.length >= 35) {
-      console.warn('[Confirmation] fetchSentMessage: large candidate pool — ambiguous match possible for:', subject.slice(0, 60));
-    }
-
-    console.log('[Confirmation] Captured sent message — id:', msg.id, 'conversationId:', msg.conversationId, 'subject:', msg.subject);
+    console.log('[Confirmation] fetchSentMessage fallback hit — id:', msg.id, 'subject:', msg.subject);
     return { messageId: msg.id, conversationId: msg.conversationId };
   } catch (err) {
-    console.error('[Confirmation] fetchSentMessage exception:', err);
+    console.error('[Confirmation] fetchSentMessage fallback exception:', err);
     return null;
   }
 }
@@ -1002,7 +1048,7 @@ export async function sendConfirmation(
     const canMagic = mod === 'trade_payable' || mod === 'trade_receivable' || mod === 'confirm_msme';
     if (canMagic) {
       try {
-        const newNonce = randomUUID();
+        const newNonce = resolveEmailActionNonce(record);
         const baseUrl = getAppBaseUrl();
         const typ = mod === 'confirm_msme' ? 'msme' : 'trade';
         const token = await signEmailActionToken({
@@ -1034,7 +1080,7 @@ export async function sendConfirmation(
   const sendTime = new Date();
 
   try {
-    await GraphMailService.sendMail(config, {
+    const sentDirect = await GraphMailService.sendMail(config, {
       to: toList,
       subject,
       htmlBody,
@@ -1045,8 +1091,11 @@ export async function sendConfirmation(
 
     // Fetch the sent message details — we store conversationId in sentMessageId
     // so we can find all replies in the same thread later.
-    await new Promise((r) => setTimeout(r, 2500));
-    const sentMsg = await fetchSentMessage(config, subject, sendTime);
+    let sentMsg = sentDirect;
+    if (!sentMsg) {
+      await new Promise((r) => setTimeout(r, 2500));
+      sentMsg = await fetchSentMessage(config, subject, sendTime);
+    }
 
     // Save to folder with CONF prefix
     const { filePath, filenameBase } = await saveEmailToSentFolder(
@@ -1174,6 +1223,7 @@ export async function sendFollowup(
 
   let followupHtmlBody: string;
   let nonceForSend: string | null = null;
+  let issuedNewNonce = false;
 
   if (customEmailBody) {
     followupHtmlBody = customEmailBody;
@@ -1182,12 +1232,14 @@ export async function sendFollowup(
     const sentAt = record.sentAt || new Date();
     if (canMagic) {
       try {
-        const newNonce = randomUUID();
+        const hadActiveNonce = !record.emailActionConsumedAt && !!record.emailActionNonce?.trim();
+        const actionNonce = resolveEmailActionNonce(record);
+        issuedNewNonce = !hadActiveNonce;
         const baseUrl = getAppBaseUrl();
         const typ = mod === 'confirm_msme' ? 'msme' : 'trade';
         const token = await signEmailActionToken({
           recordId: jwtRecordId,
-          nonce: newNonce,
+          nonce: actionNonce,
           module: mod,
           typ,
         });
@@ -1201,7 +1253,7 @@ export async function sendFollowup(
           templateRow,
           companyDN
         );
-        nonceForSend = newNonce;
+        nonceForSend = issuedNewNonce ? actionNonce : null;
       } catch (e) {
         console.warn('[Confirmation] Follow-up magic links disabled:', e);
         followupHtmlBody = await composeFollowupEmailHtml(
@@ -1234,29 +1286,57 @@ export async function sendFollowup(
 
   const attachments = buildAttachments(record.attachmentPath, record.attachmentName);
   const sendTime = new Date();
+  const originalSubject = generateEmailSubject(record.entityName, record.category);
 
   // Determine the original message ID to reply to.
   // Prefer the most recent message: if a prior follow-up was sent, reply to that;
   // otherwise reply to the original confirmation.
-  const priorParsed = parseSentMessageId(record.followupMessageId) ?? parseSentMessageId(record.sentMessageId);
-  const replyToId = priorParsed?.messageId || null;
+  const replyStored = record.followupMessageId ?? record.sentMessageId;
+  let replyToId = await resolveReplyTargetGraphId(config, replyStored);
+
+  if (!replyToId && record.sentAt) {
+    const recovered = await fetchSentMessage(config, originalSubject, new Date(record.sentAt));
+    if (recovered?.messageId) {
+      replyToId = recovered.messageId;
+      console.log('[Confirmation] Recovered reply target from Sent Items for original confirmation');
+    }
+  }
 
   try {
+    let followupMsg: { messageId: string; conversationId: string } | null = null;
+
     if (replyToId) {
       // --- Reply in-thread via Graph createReply ---
       console.log(`[Confirmation] Sending follow-up as reply to message ${replyToId}`);
-      await GraphMailService.replyToMessage(config, replyToId, {
-        to: toList,
-        htmlBody: followupHtmlBody,
-        cc: ccList,
-        attachments,
-        saveToSentItems: true,
-      });
+      try {
+        followupMsg = await GraphMailService.replyToMessage(config, replyToId, {
+          to: toList,
+          htmlBody: followupHtmlBody,
+          cc: ccList,
+          attachments,
+          saveToSentItems: true,
+        });
+      } catch (replyErr) {
+        console.warn('[Confirmation] createReply failed; will try Sent Items lookup before new email:', replyErr);
+        if (record.sentAt) {
+          const recovered = await fetchSentMessage(config, originalSubject, new Date(record.sentAt));
+          if (recovered?.messageId && recovered.messageId !== replyToId) {
+            followupMsg = await GraphMailService.replyToMessage(config, recovered.messageId, {
+              to: toList,
+              htmlBody: followupHtmlBody,
+              cc: ccList,
+              attachments,
+              saveToSentItems: true,
+            });
+          }
+        }
+        if (!followupMsg) throw replyErr;
+      }
     } else {
       // --- Fallback: new email if no prior message ID available ---
       const subject = followupSubject;
       console.log('[Confirmation] No prior message ID; sending follow-up as new email');
-      await GraphMailService.sendMail(config, {
+      followupMsg = await GraphMailService.sendMail(config, {
         to: toList,
         subject,
         htmlBody: followupHtmlBody,
@@ -1266,11 +1346,11 @@ export async function sendFollowup(
       });
     }
 
-    // Capture the follow-up message ID/conversationId from Sent Items
-    await new Promise((r) => setTimeout(r, 2500));
-    const originalSubject = generateEmailSubject(record.entityName, record.category);
-    const followupMsg = await fetchSentMessage(config, `RE: ${originalSubject}`, sendTime)
-      ?? await fetchSentMessage(config, originalSubject, sendTime);
+    if (!followupMsg) {
+      await new Promise((r) => setTimeout(r, 2500));
+      followupMsg = await fetchSentMessage(config, `RE: ${originalSubject}`, sendTime)
+        ?? await fetchSentMessage(config, originalSubject, sendTime);
+    }
 
     const followupMessageIdValue = followupMsg
       ? `${followupMsg.messageId}::${followupMsg.conversationId}`
@@ -1340,6 +1420,25 @@ function parseSentMessageId(value: string | null): { messageId: string; conversa
   }
   // Legacy: only conversationId was stored (no '::')
   return { messageId: '', conversationId: value };
+}
+
+/** Resolve a Graph message id suitable for createReply, including legacy conversationId-only records. */
+async function resolveReplyTargetGraphId(
+  config: EmailConfig,
+  stored: string | null | undefined
+): Promise<string | null> {
+  const parsed = parseSentMessageId(stored ?? null);
+  if (!parsed) return null;
+  if (parsed.messageId?.trim()) return parsed.messageId.trim();
+  if (!parsed.conversationId?.trim()) return null;
+
+  const fromSent = await GraphMailService.findSentMessageByConversationId(config, parsed.conversationId);
+  if (fromSent?.messageId) {
+    console.log('[Confirmation] Resolved reply target from conversationId:', fromSent.messageId);
+    return fromSent.messageId;
+  }
+
+  return null;
 }
 
 // Determine whether a message was sent by the mailbox owner.

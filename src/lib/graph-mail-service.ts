@@ -63,61 +63,121 @@ export interface SendMailOptions {
   saveToSentItems?: boolean;
 }
 
+export interface SentMessageInfo {
+  messageId: string;
+  conversationId: string;
+}
+
 export class GraphMailService {
-  // Send email using Microsoft Graph API
-  static async sendMail(config: EmailConfig, options: SendMailOptions): Promise<any> {
+  // Send email using Microsoft Graph API.
+  // Uses draft+send when possible so callers get a stable messageId for threaded replies.
+  static async sendMail(
+    config: EmailConfig,
+    options: SendMailOptions
+  ): Promise<SentMessageInfo | null> {
+    const toRecipients = Array.isArray(options.to)
+      ? options.to.map((email) => ({ emailAddress: { address: email } }))
+      : [{ emailAddress: { address: options.to } }];
+
+    const ccRecipients = options.cc
+      ? Array.isArray(options.cc)
+        ? options.cc.map((email) => ({ emailAddress: { address: email } }))
+        : [{ emailAddress: { address: options.cc } }]
+      : undefined;
+
+    const bccRecipients = options.bcc
+      ? Array.isArray(options.bcc)
+        ? options.bcc.map((email) => ({ emailAddress: { address: email } }))
+        : [{ emailAddress: { address: options.bcc } }]
+      : undefined;
+
+    const graphAttachments = options.attachments?.map((a) => ({
+      '@odata.type': '#microsoft.graph.fileAttachment',
+      name: a.name,
+      contentType: a.contentType,
+      contentBytes: a.contentBytes,
+    }));
+
+    const message: Record<string, unknown> = {
+      subject: options.subject,
+      body: {
+        contentType: options.htmlBody ? 'HTML' : 'Text',
+        content: options.htmlBody || options.body || '',
+      },
+      toRecipients,
+      ...(ccRecipients && { ccRecipients }),
+      ...(bccRecipients && { bccRecipients }),
+      ...(graphAttachments?.length && { attachments: graphAttachments }),
+    };
+
+    if (options.saveToSentItems !== false) {
+      try {
+        const accessToken = await GraphMailService.getAccessToken(config);
+        const userPrincipal = encodeURIComponent(config.fromEmail);
+
+        const createRes = await fetch(
+          `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(message),
+          }
+        );
+        if (!createRes.ok) {
+          const err = await createRes.text();
+          throw new Error(`create draft failed (${createRes.status}): ${err}`);
+        }
+        const draft = await createRes.json();
+        const draftId: string = draft.id;
+
+        const sendRes = await fetch(
+          `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${encodeURIComponent(draftId)}/send`,
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }
+        );
+        if (!sendRes.ok) {
+          const err = await sendRes.text();
+          throw new Error(`send draft failed (${sendRes.status}): ${err}`);
+        }
+
+        const getRes = await fetch(
+          `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${encodeURIComponent(draftId)}?$select=id,conversationId`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
+        if (getRes.ok) {
+          const sent = await getRes.json();
+          if (sent?.id && sent?.conversationId) {
+            return { messageId: sent.id, conversationId: sent.conversationId };
+          }
+        }
+
+        const fromSentItems = await GraphMailService.findSentMessageByConversationId(
+          config,
+          draft.conversationId
+        );
+        if (fromSentItems) return fromSentItems;
+
+        return draft.conversationId
+          ? { messageId: draftId, conversationId: draft.conversationId }
+          : null;
+      } catch (error) {
+        console.warn('[Graph] draft+send failed; falling back to sendMail:', error);
+      }
+    }
+
     try {
       const client = await getGraphClient(config);
-
-      // Prepare recipients
-      const toRecipients = Array.isArray(options.to)
-        ? options.to.map((email) => ({ emailAddress: { address: email } }))
-        : [{ emailAddress: { address: options.to } }];
-
-      const ccRecipients = options.cc
-        ? Array.isArray(options.cc)
-          ? options.cc.map((email) => ({ emailAddress: { address: email } }))
-          : [{ emailAddress: { address: options.cc } }]
-        : undefined;
-
-      const bccRecipients = options.bcc
-        ? Array.isArray(options.bcc)
-          ? options.bcc.map((email) => ({ emailAddress: { address: email } }))
-          : [{ emailAddress: { address: options.bcc } }]
-        : undefined;
-
-      // Prepare file attachments for Graph API
-      const graphAttachments = options.attachments?.map((a) => ({
-        '@odata.type': '#microsoft.graph.fileAttachment',
-        name: a.name,
-        contentType: a.contentType,
-        contentBytes: a.contentBytes,
-      }));
-
-      // Prepare message
-      const message: any = {
-        subject: options.subject,
-        body: {
-          contentType: options.htmlBody ? 'HTML' : 'Text',
-          content: options.htmlBody || options.body || '',
-        },
-        toRecipients,
-        ...(ccRecipients && { ccRecipients }),
-        ...(bccRecipients && { bccRecipients }),
-        ...(graphAttachments?.length && { attachments: graphAttachments }),
-      };
-
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         message,
-        saveToSentItems: options.saveToSentItems !== false, // default true
+        saveToSentItems: options.saveToSentItems !== false,
       };
-
-      // Use the fromEmail as the sender (user must have permission to send as this address)
-      const sendMailUrl = `/users/${config.fromEmail}/sendMail`;
-
-      const result = await client.api(sendMailUrl).post(payload);
-
-      return result;
+      await client.api(`/users/${config.fromEmail}/sendMail`).post(payload);
+      return null;
     } catch (error) {
       console.error('Error sending email via Graph API:', error);
       throw error;
@@ -143,13 +203,43 @@ export class GraphMailService {
     return data.access_token;
   }
 
+  /** Locate a sent message in Sent Items by conversationId (draft ids are invalid after send). */
+  static async findSentMessageByConversationId(
+    config: EmailConfig,
+    conversationId: string | null | undefined
+  ): Promise<SentMessageInfo | null> {
+    if (!conversationId?.trim()) return null;
+    try {
+      const accessToken = await GraphMailService.getAccessToken(config);
+      const userPrincipal = encodeURIComponent(config.fromEmail);
+      const escaped = conversationId.trim().replace(/'/g, "''");
+      const url = `https://graph.microsoft.com/v1.0/users/${userPrincipal}/mailFolders/SentItems/messages`
+        + `?$filter=conversationId eq '${escaped}'`
+        + `&$orderby=sentDateTime desc&$top=1&$select=id,conversationId`;
+
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      const msg = data.value?.[0];
+      if (msg?.id && msg?.conversationId) {
+        return { messageId: msg.id, conversationId: msg.conversationId };
+      }
+    } catch (err) {
+      console.warn('[Graph] findSentMessageByConversationId failed:', err);
+    }
+    return null;
+  }
+
   // Send a threaded reply to an existing message.
   // Uses Graph's createReply + PATCH + send flow so the follow-up appears in the same thread.
   static async replyToMessage(
     config: EmailConfig,
     originalMessageId: string,
     options: Omit<SendMailOptions, 'subject'>
-  ): Promise<void> {
+  ): Promise<SentMessageInfo | null> {
     const accessToken = await GraphMailService.getAccessToken(config);
     const userPrincipal = encodeURIComponent(config.fromEmail);
 
@@ -226,6 +316,27 @@ export class GraphMailService {
       const err = await sendRes.text();
       throw new Error(`Send draft failed (${sendRes.status}): ${err}`);
     }
+
+    const getRes = await fetch(
+      `https://graph.microsoft.com/v1.0/users/${userPrincipal}/messages/${encodeURIComponent(draftId)}?$select=id,conversationId`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    if (getRes.ok) {
+      const sent = await getRes.json();
+      if (sent?.id && sent?.conversationId) {
+        return { messageId: sent.id, conversationId: sent.conversationId };
+      }
+    }
+
+    const fromSentItems = await GraphMailService.findSentMessageByConversationId(
+      config,
+      draft.conversationId
+    );
+    if (fromSentItems) return fromSentItems;
+
+    return draft.conversationId
+      ? { messageId: draftId, conversationId: draft.conversationId }
+      : null;
   }
 
   /** Raw RFC 822 MIME for the message (save as .eml). Requires Mail.Read on the mailbox. */

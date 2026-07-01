@@ -5,6 +5,8 @@ export async function register() {
   // Critical secrets and prod guards are enforced here (see lib/validate-env.ts for details + error messages).
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     validateEnv();
+    const { validateLicenseAtStartup } = await import('@/lib/validate-env');
+    await validateLicenseAtStartup();
 
     const { cronService } = await import('@/lib/cron-service');
     const { startSecurityHousekeepingDaily } = await import('@/lib/security-housekeeping');

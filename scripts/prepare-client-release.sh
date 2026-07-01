@@ -116,7 +116,9 @@ pkg.scripts = {
 };
 pkg.prisma = { seed: "tsx prisma/seed.ts" };
 pkg.dependencies = pkg.dependencies || {};
-pkg.dependencies.prisma = pkg.dependencies.prisma || "^6.8.2";
+const prismaVersion = (pkg.dependencies["@prisma/client"] || "6.8.2").replace(/^[\^~]/, "");
+pkg.dependencies["@prisma/client"] = prismaVersion;
+pkg.dependencies.prisma = prismaVersion;
 pkg.dependencies.tsx = pkg.dependencies.tsx || "^4.19.2";
 delete pkg.devDependencies;
 fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + "\n");
@@ -150,7 +152,8 @@ EOF
 
 echo "==> Installing prisma + tsx in staging package (for migrate/seed)"
 cd "$OUT"
-npm install prisma@^6.8.2 tsx@^4.19.2 --save --omit=dev --no-audit --no-fund 2>/dev/null || npm install prisma@^6.8.2 tsx@^4.19.2 --save --no-audit --no-fund
+PRISMA_VER="$(node -e "const p=require('./package.json'); console.log((p.dependencies['@prisma/client']||'6.8.2').replace(/^[\^~]/,''))")"
+npm install "prisma@${PRISMA_VER}" "@prisma/client@${PRISMA_VER}" tsx@^4.19.2 --save --omit=dev --no-audit --no-fund
 
 trim_client_package_json "$OUT/package.json"
 

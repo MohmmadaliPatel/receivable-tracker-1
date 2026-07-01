@@ -15,6 +15,7 @@ import { userCanAccessModule } from '@/lib/module-access';
 import { categoryForModule } from '@/lib/module-types';
 import { MODULE_KEYS } from '@/lib/module-types';
 import type { ModuleKey } from '@/lib/module-types';
+import { auditActivity, moduleLabel } from '@/lib/audit-route';
 
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
@@ -206,14 +207,29 @@ export async function POST(request: NextRequest) {
 
   if (modKey === 'trade_payable') {
     const row = await prisma.tradePayableConfirmation.create({ data });
+    await auditActivity(request, user, 'CONFIRMATION_CREATE', {
+      success: true,
+      resource: row.id,
+      details: { module: modKey, moduleLabel: moduleLabel(modKey), entityName, emailTo, category },
+    });
     return NextResponse.json({ record: toUnifiedRecord(row, 'trade_payable') }, { status: 201 });
   }
   if (modKey === 'trade_receivable') {
     const row = await prisma.tradeReceivableConfirmation.create({ data });
+    await auditActivity(request, user, 'CONFIRMATION_CREATE', {
+      success: true,
+      resource: row.id,
+      details: { module: modKey, moduleLabel: moduleLabel(modKey), entityName, emailTo, category },
+    });
     return NextResponse.json({ record: toUnifiedRecord(row, 'trade_receivable') }, { status: 201 });
   }
   const row = await prisma.msmeConfirmation.create({
     data: { ...data, msmeHasCertificate: null, msmeCertificateFilesJson: null },
+  });
+  await auditActivity(request, user, 'CONFIRMATION_CREATE', {
+    success: true,
+    resource: row.id,
+    details: { module: modKey, moduleLabel: moduleLabel(modKey), entityName, emailTo, category },
   });
   return NextResponse.json({ record: toUnifiedRecord(row, 'confirm_msme') }, { status: 201 });
 }

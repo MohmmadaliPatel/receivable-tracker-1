@@ -138,7 +138,7 @@ function asJson(r: SourceRow, mod: ModuleKey): UnifiedConfirmationRecord {
     emailsSentFolderPath: r.emailsSentFolderPath,
     responsesFolderPath: r.responsesFolderPath,
     remarks: r.remarks,
-    // emailActionNonce intentionally omitted from internal API responses (prevent leakage of replay token)
+    emailActionNonce: r.emailActionNonce,
     emailActionConsumedAt: r.emailActionConsumedAt,
     webConfirmedAt: r.webConfirmedAt,
     respondentQueryJson: r.respondentQueryJson,
