@@ -353,6 +353,14 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
     setShowTradeBulkSend(true);
   }, [selectedFiscalYears, selectedFiscalQuarters]);
 
+  const openTradeBulkFollowup = useCallback(() => {
+    if (bulkFiscalSelectionInvalid(selectedFiscalYears, selectedFiscalQuarters)) {
+      window.alert(BULK_FISCAL_HINT);
+      return;
+    }
+    setShowBulkFollowup(true);
+  }, [selectedFiscalYears, selectedFiscalQuarters]);
+
   return (
     <div className="flex flex-col h-screen">
       <header className="bg-white border-b border-gray-200/90 px-6 py-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between flex-shrink-0">
@@ -382,13 +390,22 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
               Check replies
             </button>
             {isTrade && (
-              <button
-                type="button"
-                onClick={openTradeBulkSend}
-                className="flex items-center justify-center px-3.5 py-2 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors shadow-sm"
-              >
-                Bulk send
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={openTradeBulkSend}
+                  className="flex items-center justify-center px-3.5 py-2 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors shadow-sm"
+                >
+                  Bulk send
+                </button>
+                <button
+                  type="button"
+                  onClick={openTradeBulkFollowup}
+                  className="flex items-center justify-center px-3.5 py-2 border border-gray-200 bg-white text-gray-800 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                  Bulk follow-up
+                </button>
+              </>
             )}
             {isMsme ? (
               <>
@@ -688,10 +705,16 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
         />
       )}
 
-      {showBulkFollowup && isMsme && (
+      {showBulkFollowup && (isMsme || isTrade) && (
         <MsmeBulkFollowupModal
           apiSegment={apiSegment}
           moduleKey={moduleKey}
+          isTrade={isTrade}
+          helperText={
+            isTrade
+              ? 'One follow-up email per company / party code cluster (sent or follow-up sent anchors matching filters below).'
+              : undefined
+          }
           workspaceBulkFilters={workspaceBulkFilters}
           initialFiscalYears={selectedFiscalYears}
           initialFiscalQuarters={selectedFiscalQuarters}
@@ -1444,6 +1467,8 @@ function MsmeBulkSendModal({
 function MsmeBulkFollowupModal({
   apiSegment,
   moduleKey,
+  isTrade,
+  helperText,
   workspaceBulkFilters,
   initialFiscalYears,
   initialFiscalQuarters,
@@ -1456,6 +1481,8 @@ function MsmeBulkFollowupModal({
 }: {
   apiSegment: ModuleRouteSegment;
   moduleKey: ModuleKey;
+  isTrade: boolean;
+  helperText?: string;
   workspaceBulkFilters: BulkWorkspaceFilters;
   initialFiscalYears: string[];
   initialFiscalQuarters: string[];
@@ -1515,7 +1542,7 @@ function MsmeBulkFollowupModal({
     setFetchError(null);
     const params = buildBulkConfirmationsParams(
       moduleKey,
-      false,
+      isTrade,
       workspaceBulkFilters,
       modalFiscalYears,
       modalFiscalQuarters,
@@ -1537,7 +1564,7 @@ function MsmeBulkFollowupModal({
     return () => {
       cancelled = true;
     };
-  }, [moduleKey, workspaceBulkFilters, modalFiscalYears, modalFiscalQuarters]);
+  }, [moduleKey, isTrade, workspaceBulkFilters, modalFiscalYears, modalFiscalQuarters]);
 
   const eligibleRows = useMemo(
     () => records.filter((r) => r.status === 'sent' || r.status === 'followup_sent'),
@@ -1655,7 +1682,7 @@ function MsmeBulkFollowupModal({
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Bulk follow-up</h2>
               <p className="text-sm text-gray-500 mt-0.5">
-                Email sent or follow-up sent rows. {dailyLine}
+                {helperText || 'Email sent or follow-up sent rows.'} {dailyLine}
               </p>
             </div>
             <button type="button" onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-lg">

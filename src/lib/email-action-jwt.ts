@@ -1,8 +1,8 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import type { ModuleKey } from '@/lib/module-types';
+import { securityConfig } from '@/lib/security-config';
 
 const ALG = 'HS256';
-const EXP = '90d';
 
 export type EmailActionTokenTyp = 'trade' | 'msme';
 
@@ -36,7 +36,7 @@ export async function signEmailActionToken(args: {
     .setProtectedHeader({ alg: ALG })
     .setSubject(args.recordId)
     .setIssuedAt()
-    .setExpirationTime(EXP)
+    .setExpirationTime(`${securityConfig.emailActionLinkExpiryHours}h`)
     .sign(key);
 }
 

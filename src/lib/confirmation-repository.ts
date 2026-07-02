@@ -308,6 +308,24 @@ export async function findUnifiedByModuleClaim(
   return r ? applyVendorMasterToUnified(asJson(r, 'confirm_msme'), r.vendorMaster) : null;
 }
 
+/** Direct DB read for magic-link verification (avoids any mapping layer dropping fields). */
+export async function fetchEmailActionGateFields(
+  recordId: string,
+  mod: ModuleKey
+): Promise<{ emailActionNonce: string | null; emailActionConsumedAt: Date | null } | null> {
+  const select = { emailActionNonce: true, emailActionConsumedAt: true } as const;
+  if (mod === 'trade_payable') {
+    const r = await prisma.tradePayableConfirmation.findUnique({ where: { id: recordId }, select });
+    return r ?? null;
+  }
+  if (mod === 'trade_receivable') {
+    const r = await prisma.tradeReceivableConfirmation.findUnique({ where: { id: recordId }, select });
+    return r ?? null;
+  }
+  const r = await prisma.msmeConfirmation.findUnique({ where: { id: recordId }, select });
+  return r ?? null;
+}
+
 async function upsertEntityContactMatchForSap(
   custId?: string | null
 ): Promise<string | undefined> {

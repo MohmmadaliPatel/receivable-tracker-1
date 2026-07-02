@@ -4,7 +4,7 @@
  *
  * - EMAIL_ACTION_JWT_SECRET must be present, >=32 chars, not a placeholder.
  * - LICENSE recommended in production; invalid/expired licenses are enforced at runtime (middleware), not at startup.
- * - In production: DEMO_MODE must not be true; CRON_API_SECRET should be set (middleware will deny cron otherwise); NEXT_PUBLIC_APP_BASE_URL must be set (and preferably https).
+ * - In production: DEMO_MODE must not be true; APP_BASE_URL must be set for email magic links (runtime; no rebuild).
  * - Throws on critical misconfig so deploys fail fast (visible in PM2/docker logs).
  *
  * See env.ubuntu-server.example + sample-env.txt for values and generation (openssl rand -base64 32).
@@ -15,7 +15,8 @@ export function validateEnv(): void {
   const isProd = process.env.NODE_ENV === 'production';
   const demo = (process.env.DEMO_MODE || '').toLowerCase() === 'true';
   const cron = (process.env.CRON_API_SECRET || '').trim();
-  const base = (process.env.NEXT_PUBLIC_APP_BASE_URL || '').trim();
+  const appBase = (process.env.APP_BASE_URL || '').trim();
+  const nextPublicBase = (process.env.NEXT_PUBLIC_APP_BASE_URL || '').trim();
 
   const errors: string[] = [];
 
@@ -36,10 +37,14 @@ export function validateEnv(): void {
       // Not fatal (middleware + route now deny), but warn loudly.
       console.warn('⚠️  CRON_API_SECRET is not set — cron control endpoints will be denied (recommended for production).');
     }
-    if (!base) {
-      errors.push('NEXT_PUBLIC_APP_BASE_URL must be set for production (used for magic links and public confirmations; affects build-time embedding)');
-    } else if (base.startsWith('http://') && !/localhost|127\.0\.0\.1/.test(base)) {
-      console.warn('⚠️  NEXT_PUBLIC_APP_BASE_URL uses http in production — ensure TLS is terminated by reverse proxy and cookies are correctly flagged.');
+    if (!appBase) {
+      errors.push(
+        'APP_BASE_URL must be set in production (public URL for email magic links — read at runtime from .env; no rebuild needed)'
+      );
+    } else if (appBase.startsWith('http://') && !/localhost|127\.0\.0\.1/.test(appBase)) {
+      console.warn('⚠️  APP_BASE_URL uses http in production — ensure TLS is terminated by reverse proxy and cookies are correctly flagged.');
+    } else if (!nextPublicBase.includes('example.com') && appBase !== nextPublicBase.replace(/\/$/, '') && nextPublicBase) {
+      console.warn('⚠️  APP_BASE_URL differs from build-time NEXT_PUBLIC_APP_BASE_URL — email links use APP_BASE_URL.');
     }
   }
 

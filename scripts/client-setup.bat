@@ -32,7 +32,7 @@ if not exist ".env" (
   echo IMPORTANT: Edit .env and set production values before continuing:
   echo   EMAIL_ACTION_JWT_SECRET  - 32+ random characters
   echo   CRON_API_SECRET          - 32+ random characters
-  echo   NEXT_PUBLIC_APP_BASE_URL - must match BUILD_INFO.txt
+  echo   APP_BASE_URL             - client public URL for email magic links (no rebuild needed)
   echo   DATABASE_URL             - SQLite path, e.g. file:./dev.db
   echo.
   echo Open .env in Notepad now? [Y/N]

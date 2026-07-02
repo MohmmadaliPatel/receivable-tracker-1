@@ -1080,6 +1080,13 @@ export async function sendConfirmation(
   const sendTime = new Date();
 
   try {
+    if (nonceForSend) {
+      await patchConfirmationRaw(mod, jwtRecordId, {
+        emailActionNonce: nonceForSend,
+        emailActionConsumedAt: null,
+      });
+    }
+
     const sentDirect = await GraphMailService.sendMail(config, {
       to: toList,
       subject,
@@ -1223,7 +1230,6 @@ export async function sendFollowup(
 
   let followupHtmlBody: string;
   let nonceForSend: string | null = null;
-  let issuedNewNonce = false;
 
   if (customEmailBody) {
     followupHtmlBody = customEmailBody;
@@ -1232,28 +1238,51 @@ export async function sendFollowup(
     const sentAt = record.sentAt || new Date();
     if (canMagic) {
       try {
-        const hadActiveNonce = !record.emailActionConsumedAt && !!record.emailActionNonce?.trim();
-        const actionNonce = resolveEmailActionNonce(record);
-        issuedNewNonce = !hadActiveNonce;
         const baseUrl = getAppBaseUrl();
         const typ = mod === 'confirm_msme' ? 'msme' : 'trade';
-        const token = await signEmailActionToken({
-          recordId: jwtRecordId,
-          nonce: actionNonce,
-          module: mod,
-          typ,
-        });
-        const ctx: EmailMagicLinkContext = { baseUrl, token };
-        followupHtmlBody = await composeFollowupEmailHtml(
-          mod,
-          record,
-          sentAt,
-          ctx,
-          invoiceTableHtml,
-          templateRow,
-          companyDN
-        );
-        nonceForSend = issuedNewNonce ? actionNonce : null;
+        let actionNonce: string | null = null;
+
+        if (record.emailActionConsumedAt) {
+          actionNonce = randomUUID();
+          nonceForSend = actionNonce;
+        } else if (record.emailActionNonce?.trim()) {
+          actionNonce = record.emailActionNonce.trim();
+        }
+
+        if (actionNonce) {
+          if (nonceForSend) {
+            await patchConfirmationRaw(mod, jwtRecordId, {
+              emailActionNonce: actionNonce,
+              emailActionConsumedAt: null,
+            });
+          }
+          const token = await signEmailActionToken({
+            recordId: jwtRecordId,
+            nonce: actionNonce,
+            module: mod,
+            typ,
+          });
+          const ctx: EmailMagicLinkContext = { baseUrl, token };
+          followupHtmlBody = await composeFollowupEmailHtml(
+            mod,
+            record,
+            sentAt,
+            ctx,
+            invoiceTableHtml,
+            templateRow,
+            companyDN
+          );
+        } else {
+          followupHtmlBody = await composeFollowupEmailHtml(
+            mod,
+            record,
+            sentAt,
+            undefined,
+            invoiceTableHtml,
+            templateRow,
+            companyDN
+          );
+        }
       } catch (e) {
         console.warn('[Confirmation] Follow-up magic links disabled:', e);
         followupHtmlBody = await composeFollowupEmailHtml(

@@ -18,6 +18,8 @@ DATABASE_URL="file:./dev.db"
 
 EMAIL_ACTION_JWT_SECRET=replace-with-at-least-32-char-random-for-email-magic-links-jose-hs256  # REQUIRED; min 32 chars. Generate: openssl rand -base64 32. Used for public confirmation links. Never commit.
 NEXTAUTH_SECRET=demo_secret_key_for_development_only  # Legacy (NextAuth); replace with long random in non-demo. Main auth uses simple-auth sessions.
+# Public URL for email magic links (runtime — set on each deployment; no rebuild needed)
+APP_BASE_URL=http://localhost:3002
 NEXT_PUBLIC_APP_BASE_URL=http://localhost:3002
 
 # Security (optional — defaults apply if omitted)

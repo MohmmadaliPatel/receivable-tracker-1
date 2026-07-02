@@ -22,6 +22,7 @@ export const securityConfig = {
   sessionMaxAgeDays: parseIntEnv('SESSION_MAX_AGE_DAYS', 7),
   sessionIdleTimeoutMinutes: parseIntEnv('SESSION_IDLE_TIMEOUT_MINUTES', 30),
   auditLogRetentionDays: parseIntEnv('AUDIT_LOG_RETENTION_DAYS', 90),
+  emailActionLinkExpiryHours: parseIntEnv('EMAIL_ACTION_LINK_EXPIRY_HOURS', 12),
   cronApiSecret: process.env.CRON_API_SECRET || '',
 };
 

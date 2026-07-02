@@ -146,7 +146,8 @@ EOF
 cat > "$OUT/BUILD_INFO.txt" <<EOF
 Taxteck Email Auto — client release package
 Built: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
-NEXT_PUBLIC_APP_BASE_URL=$BASE_URL
+Build-time NEXT_PUBLIC_APP_BASE_URL=$BASE_URL
+Set APP_BASE_URL in .env on the client server (runtime) for email magic links — no rebuild required.
 Node: $(node -v)
 EOF
 
@@ -161,4 +162,5 @@ cp "$ROOT/scripts/client-setup.bat" "$OUT/setup.bat"
 cp "$ROOT/scripts/client-start.bat" "$OUT/start.bat"
 
 echo "==> Done. Package ready at: $OUT"
-echo "    Public URL baked into build: $BASE_URL"
+echo "    Client must set APP_BASE_URL in .env (runtime URL for email links)"
+echo "    Build-time NEXT_PUBLIC_APP_BASE_URL: $BASE_URL"

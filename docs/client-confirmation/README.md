@@ -7,6 +7,8 @@ Security and compliance documentation for Taxteck Email Auto.
 | Document | Description |
 |----------|-------------|
 | [SECURITY-CONFIRMATION.md](SECURITY-CONFIRMATION.md) | **Main questionnaire response** and security controls matrix |
+| [CLIENT-SECURITY-BRIEF.md](CLIENT-SECURITY-BRIEF.md) | **Client-facing summary** — public links, uploads, logout, and data flow diagrams |
+| [pdfs/CLIENT-SECURITY-DATA-FLOW.pdf](pdfs/CLIENT-SECURITY-DATA-FLOW.pdf) | **Data flow diagrams (PDF)** — generate with `npm run docs:security-dataflow-pdf` |
 | [MICROSOFT-ENTRA-ADMIN-CENTER-STEPS.md](MICROSOFT-ENTRA-ADMIN-CENTER-STEPS.md) | Entra app registration for EmailConfig |
 
 ## Supporting documents

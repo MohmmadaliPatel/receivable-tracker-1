@@ -12,6 +12,7 @@
     "db:backfill-fiscal": "tsx scripts/backfill-reporting-fiscal.ts",
     "security:audit": "npm audit --audit-level=moderate",
     "docs:client-pdfs": "tsx scripts/generate-client-confirmation-pdfs.ts",
+    "docs:security-dataflow-pdf": "tsx scripts/generate-security-dataflow-pdf.ts",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "client:prepare": "bash scripts/prepare-client-release.sh",

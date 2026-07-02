@@ -155,7 +155,8 @@ Graph uses **client-credentials** flow only — no delegated user tokens or refr
 ### Public confirmation links
 
 - Signed with `EMAIL_ACTION_JWT_SECRET` (HS256).
-- Claims include nonce; tokens are verified and consumed (one-time use).
+- Claims include nonce; tokens are verified and consumed (one-time use on response).
+- Link lifetime defaults to **12 hours**; configurable via `EMAIL_ACTION_LINK_EXPIRY_HOURS`.
 - All public actions audited as `PUBLIC_RESPONSE_*` with IP and user agent.
 
 ### Data at rest

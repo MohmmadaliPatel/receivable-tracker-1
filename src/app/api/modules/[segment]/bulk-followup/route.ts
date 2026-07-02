@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { countSentTodayAllModules } from '@/lib/confirmation-repository';
 import { userCanAccessModule } from '@/lib/module-access';
 import { sendFollowup, CONFIRMATION_STATUSES, isEmailBodyTemplateAllowedForPurpose } from '@/lib/confirmation-service';
+import { resolveTradeAnchorId } from '@/lib/trade-email-group';
 import { auditActivity, moduleLabel } from '@/lib/audit-route';
 
 import { parseModuleSegment } from '../../_utils';
@@ -18,7 +19,7 @@ async function auth() {
   return await getSession(sessionToken);
 }
 
-// POST /api/modules/confirm-msme/bulk-followup — MSME only; respects global daily send cap
+// POST /api/modules/[segment]/bulk-followup — MSME + trade payables/receivables; global daily send cap
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ segment: string }> }
@@ -27,13 +28,12 @@ export async function POST(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { segment } = await params;
-  if (segment !== 'confirm-msme') {
-    return NextResponse.json({ error: 'Bulk follow-up is only available for Confirm MSME' }, { status: 415 });
-  }
-
   const key = parseModuleSegment(segment);
-  if (!key || key !== 'confirm_msme') {
+  if (!key) {
     return NextResponse.json({ error: 'Invalid module' }, { status: 400 });
+  }
+  if (key !== 'confirm_msme' && key !== 'trade_payable' && key !== 'trade_receivable') {
+    return NextResponse.json({ error: 'Bulk follow-up is not available for this module' }, { status: 415 });
   }
 
   if (!userCanAccessModule(user, key)) {
@@ -61,34 +61,83 @@ export async function POST(
       ? ({ id: { in: body.recordIds } } as const)
       : {};
 
+  const followupStatuses = [CONFIRMATION_STATUSES.SENT, CONFIRMATION_STATUSES.FOLLOWUP_SENT];
+
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
   const sentToday = await countSentTodayAllModules(todayStart);
   let remaining = Math.max(0, DAILY_EMAIL_LIMIT - sentToday);
 
-  const candidates = await prisma.msmeConfirmation.findMany({
-    where: {
-      userId: user.userId,
-      ...idFilter,
-      status: { in: [CONFIRMATION_STATUSES.SENT, CONFIRMATION_STATUSES.FOLLOWUP_SENT] },
-    },
-    orderBy: [{ entityName: 'asc' }, { createdAt: 'asc' }],
-  });
-
   let sent = 0;
+  let attempted = 0;
   const errors: { id: string; error: string }[] = [];
 
-  for (const rec of candidates) {
-    if (remaining <= 0) break;
+  if (key === 'confirm_msme') {
+    const candidates = await prisma.msmeConfirmation.findMany({
+      where: {
+        userId: user.userId,
+        ...idFilter,
+        status: { in: followupStatuses },
+      },
+      orderBy: [{ entityName: 'asc' }, { createdAt: 'asc' }],
+    });
+    attempted = candidates.length;
 
-    const result = await sendFollowup(rec.id, user.userId, undefined, followupOpts);
+    for (const rec of candidates) {
+      if (remaining <= 0) break;
 
-    if (result.success) {
-      sent++;
-      remaining--;
-    } else {
-      errors.push({ id: rec.id, error: result.error || 'Follow-up failed' });
+      const result = await sendFollowup(rec.id, user.userId, undefined, followupOpts);
+
+      if (result.success) {
+        sent++;
+        remaining--;
+      } else {
+        errors.push({ id: rec.id, error: result.error || 'Follow-up failed' });
+      }
+    }
+  } else {
+    const tradeMod = key === 'trade_payable' ? 'trade_payable' : 'trade_receivable';
+    const candidates =
+      key === 'trade_payable'
+        ? await prisma.tradePayableConfirmation.findMany({
+            where: {
+              userId: user.userId,
+              ...idFilter,
+              status: { in: followupStatuses },
+            },
+            orderBy: [{ entityName: 'asc' }, { createdAt: 'asc' }],
+          })
+        : await prisma.tradeReceivableConfirmation.findMany({
+            where: {
+              userId: user.userId,
+              ...idFilter,
+              status: { in: followupStatuses },
+            },
+            orderBy: [{ entityName: 'asc' }, { createdAt: 'asc' }],
+          });
+
+    const seenAnchors = new Set<string>();
+    const anchorQueue: string[] = [];
+    for (const rec of candidates) {
+      const aid = await resolveTradeAnchorId(rec.id, tradeMod);
+      if (seenAnchors.has(aid)) continue;
+      seenAnchors.add(aid);
+      anchorQueue.push(aid);
+    }
+    attempted = anchorQueue.length;
+
+    for (const anchorId of anchorQueue) {
+      if (remaining <= 0) break;
+
+      const result = await sendFollowup(anchorId, user.userId, undefined, followupOpts);
+
+      if (result.success) {
+        sent++;
+        remaining--;
+      } else {
+        errors.push({ id: anchorId, error: result.error || 'Follow-up failed' });
+      }
     }
   }
 
@@ -98,7 +147,7 @@ export async function POST(
       module: key,
       moduleLabel: moduleLabel(key),
       sent,
-      attempted: candidates.length,
+      attempted,
       failed: errors.length,
       templateId,
       remainingDailyEmails: remaining,
@@ -109,7 +158,7 @@ export async function POST(
   return NextResponse.json({
     success: true,
     sent,
-    attempted: candidates.length,
+    attempted,
     failed: errors.length,
     errors,
     remainingDailyEmails: remaining,

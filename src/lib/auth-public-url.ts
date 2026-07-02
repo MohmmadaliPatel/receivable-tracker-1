@@ -1,13 +1,14 @@
 import type { NextRequest } from 'next/server';
+import { resolvePublicAppUrl } from '@/lib/app-base-url';
 
 /**
  * URL users use in the browser (no trailing slash). Used for redirects after logout, etc.
- * Prefer env so deploys behind a reverse proxy still redirect correctly.
+ * Prefer APP_BASE_URL so deploys behind a reverse proxy still redirect correctly without rebuild.
  */
 export function getAuthPublicOrigin(request: NextRequest): string {
   const envUrl =
-    process.env.NEXTAUTH_URL?.trim().replace(/\/$/, '') ||
-    process.env.NEXT_PUBLIC_APP_BASE_URL?.trim().replace(/\/$/, '');
+    resolvePublicAppUrl() ||
+    process.env.NEXTAUTH_URL?.trim().replace(/\/$/, '');
   if (envUrl) return envUrl;
 
   const host =
@@ -35,10 +36,7 @@ export function getAuthPublicOrigin(request: NextRequest): string {
  * `Secure` cookies are not sent over plain HTTP. Only enable when the public URL is https://.
  */
 export function sessionCookieSecure(): boolean {
-  const base =
-    process.env.NEXTAUTH_URL?.trim() ||
-    process.env.NEXT_PUBLIC_APP_BASE_URL?.trim() ||
-    '';
+  const base = resolvePublicAppUrl() || process.env.NEXTAUTH_URL?.trim() || '';
   return base.startsWith('https://');
 }
 

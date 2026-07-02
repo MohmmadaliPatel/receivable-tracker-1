@@ -42,6 +42,7 @@ Graph credentials are **not** environment variables. They are entered by an admi
 | `SESSION_MAX_AGE_DAYS` | `7` | Maximum session lifetime. |
 | `SESSION_IDLE_TIMEOUT_MINUTES` | `30` | Idle timeout; session ends if inactive. |
 | `AUDIT_LOG_RETENTION_DAYS` | `90` | Audit log retention before automatic purge. |
+| `EMAIL_ACTION_LINK_EXPIRY_HOURS` | `12` | Public confirmation link lifetime in hours. Links stop working after this period. |
 
 **Lockout escalation:** After three lockout events for the same account, the account requires an **administrator password reset** before login is allowed again (even after the 15-minute window).
 
