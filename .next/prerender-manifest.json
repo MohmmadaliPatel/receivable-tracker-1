@@ -55,30 +55,6 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/settings/email-templates": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/settings/email-templates",
-      "dataRoute": "/settings/email-templates.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
     "/bulk-email": {
       "experimentalBypassFor": [
         {
@@ -127,7 +103,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/listing-uploads": {
+    "/settings/email-templates": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -140,32 +116,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/listing-uploads",
-      "dataRoute": "/listing-uploads.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
-    "/supplier-master": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/supplier-master",
-      "dataRoute": "/supplier-master.rsc",
+      "srcRoute": "/settings/email-templates",
+      "dataRoute": "/settings/email-templates.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -190,6 +142,78 @@
       "initialRevalidateSeconds": false,
       "srcRoute": "/login",
       "dataRoute": "/login.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/respond/trade/query": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/respond/trade/query",
+      "dataRoute": "/respond/trade/query.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/listing-uploads": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/listing-uploads",
+      "dataRoute": "/listing-uploads.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/respond/msme/decline": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/respond/msme/decline",
+      "dataRoute": "/respond/msme/decline.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -247,7 +271,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/respond/trade/query": {
+    "/supplier-master": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -260,32 +284,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/respond/trade/query",
-      "dataRoute": "/respond/trade/query.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
-    "/respond/msme/decline": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/respond/msme/decline",
-      "dataRoute": "/respond/msme/decline.rsc",
+      "srcRoute": "/supplier-master",
+      "dataRoute": "/supplier-master.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",

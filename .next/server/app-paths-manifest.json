@@ -36,6 +36,7 @@
   "/api/emails/sync/route": "app/api/emails/sync/route.js",
   "/api/entity-contacts/route": "app/api/entity-contacts/route.js",
   "/api/entity-contacts/rt-india/sync/route": "app/api/entity-contacts/rt-india/sync/route.js",
+  "/api/fiscal-filter/defaults/route": "app/api/fiscal-filter/defaults/route.js",
   "/api/forwarded-emails/[id]/replies/route": "app/api/forwarded-emails/[id]/replies/route.js",
   "/api/forwarded-emails/[id]/send-reminder/route": "app/api/forwarded-emails/[id]/send-reminder/route.js",
   "/api/forwarded-emails/route": "app/api/forwarded-emails/route.js",
