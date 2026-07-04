@@ -117,7 +117,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       webConfirmedAt: null,
       respondentQueryJson: null,
       ...(existing.module === 'confirm_msme'
-        ? { msmeHasCertificate: null, msmeCertificateFilesJson: null }
+        ? {
+            msmeHasCertificate: null,
+            msmeCertificateFilesJson: null,
+            emailActionConsumedAt: null,
+          }
         : {}),
     });
     const record = await findUnifiedById(id);

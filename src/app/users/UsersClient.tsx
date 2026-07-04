@@ -224,9 +224,9 @@ function UserModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[92vh] my-auto">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 flex-shrink-0">
           <h2 className="text-lg font-semibold text-gray-900">
             {isEdit ? 'Edit User' : 'Add New User'}
           </h2>
@@ -237,7 +237,8 @@ function UserModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-4">
           {!isEdit && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Username *</label>
@@ -339,8 +340,9 @@ function UserModal({
               {error}
             </div>
           )}
+          </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex-shrink-0 flex justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
             <button
               type="button"
               onClick={onClose}

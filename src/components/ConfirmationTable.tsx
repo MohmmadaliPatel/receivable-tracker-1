@@ -7,6 +7,7 @@ import SendConfirmModal from './SendConfirmModal';
 import EditRecordModal from './EditRecordModal';
 import { TRADE_COMPOSITE_SEP } from '@/lib/trade-composite-cust';
 import { effectiveMsmeContactEmail } from '@/lib/msme-display-email';
+import { useFiscalFilter } from '@/components/FiscalFilterProvider';
 
 export interface ConfirmationRecord {
   id: string;
@@ -110,7 +111,15 @@ function msmeVendorTableParts(record: ConfirmationRecord) {
   };
 }
 
-/** Web portal uploads + PDF attachments from inbox replies (for MSME grid links). */
+function isMsmeCertificateAttachment(name: string, contentType?: string): boolean {
+  const lower = name.toLowerCase();
+  const ct = (contentType || '').toLowerCase();
+  if (lower.endsWith('.pdf') || ct.includes('pdf')) return true;
+  if (lower.match(/\.(jpg|jpeg|png|gif|webp)$/) || ct.startsWith('image/')) return true;
+  return false;
+}
+
+/** Web portal uploads + certificate attachments from inbox replies (for MSME grid links). */
 function msmeCertificateViewLinks(
   record: ConfirmationRecord
 ): Array<{ key: string; label: string; href: string }> {
@@ -148,9 +157,8 @@ function msmeCertificateViewLinks(
       }
       if (!Array.isArray(atts)) return;
       atts.forEach((a) => {
-        const name = (a.name || '').toLowerCase();
-        const pdf = name.endsWith('.pdf') || (a.contentType || '').toLowerCase().includes('pdf');
-        if (!pdf) return;
+        const name = a.name || '';
+        if (!isMsmeCertificateAttachment(name, a.contentType)) return;
         const params = new URLSearchParams({
           attachmentId: a.id,
           responseIndex: String(ri),
@@ -216,6 +224,7 @@ export default function ConfirmationTable({
   rowNumberOffset = 0,
   msmeVendorMasterLayout = false,
 }: ConfirmationTableProps) {
+  const { fiscalYear, fiscalQuarter } = useFiscalFilter();
   const [previewRecordId, setPreviewRecordId] = useState<string | null>(null);
   const [viewRecord, setViewRecord] = useState<ConfirmationRecord | null>(null);
   const [editingRemark, setEditingRemark] = useState<string | null>(null);
@@ -288,6 +297,8 @@ export default function ConfirmationTable({
       body: JSON.stringify({
         emailBody: overrides.emailBody || undefined,
         emailBodyTemplateId: overrides.emailBodyTemplateId || undefined,
+        ...(fiscalYear ? { reportingFiscalYear: parseInt(fiscalYear, 10) } : {}),
+        ...(fiscalQuarter ? { reportingFiscalQuarter: parseInt(fiscalQuarter, 10) } : {}),
       }),
     });
     const data = await res.json();

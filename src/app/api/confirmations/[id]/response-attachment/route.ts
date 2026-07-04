@@ -130,7 +130,7 @@ export async function GET(
   const config = record.emailConfigId
     ? await EmailConfigService.getConfigById(record.emailConfigId)
     : await EmailConfigService.getActiveConfig();
-  if (!config) return NextResponse.json({ error: 'No email config' }, { status: 500 });
+  if (!config) return NextResponse.json({ error: 'No email config' }, { status: 404 });
 
   try {
     const accessToken = await GraphMailService.getAccessToken(config);

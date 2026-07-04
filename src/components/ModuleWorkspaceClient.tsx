@@ -8,6 +8,14 @@ import { categoryForModule, moduleKeyToRoute } from '@/lib/module-types';
 import type { ModuleKey, ModuleRouteSegment } from '@/lib/module-types';
 import type { TradeInvoiceLineRow, TradeInvoiceLinesSummary } from '@/app/api/modules/[segment]/invoice-lines/route';
 import { parseInrAmountString, debitCreditLabel, formatInrAmount, drCrBadgeClassNames } from '@/lib/inr-amount';
+import { effectiveMsmeContactEmail } from '@/lib/msme-display-email';
+import FiscalFilterBar from '@/components/FiscalFilterBar';
+import {
+  fiscalYearSelectOptionsFromApi,
+  formatFyOption,
+  formatQuarterOption,
+  useFiscalFilter,
+} from '@/components/FiscalFilterProvider';
 import {
   defaultListingFiscalSelection,
   listingUploadYearOptions,
@@ -53,6 +61,19 @@ function bulkFiscalSelectionInvalid(fiscalYears: string[], fiscalQuarters: strin
   return fiscalQuarters.length > 0 && fiscalYears.length === 0;
 }
 
+function fiscalPayloadFromModal(years: string[], quarters: string[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (years[0]) {
+    const y = parseInt(years[0], 10);
+    if (Number.isFinite(y)) out.reportingFiscalYear = y;
+  }
+  if (quarters[0]) {
+    const q = parseInt(quarters[0], 10);
+    if (Number.isFinite(q)) out.reportingFiscalQuarter = q;
+  }
+  return out;
+}
+
 type BulkWorkspaceFilters = {
   selectedEntities: string[];
   selectedStatuses: string[];
@@ -77,11 +98,11 @@ function buildBulkConfirmationsParams(
     params.append('status', 'followup_sent');
   } else {
     workspace.selectedStatuses.forEach((s) => params.append('status', s));
+    if (workspace.confirmationKindFilter !== 'all') {
+      params.set('confirmationKind', workspace.confirmationKindFilter);
+    }
   }
   if (workspace.search) params.set('search', workspace.search);
-  if (workspace.confirmationKindFilter !== 'all') {
-    params.set('confirmationKind', workspace.confirmationKindFilter);
-  }
   fiscalYears.forEach((y) => params.append('reportingFiscalYear', y));
   fiscalQuarters.forEach((q) => params.append('reportingFiscalQuarter', q));
   workspace.selectedCompanyCodes.forEach((c) => params.append('company', c));
@@ -107,6 +128,10 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
   const isMsme = moduleKey === 'confirm_msme';
   const isTrade = moduleKey === 'trade_payable' || moduleKey === 'trade_receivable';
 
+  const { fiscalYear, fiscalQuarter, availableYears, ready: fiscalReady } = useFiscalFilter();
+  const selectedFiscalYears = fiscalYear ? [fiscalYear] : [];
+  const selectedFiscalQuarters = fiscalQuarter ? [fiscalQuarter] : [];
+
   const [records, setRecords] = useState<ConfirmationRecord[]>([]);
   const [entityNames, setEntityNames] = useState<string[]>([]);
   const [totalAnchors, setTotalAnchors] = useState(0);
@@ -120,9 +145,6 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
   const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [confirmationKindFilter, setConfirmationKindFilter] = useState<string>('all');
-  const [selectedFiscalYears, setSelectedFiscalYears] = useState<string[]>([]);
-  const [selectedFiscalQuarters, setSelectedFiscalQuarters] = useState<string[]>([]);
-  const [reportingFiscalYearOptions, setReportingFiscalYearOptions] = useState<number[]>([]);
   const [companyCodeOptions, setCompanyCodeOptions] = useState<string[]>([]);
   const [selectedCompanyCodes, setSelectedCompanyCodes] = useState<string[]>([]);
   const [search, setSearch] = useState('');
@@ -147,23 +169,17 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
 
   const stats = isTrade && tradeWorkspaceStats ? tradeWorkspaceStats : pageStats;
 
-  const fiscalYearSelectOptions = useMemo(() => {
-    const fromApi = [...reportingFiscalYearOptions].sort((a, b) => b - a);
-    const y = new Date().getFullYear();
-    const fallback = [y + 1, y, y - 1, y - 2, y - 3];
-    return [...new Set([...fromApi, ...fallback])].sort((a, b) => b - a);
-  }, [reportingFiscalYearOptions]);
+  const fiscalYearSelectOptions = useMemo(
+    () => fiscalYearSelectOptionsFromApi(availableYears),
+    [availableYears]
+  );
 
-  const formatFyDropdownOption = useCallback((opt: string) => {
-    const y = parseInt(opt, 10);
-    return Number.isFinite(y) ? `FY ${y}–${String(y + 1).slice(-2)}` : opt;
-  }, []);
+  const formatFyDropdownOption = useCallback((opt: string) => formatFyOption(opt), []);
 
-  const formatQuarterDropdownOption = useCallback((q: string) => {
-    return FISCAL_QUARTER_OPTIONS.find((o) => o.value === q)?.label ?? q;
-  }, []);
+  const formatQuarterDropdownOption = useCallback((q: string) => formatQuarterOption(q), []);
 
   const fetchRecords = useCallback(async () => {
+    if (!fiscalReady || !fiscalYear || !fiscalQuarter) return;
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -172,8 +188,8 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
       selectedStatuses.forEach((s) => params.append('status', s));
       if (search) params.set('search', search);
       if (confirmationKindFilter !== 'all') params.set('confirmationKind', confirmationKindFilter);
-      selectedFiscalYears.forEach((y) => params.append('reportingFiscalYear', y));
-      selectedFiscalQuarters.forEach((q) => params.append('reportingFiscalQuarter', q));
+      params.append('reportingFiscalYear', fiscalYear);
+      params.append('reportingFiscalQuarter', fiscalQuarter);
       selectedCompanyCodes.forEach((c) => params.append('company', c));
       if (isTrade) {
         params.set('listMode', 'by_code');
@@ -194,9 +210,6 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
       setRecords(data.records || []);
       setTotalAnchors(typeof data.total === 'number' ? data.total : (data.records?.length ?? 0));
       if (data.entityNames) setEntityNames(data.entityNames);
-      if (Array.isArray(data.reportingFiscalYears)) {
-        setReportingFiscalYearOptions(data.reportingFiscalYears as number[]);
-      }
       if (Array.isArray(data.companyCodes)) {
         setCompanyCodeOptions(data.companyCodes as string[]);
       }
@@ -214,8 +227,9 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
     selectedStatuses,
     search,
     confirmationKindFilter,
-    selectedFiscalYears,
-    selectedFiscalQuarters,
+    fiscalYear,
+    fiscalQuarter,
+    fiscalReady,
     selectedCompanyCodes,
     isTrade,
     page,
@@ -230,8 +244,8 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
     selectedStatuses,
     search,
     confirmationKindFilter,
-    selectedFiscalYears,
-    selectedFiscalQuarters,
+    fiscalYear,
+    fiscalQuarter,
     selectedCompanyCodes,
     pageSize,
   ]);
@@ -301,8 +315,6 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
     setSelectedStatuses([]);
     setSearch('');
     setConfirmationKindFilter('all');
-    setSelectedFiscalYears([]);
-    setSelectedFiscalQuarters([]);
     setSelectedCompanyCodes([]);
     setPage(1);
   };
@@ -312,8 +324,6 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
     selectedStatuses.length > 0 ||
     search.length > 0 ||
     confirmationKindFilter !== 'all' ||
-    selectedFiscalYears.length > 0 ||
-    selectedFiscalQuarters.length > 0 ||
     selectedCompanyCodes.length > 0;
 
   const totalPages = isTrade ? Math.max(1, Math.ceil(totalAnchors / pageSize)) : 1;
@@ -329,37 +339,39 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
     [selectedEntities, selectedStatuses, search, confirmationKindFilter, selectedCompanyCodes]
   );
 
+  const fiscalSelectionIncomplete = !fiscalYear || !fiscalQuarter;
+
   const openMsmeBulkSend = useCallback(() => {
-    if (bulkFiscalSelectionInvalid(selectedFiscalYears, selectedFiscalQuarters)) {
-      window.alert(BULK_FISCAL_HINT);
+    if (fiscalSelectionIncomplete) {
+      window.alert('Select a financial year and quarter before bulk send.');
       return;
     }
     setShowBulkSend(true);
-  }, [selectedFiscalYears, selectedFiscalQuarters]);
+  }, [fiscalSelectionIncomplete]);
 
   const openMsmeBulkFollowup = useCallback(() => {
-    if (bulkFiscalSelectionInvalid(selectedFiscalYears, selectedFiscalQuarters)) {
-      window.alert(BULK_FISCAL_HINT);
+    if (fiscalSelectionIncomplete) {
+      window.alert('Select a financial year and quarter before bulk follow-up.');
       return;
     }
     setShowBulkFollowup(true);
-  }, [selectedFiscalYears, selectedFiscalQuarters]);
+  }, [fiscalSelectionIncomplete]);
 
   const openTradeBulkSend = useCallback(() => {
-    if (bulkFiscalSelectionInvalid(selectedFiscalYears, selectedFiscalQuarters)) {
-      window.alert(BULK_FISCAL_HINT);
+    if (fiscalSelectionIncomplete) {
+      window.alert('Select a financial year and quarter before bulk send.');
       return;
     }
     setShowTradeBulkSend(true);
-  }, [selectedFiscalYears, selectedFiscalQuarters]);
+  }, [fiscalSelectionIncomplete]);
 
   const openTradeBulkFollowup = useCallback(() => {
-    if (bulkFiscalSelectionInvalid(selectedFiscalYears, selectedFiscalQuarters)) {
-      window.alert(BULK_FISCAL_HINT);
+    if (fiscalSelectionIncomplete) {
+      window.alert('Select a financial year and quarter before bulk follow-up.');
       return;
     }
     setShowBulkFollowup(true);
-  }, [selectedFiscalYears, selectedFiscalQuarters]);
+  }, [fiscalSelectionIncomplete]);
 
   return (
     <div className="flex flex-col h-screen">
@@ -470,6 +482,7 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
       </div>
 
       <div className="bg-white border-b border-gray-100 px-6 py-4 flex-shrink-0 space-y-3">
+        <FiscalFilterBar />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
           <div className="lg:col-span-3 relative min-w-0">
             <label className="sr-only">Search</label>
@@ -531,32 +544,8 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
             </select>
           </div>
 
-          <div className="lg:col-span-1 min-w-0">
-            <FilterDropdown
-              fullWidth
-              label={selectedFiscalYears.length ? `${selectedFiscalYears.length} FY` : 'All FY'}
-              options={fiscalYearSelectOptions.map(String)}
-              selected={selectedFiscalYears}
-              formatOption={formatFyDropdownOption}
-              onToggle={(v) => toggleFilter(selectedFiscalYears, setSelectedFiscalYears, v)}
-              onClear={() => setSelectedFiscalYears([])}
-            />
-          </div>
-
-          <div className="lg:col-span-1 min-w-0">
-            <FilterDropdown
-              fullWidth
-              label={selectedFiscalQuarters.length ? `${selectedFiscalQuarters.length} Q` : 'All Q'}
-              options={[...FISCAL_QUARTER_KEYS]}
-              selected={selectedFiscalQuarters}
-              formatOption={formatQuarterDropdownOption}
-              onToggle={(v) => toggleFilter(selectedFiscalQuarters, setSelectedFiscalQuarters, v)}
-              onClear={() => setSelectedFiscalQuarters([])}
-            />
-          </div>
-
           {(isTrade || isMsme) && (
-            <div className="lg:col-span-1 min-w-0">
+            <div className="lg:col-span-2 min-w-0">
               <FilterDropdown
                 fullWidth
                 label={selectedCompanyCodes.length ? `${selectedCompanyCodes.length} co.` : 'All companies'}
@@ -570,10 +559,10 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
         </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1 border-t border-gray-100">
-          <p className="text-[11px] text-amber-800/90 order-2 sm:order-1">
-            {bulkFiscalSelectionInvalid(selectedFiscalYears, selectedFiscalQuarters)
-              ? BULK_FISCAL_HINT
-              : 'Tip: use FY and quarter together for listing; bulk send needs a FY whenever a quarter is selected.'}
+          <p className="text-[11px] text-neutral-500 order-2 sm:order-1">
+            {fiscalSelectionIncomplete
+              ? 'Select a financial year and quarter above to load records.'
+              : 'Records, sends, and follow-ups are scoped to the selected reporting period.'}
           </p>
           <div className="flex flex-wrap items-center gap-3 justify-end order-1 sm:order-2">
             {hasActiveFilters && (
@@ -1268,6 +1257,7 @@ function MsmeBulkSendModal({
         body: JSON.stringify({
           emailBody: overrides.emailBody || undefined,
           emailBodyTemplateId: overrides.emailBodyTemplateId || undefined,
+          ...fiscalPayloadFromModal(modalFiscalYears, modalFiscalQuarters),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1298,6 +1288,7 @@ function MsmeBulkSendModal({
           recordIds: [...selectedIds],
           includeNotSentOnly: true,
           ...(bulkTemplateId.trim() ? { emailBodyTemplateId: bulkTemplateId.trim() } : {}),
+          ...fiscalPayloadFromModal(modalFiscalYears, modalFiscalQuarters),
         }),
       });
       const data = await res.json();
@@ -1621,6 +1612,7 @@ function MsmeBulkFollowupModal({
         body: JSON.stringify({
           emailBody: overrides.emailBody || undefined,
           emailBodyTemplateId: overrides.emailBodyTemplateId || undefined,
+          ...fiscalPayloadFromModal(modalFiscalYears, modalFiscalQuarters),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1650,6 +1642,7 @@ function MsmeBulkFollowupModal({
         body: JSON.stringify({
           recordIds: [...selectedIds],
           ...(bulkTemplateId.trim() ? { emailBodyTemplateId: bulkTemplateId.trim() } : {}),
+          ...fiscalPayloadFromModal(modalFiscalYears, modalFiscalQuarters),
         }),
       });
       const data = await res.json();
@@ -1762,7 +1755,13 @@ function MsmeBulkFollowupModal({
                   </p>
                 </div>
                 <div className="border border-gray-100 rounded-xl divide-y divide-gray-100 min-h-0 max-h-[50vh] overflow-y-auto">
-                  {eligibleRows.map((r) => (
+                  {eligibleRows.map((r) => {
+                    const isMsmeModule = moduleKey === 'confirm_msme';
+                    const displayName = isMsmeModule
+                      ? r.vendorMasterPartyName?.trim() || r.entityName
+                      : r.entityName;
+                    const emailDisplay = isMsmeModule ? effectiveMsmeContactEmail(r) : { text: r.emailTo || '', fromReply: false };
+                    return (
                     <div key={r.id} className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-gray-50/80">
                       <input
                         type="checkbox"
@@ -1772,8 +1771,11 @@ function MsmeBulkFollowupModal({
                       />
                       <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 sm:gap-4 sm:items-center">
                         <div className="min-w-0">
-                          <div className="font-medium text-gray-900">{r.entityName}</div>
-                          <div className="text-xs text-gray-500 break-all">{r.emailTo}</div>
+                          <div className="font-medium text-gray-900">{displayName}</div>
+                          <div className="text-xs text-gray-500 break-all">{emailDisplay.text || '—'}</div>
+                          {emailDisplay.fromReply && emailDisplay.text && (
+                            <p className="text-[10px] text-gray-400 mt-0.5">Vendor reply</p>
+                          )}
                         </div>
                         <button
                           type="button"
@@ -1784,7 +1786,8 @@ function MsmeBulkFollowupModal({
                         </button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}

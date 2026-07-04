@@ -30,16 +30,27 @@ export async function GET(
   if (!key) return NextResponse.json({ error: 'Invalid module' }, { status: 400 });
   if (!userCanAccessModule(user, key)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
+  const fyRaw = request.nextUrl.searchParams.get('reportingFiscalYear')?.trim();
+  const fqRaw = request.nextUrl.searchParams.get('reportingFiscalQuarter')?.trim();
+  const fy = fyRaw ? parseInt(fyRaw, 10) : NaN;
+  const fq = fqRaw ? parseInt(fqRaw, 10) : NaN;
+  const fiscalWhere: { reportingFiscalYear?: number; reportingFiscalQuarter?: number } = {};
+  if (Number.isFinite(fy)) fiscalWhere.reportingFiscalYear = fy;
+  if (Number.isFinite(fq) && fq >= 1 && fq <= 4) fiscalWhere.reportingFiscalQuarter = fq;
+
   const records =
     key === 'trade_payable'
       ? await prisma.tradePayableConfirmation.findMany({
+          where: fiscalWhere,
           orderBy: [{ entityName: 'asc' }, { createdAt: 'asc' }],
         })
       : key === 'trade_receivable'
         ? await prisma.tradeReceivableConfirmation.findMany({
+            where: fiscalWhere,
             orderBy: [{ entityName: 'asc' }, { createdAt: 'asc' }],
           })
         : await prisma.msmeConfirmation.findMany({
+            where: fiscalWhere,
             orderBy: [{ entityName: 'asc' }, { createdAt: 'asc' }],
           });
 
@@ -72,6 +83,8 @@ export async function GET(
       module: key,
       moduleLabel: moduleLabel(key),
       recordCount: records.length,
+      reportingFiscalYear: fiscalWhere.reportingFiscalYear ?? null,
+      reportingFiscalQuarter: fiscalWhere.reportingFiscalQuarter ?? null,
     },
   });
 

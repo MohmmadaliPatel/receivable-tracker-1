@@ -26,6 +26,7 @@ import {
 } from '@/lib/confirmation-repository';
 import type { ModuleKey } from '@/lib/module-types';
 import { CATEGORY_TRADE_PAYABLES, CATEGORY_TRADE_RECEIVABLES } from '@/lib/module-types';
+import { fiscalStampPatch } from '@/lib/listing-upload-fiscal';
 import {
   resolveTradeAnchorId,
   loadTradeGroupRows,
@@ -986,7 +987,7 @@ export async function sendConfirmation(
   userId: string,
   configId?: string,
   customEmailBody?: string,
-  options?: { emailBodyTemplateId?: string | null }
+  options?: { emailBodyTemplateId?: string | null; reportingFiscalYear?: number; reportingFiscalQuarter?: number }
 ): Promise<{ success: boolean; error?: string }> {
   const meta = await findConfirmationMetaById(recordId);
   if (!meta) return { success: false, error: 'Record not found' };
@@ -1132,6 +1133,11 @@ export async function sendConfirmation(
       ? `${sentMsg.messageId}::${sentMsg.conversationId}`
       : undefined;
 
+    const fiscalPatch = fiscalStampPatch({
+      reportingFiscalYear: options?.reportingFiscalYear,
+      reportingFiscalQuarter: options?.reportingFiscalQuarter,
+    });
+
     await patchConfirmationRaw(mod, jwtRecordId, {
       status: CONFIRMATION_STATUSES.SENT,
       sentAt: sendTime,
@@ -1141,6 +1147,7 @@ export async function sendConfirmation(
       responsesFolderPath: threadRelative,
       emailConfigId: config.id,
       ...(nonceForSend ? { emailActionNonce: nonceForSend, emailActionConsumedAt: null } : {}),
+      ...fiscalPatch,
     });
 
     if (mod === 'trade_payable' || mod === 'trade_receivable') {
@@ -1152,6 +1159,7 @@ export async function sendConfirmation(
         emailsSentFolderPath: threadRelative,
         responsesFolderPath: threadRelative,
         emailConfigId: config.id,
+        ...fiscalPatch,
       };
       for (const line of grp) {
         if (line.id === jwtRecordId) continue;
@@ -1170,7 +1178,7 @@ export async function sendFollowup(
   recordId: string,
   userId: string,
   customEmailBody?: string,
-  options?: { emailBodyTemplateId?: string | null }
+  options?: { emailBodyTemplateId?: string | null; reportingFiscalYear?: number; reportingFiscalQuarter?: number }
 ): Promise<{ success: boolean; error?: string }> {
   const meta = await findConfirmationMetaById(recordId);
   if (!meta) return { success: false, error: 'Record not found' };
@@ -1412,6 +1420,11 @@ export async function sendFollowup(
       followupNumber: newFollowupCount,
     });
 
+    const fiscalPatch = fiscalStampPatch({
+      reportingFiscalYear: options?.reportingFiscalYear,
+      reportingFiscalQuarter: options?.reportingFiscalQuarter,
+    });
+
     await patchConfirmationRaw(mod, jwtRecordId, {
       status: CONFIRMATION_STATUSES.FOLLOWUP_SENT,
       followupSentAt: sendTime,
@@ -1420,6 +1433,7 @@ export async function sendFollowup(
       followupCount: newFollowupCount,
       followupsJson: JSON.stringify(existingHistory),
       ...(nonceForSend ? { emailActionNonce: nonceForSend, emailActionConsumedAt: null } : {}),
+      ...fiscalPatch,
     });
 
     if (mod === 'trade_payable' || mod === 'trade_receivable') {
@@ -1429,6 +1443,7 @@ export async function sendFollowup(
         await patchConfirmationRaw(mod, line.id, {
           status: CONFIRMATION_STATUSES.FOLLOWUP_SENT,
           followupSentAt: sendTime,
+          ...fiscalPatch,
         });
       }
     }

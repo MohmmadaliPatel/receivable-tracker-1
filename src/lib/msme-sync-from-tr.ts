@@ -8,6 +8,8 @@ type AnchorLike = {
   emailCc?: string | null;
   entityName: string;
   custId: string | null;
+  reportingFiscalYear?: number | null;
+  reportingFiscalQuarter?: number | null;
 };
 
 /** Upsert one MSME row for a trade anchor; returns true if a row was written (had an email). */
@@ -36,6 +38,11 @@ async function upsertMsmeForAnchor(userId: string, a: AnchorLike): Promise<boole
     },
   });
 
+  const fiscalData = {
+    ...(a.reportingFiscalYear != null ? { reportingFiscalYear: a.reportingFiscalYear } : {}),
+    ...(a.reportingFiscalQuarter != null ? { reportingFiscalQuarter: a.reportingFiscalQuarter } : {}),
+  };
+
   if (existing) {
     await prisma.msmeConfirmation.update({
       where: { id: existing.id },
@@ -45,6 +52,7 @@ async function upsertMsmeForAnchor(userId: string, a: AnchorLike): Promise<boole
         entityContactId,
         emailTo,
         emailCc,
+        ...fiscalData,
       },
     });
   } else {
@@ -57,6 +65,7 @@ async function upsertMsmeForAnchor(userId: string, a: AnchorLike): Promise<boole
         entityContactId,
         emailTo,
         emailCc,
+        ...fiscalData,
       },
     });
   }
@@ -77,6 +86,8 @@ export async function syncMsmeFromTradeAnchors(userId: string): Promise<{ upsert
       emailCc: true,
       entityName: true,
       custId: true,
+      reportingFiscalYear: true,
+      reportingFiscalQuarter: true,
     },
   });
   const tr = await prisma.tradeReceivableConfirmation.findMany({
@@ -87,6 +98,8 @@ export async function syncMsmeFromTradeAnchors(userId: string): Promise<{ upsert
       emailCc: true,
       entityName: true,
       custId: true,
+      reportingFiscalYear: true,
+      reportingFiscalQuarter: true,
     },
   });
 
@@ -102,6 +115,8 @@ export async function syncMsmeFromTradeAnchors(userId: string): Promise<{ upsert
       emailCc: r.emailCc,
       entityName: r.entityName,
       custId: r.custId,
+      reportingFiscalYear: r.reportingFiscalYear,
+      reportingFiscalQuarter: r.reportingFiscalQuarter,
     });
   }
   for (const r of tr) {
@@ -116,6 +131,8 @@ export async function syncMsmeFromTradeAnchors(userId: string): Promise<{ upsert
       emailCc: r.emailCc,
       entityName: r.entityName,
       custId: r.custId,
+      reportingFiscalYear: r.reportingFiscalYear,
+      reportingFiscalQuarter: r.reportingFiscalQuarter,
     });
   }
 

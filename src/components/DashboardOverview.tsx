@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import type { DashboardMsmeKpiBlock, DashboardTradeKpiBlock } from '@/app/api/dashboard/kpis/route';
 import { formatInrAmount } from '@/lib/inr-amount';
+import FiscalFilterBar from '@/components/FiscalFilterBar';
+import { useFiscalFilter } from '@/components/FiscalFilterProvider';
 
 interface DashboardKpiPayload {
   tradePayable?: DashboardTradeKpiBlock;
@@ -41,7 +43,6 @@ function TradeKpiSection({
         </Link>
       </div>
       <div className="p-6">
-     
         {block.unparsedCurrencyLines > 0 && (
           <p className="text-xs text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2 mb-4">
             {block.unparsedCurrencyLines} line{block.unparsedCurrencyLines === 1 ? '' : 's'} with amounts that could
@@ -109,17 +110,23 @@ function MsmeKpiSection({ block }: { block: DashboardMsmeKpiBlock }) {
 }
 
 export default function DashboardOverview() {
+  const { fiscalYear, fiscalQuarter, ready } = useFiscalFilter();
   const [kpis, setKpis] = useState<DashboardKpiPayload | null>(null);
   const [kpiError, setKpiError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!ready || !fiscalYear || !fiscalQuarter) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
       setKpiError(null);
       try {
-        const kpiRes = await fetch('/api/dashboard/kpis');
+        const params = new URLSearchParams({
+          reportingFiscalYear: fiscalYear,
+          reportingFiscalQuarter: fiscalQuarter,
+        });
+        const kpiRes = await fetch(`/api/dashboard/kpis?${params.toString()}`);
         if (!cancelled && kpiRes.ok) {
           setKpis((await kpiRes.json()) as DashboardKpiPayload);
         } else if (!cancelled) {
@@ -134,23 +141,25 @@ export default function DashboardOverview() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [ready, fiscalYear, fiscalQuarter]);
 
   const hasModuleKpis =
     kpis && (kpis.tradePayable != null || kpis.tradeReceivable != null || kpis.msme != null);
 
-  if (loading) {
+  if (!ready || loading) {
     return (
-      <div className="space-y-8 max-w-7xl mx-auto">
+      <div className="space-y-6 max-w-7xl mx-auto">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <FiscalFilterBar />
         <div className="flex items-center justify-center py-16 text-neutral-500 text-sm">Loading…</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+      <FiscalFilterBar />
       {kpiError && (
         <div className="rounded-xl bg-red-50 border border-red-100 text-red-800 px-4 py-3 text-sm">{kpiError}</div>
       )}

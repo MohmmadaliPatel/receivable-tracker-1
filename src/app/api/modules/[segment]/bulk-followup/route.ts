@@ -7,6 +7,7 @@ import { userCanAccessModule } from '@/lib/module-access';
 import { sendFollowup, CONFIRMATION_STATUSES, isEmailBodyTemplateAllowedForPurpose } from '@/lib/confirmation-service';
 import { resolveTradeAnchorId } from '@/lib/trade-email-group';
 import { auditActivity, moduleLabel } from '@/lib/audit-route';
+import { parseFiscalStampFromBody } from '@/lib/listing-upload-fiscal';
 
 import { parseModuleSegment } from '../../_utils';
 
@@ -54,7 +55,11 @@ export async function POST(
   if (templateId && !(await isEmailBodyTemplateAllowedForPurpose(templateId, key, 'followup'))) {
     return NextResponse.json({ error: 'Invalid email template for this module or purpose' }, { status: 400 });
   }
-  const followupOpts = templateId ? { emailBodyTemplateId: templateId } : undefined;
+  const fiscal = parseFiscalStampFromBody(body);
+  const followupOpts = {
+    ...(templateId ? { emailBodyTemplateId: templateId } : {}),
+    ...fiscal,
+  };
 
   const idFilter =
     Array.isArray(body.recordIds) && body.recordIds.length > 0

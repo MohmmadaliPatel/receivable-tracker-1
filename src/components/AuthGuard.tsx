@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { FiscalFilterProvider } from '@/components/FiscalFilterProvider';
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -49,5 +50,5 @@ export default function AuthGuard({ children }: AuthGuardProps) {
     return null;
   }
 
-  return <>{children}</>;
+  return <FiscalFilterProvider>{children}</FiscalFilterProvider>;
 }

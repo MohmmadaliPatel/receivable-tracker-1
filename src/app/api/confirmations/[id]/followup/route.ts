@@ -4,6 +4,7 @@ import { getSession } from '@/lib/simple-auth';
 import { sendFollowup } from '@/lib/confirmation-service';
 import { fetchConfirmationOrForbidden } from '@/lib/confirmation-record-auth';
 import { auditActivity, moduleLabel } from '@/lib/audit-route';
+import { parseFiscalStampFromBody } from '@/lib/listing-upload-fiscal';
 
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
@@ -27,8 +28,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     typeof emailBodyTemplateId === 'string' && emailBodyTemplateId.trim()
       ? emailBodyTemplateId.trim()
       : null;
+  const fiscal = parseFiscalStampFromBody(body);
   const result = await sendFollowup(id, user.userId, emailBody || undefined, {
     emailBodyTemplateId: emailBody ? null : templateId,
+    ...fiscal,
   });
 
   const record = gate.record;
@@ -43,6 +46,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         emailTo: record.emailTo,
         error: result.error || 'Follow-up failed',
         templateId,
+        reportingFiscalYear: fiscal.reportingFiscalYear ?? null,
+        reportingFiscalQuarter: fiscal.reportingFiscalQuarter ?? null,
       },
     });
     return NextResponse.json({ error: result.error }, { status: 400 });
@@ -57,6 +62,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       entityName: record.entityName,
       emailTo: record.emailTo,
       templateId,
+      reportingFiscalYear: fiscal.reportingFiscalYear ?? null,
+      reportingFiscalQuarter: fiscal.reportingFiscalQuarter ?? null,
     },
   });
 

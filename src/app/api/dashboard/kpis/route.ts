@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSession } from '@/lib/simple-auth';
 import { userCanAccessModule } from '@/lib/module-access';
@@ -151,11 +151,34 @@ function aggregateTradeKpis(rows: TradeRowLite[]): DashboardTradeKpiBlock {
   };
 }
 
-async function aggregateMsmeKpis(): Promise<DashboardMsmeKpiBlock> {
+function msmeRowIsConfirmed(r: {
+  msmeHasCertificate: boolean | null;
+  msmeCertificateFilesJson: string | null;
+  status: string;
+}): boolean {
+  if (r.msmeHasCertificate === true || r.msmeHasCertificate === false) return true;
+  const cf = r.msmeCertificateFilesJson?.trim();
+  if (cf && cf !== '[]') {
+    try {
+      const j = JSON.parse(cf) as unknown;
+      if (Array.isArray(j) && j.length > 0) return true;
+    } catch {
+      return true;
+    }
+  }
+  if (r.status === 'response_received') return true;
+  return false;
+}
+
+async function aggregateMsmeKpis(
+  fiscalWhere?: { reportingFiscalYear?: number; reportingFiscalQuarter?: number }
+): Promise<DashboardMsmeKpiBlock> {
   const rows = await prisma.msmeConfirmation.findMany({
+    where: fiscalWhere ?? undefined,
     select: {
-      webConfirmedAt: true,
       msmeHasCertificate: true,
+      msmeCertificateFilesJson: true,
+      status: true,
     },
   });
 
@@ -165,8 +188,7 @@ async function aggregateMsmeKpis(): Promise<DashboardMsmeKpiBlock> {
   let confirmedClassificationUnknown = 0;
 
   for (const r of rows) {
-    const confirmed = r.webConfirmedAt != null;
-    if (!confirmed) {
+    if (!msmeRowIsConfirmed(r)) {
       pending++;
       continue;
     }
@@ -184,8 +206,23 @@ async function aggregateMsmeKpis(): Promise<DashboardMsmeKpiBlock> {
   };
 }
 
+function parseFiscalQuery(searchParams: URLSearchParams): {
+  reportingFiscalYear?: number;
+  reportingFiscalQuarter?: number;
+} {
+  const fyRaw = searchParams.get('reportingFiscalYear')?.trim();
+  const fqRaw = searchParams.get('reportingFiscalQuarter')?.trim();
+  const fy = fyRaw ? parseInt(fyRaw, 10) : NaN;
+  const fq = fqRaw ? parseInt(fqRaw, 10) : NaN;
+  const out: { reportingFiscalYear?: number; reportingFiscalQuarter?: number } = {};
+  if (Number.isFinite(fy)) out.reportingFiscalYear = fy;
+  if (Number.isFinite(fq) && fq >= 1 && fq <= 4) out.reportingFiscalQuarter = fq;
+  return out;
+}
+
 // GET /api/dashboard/kpis — module-scoped confirmation KPIs (org-wide rows in permitted modules)
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const fiscalWhere = parseFiscalQuery(request.nextUrl.searchParams);
   const cookieStore = await cookies();
   const token = cookieStore.get('session_token')?.value;
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -214,17 +251,23 @@ export async function GET() {
   const out: OutPayload = {};
 
   if (userCanAccessModule(session, tpKey)) {
-    const rows = await prisma.tradePayableConfirmation.findMany({ select: sel });
+    const rows = await prisma.tradePayableConfirmation.findMany({
+      where: fiscalWhere,
+      select: sel,
+    });
     out.tradePayable = aggregateTradeKpis(rows as TradeRowLite[]);
   }
 
   if (userCanAccessModule(session, trKey)) {
-    const rows = await prisma.tradeReceivableConfirmation.findMany({ select: sel });
+    const rows = await prisma.tradeReceivableConfirmation.findMany({
+      where: fiscalWhere,
+      select: sel,
+    });
     out.tradeReceivable = aggregateTradeKpis(rows as TradeRowLite[]);
   }
 
   if (userCanAccessModule(session, msmeKey)) {
-    out.msme = await aggregateMsmeKpis();
+    out.msme = await aggregateMsmeKpis(fiscalWhere);
   }
 
   return NextResponse.json(out);

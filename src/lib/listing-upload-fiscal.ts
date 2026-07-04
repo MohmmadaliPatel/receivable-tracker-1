@@ -44,3 +44,39 @@ export function defaultListingFiscalSelection(): {
     reportingFiscalQuarter: String(reportingFiscalQuarter),
   };
 }
+
+export type FiscalStamp = {
+  reportingFiscalYear?: number;
+  reportingFiscalQuarter?: number;
+};
+
+/** Parse optional FY/quarter from API request bodies for send/follow-up stamping. */
+export function parseFiscalStampFromBody(body: unknown): FiscalStamp {
+  if (!body || typeof body !== 'object') return {};
+  const b = body as Record<string, unknown>;
+  const fyRaw = b.reportingFiscalYear;
+  const fqRaw = b.reportingFiscalQuarter;
+  const fy =
+    typeof fyRaw === 'number'
+      ? fyRaw
+      : typeof fyRaw === 'string'
+        ? parseInt(fyRaw.trim(), 10)
+        : NaN;
+  const fq =
+    typeof fqRaw === 'number'
+      ? fqRaw
+      : typeof fqRaw === 'string'
+        ? parseInt(fqRaw.trim(), 10)
+        : NaN;
+  const out: FiscalStamp = {};
+  if (Number.isFinite(fy)) out.reportingFiscalYear = fy;
+  if (Number.isFinite(fq) && fq >= 1 && fq <= 4) out.reportingFiscalQuarter = fq;
+  return out;
+}
+
+export function fiscalStampPatch(stamp: FiscalStamp): FiscalStamp {
+  const out: FiscalStamp = {};
+  if (stamp.reportingFiscalYear != null) out.reportingFiscalYear = stamp.reportingFiscalYear;
+  if (stamp.reportingFiscalQuarter != null) out.reportingFiscalQuarter = stamp.reportingFiscalQuarter;
+  return out;
+}

@@ -867,6 +867,52 @@ export async function getDistinctReportingFiscalYears(module?: ModuleKey, userId
   return [...set].sort((x, y) => y - x);
 }
 
+/** Latest (year, quarter) pair that has data across TP/TR/MSME for the user. */
+export async function getLatestReportingFiscalPeriod(
+  userId?: string
+): Promise<{ year: number; quarter: number } | null> {
+  const uw = userId ? { userId } : {};
+  const pairs: Array<{ year: number; quarter: number }> = [];
+
+  const collect = (rows: { reportingFiscalYear: number | null; reportingFiscalQuarter: number | null }[]) => {
+    for (const r of rows) {
+      if (r.reportingFiscalYear != null && r.reportingFiscalQuarter != null) {
+        pairs.push({ year: r.reportingFiscalYear, quarter: r.reportingFiscalQuarter });
+      }
+    }
+  };
+
+  const [tp, tr, ms] = await Promise.all([
+    prisma.tradePayableConfirmation.findMany({
+      where: { ...uw, reportingFiscalYear: { not: null }, reportingFiscalQuarter: { not: null } },
+      select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
+      distinct: ['reportingFiscalYear', 'reportingFiscalQuarter'],
+    }),
+    prisma.tradeReceivableConfirmation.findMany({
+      where: { ...uw, reportingFiscalYear: { not: null }, reportingFiscalQuarter: { not: null } },
+      select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
+      distinct: ['reportingFiscalYear', 'reportingFiscalQuarter'],
+    }),
+    prisma.msmeConfirmation.findMany({
+      where: { ...uw, reportingFiscalYear: { not: null }, reportingFiscalQuarter: { not: null } },
+      select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
+      distinct: ['reportingFiscalYear', 'reportingFiscalQuarter'],
+    }),
+  ]);
+
+  collect(tp);
+  collect(tr);
+  collect(ms);
+
+  if (pairs.length === 0) return null;
+
+  pairs.sort((a, b) => {
+    if (b.year !== a.year) return b.year - a.year;
+    return b.quarter - a.quarter;
+  });
+  return pairs[0]!;
+}
+
 export async function getDistinctCompanyCodes(module?: ModuleKey, userId?: string): Promise<string[]> {
   const uw = userId ? { userId } : {};
   const set = new Set<string>();
