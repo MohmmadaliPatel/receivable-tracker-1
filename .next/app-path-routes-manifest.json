@@ -36,6 +36,7 @@
   "/api/emails/sync/route": "/api/emails/sync",
   "/api/entity-contacts/route": "/api/entity-contacts",
   "/api/entity-contacts/rt-india/sync/route": "/api/entity-contacts/rt-india/sync",
+  "/api/fiscal-filter/backfill/route": "/api/fiscal-filter/backfill",
   "/api/fiscal-filter/defaults/route": "/api/fiscal-filter/defaults",
   "/api/forwarded-emails/[id]/replies/route": "/api/forwarded-emails/[id]/replies",
   "/api/forwarded-emails/[id]/send-reminder/route": "/api/forwarded-emails/[id]/send-reminder",
