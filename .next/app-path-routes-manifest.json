@@ -58,6 +58,7 @@
   "/api/modules/[segment]/bulk-send/route": "/api/modules/[segment]/bulk-send",
   "/api/modules/[segment]/export/route": "/api/modules/[segment]/export",
   "/api/modules/[segment]/hydrate-from-suppliers/route": "/api/modules/[segment]/hydrate-from-suppliers",
+  "/api/modules/[segment]/hydrate-from-vendors/route": "/api/modules/[segment]/hydrate-from-vendors",
   "/api/modules/[segment]/import/route": "/api/modules/[segment]/import",
   "/api/modules/[segment]/invoice-lines/route": "/api/modules/[segment]/invoice-lines",
   "/api/modules/[segment]/sync-from-tr/route": "/api/modules/[segment]/sync-from-tr",

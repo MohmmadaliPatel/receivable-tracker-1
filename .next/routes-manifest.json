@@ -223,6 +223,14 @@
       "namedRegex": "^/api/modules/(?<nxtPsegment>[^/]+?)/hydrate\\-from\\-suppliers(?:/)?$"
     },
     {
+      "page": "/api/modules/[segment]/hydrate-from-vendors",
+      "regex": "^/api/modules/([^/]+?)/hydrate\\-from\\-vendors(?:/)?$",
+      "routeKeys": {
+        "nxtPsegment": "nxtPsegment"
+      },
+      "namedRegex": "^/api/modules/(?<nxtPsegment>[^/]+?)/hydrate\\-from\\-vendors(?:/)?$"
+    },
+    {
       "page": "/api/modules/[segment]/import",
       "regex": "^/api/modules/([^/]+?)/import(?:/)?$",
       "routeKeys": {

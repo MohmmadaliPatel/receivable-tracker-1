@@ -1,0 +1,3 @@
+{
+  "/api/modules/[segment]/hydrate-from-vendors/route": "app/api/modules/[segment]/hydrate-from-vendors/route.js"
+}
