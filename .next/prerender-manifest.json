@@ -30,6 +30,30 @@
         "x-next-revalidate-tag-token"
       ]
     },
+    "/supplier-master": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/supplier-master",
+      "dataRoute": "/supplier-master.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
     "/_not-found": {
       "initialStatus": 404,
       "experimentalBypassFor": [
@@ -46,6 +70,30 @@
       "initialRevalidateSeconds": false,
       "srcRoute": "/_not-found",
       "dataRoute": "/_not-found.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/vendor-master": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/vendor-master",
+      "dataRoute": "/vendor-master.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -127,30 +175,6 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/vendor-master": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/vendor-master",
-      "dataRoute": "/vendor-master.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
     "/login": {
       "experimentalBypassFor": [
         {
@@ -175,7 +199,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/supplier-master": {
+    "/respond/msme/decline": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -188,32 +212,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/supplier-master",
-      "dataRoute": "/supplier-master.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
-    "/respond/trade/confirm": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/respond/trade/confirm",
-      "dataRoute": "/respond/trade/confirm.rsc",
+      "srcRoute": "/respond/msme/decline",
+      "dataRoute": "/respond/msme/decline.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -247,7 +247,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/respond/msme/decline": {
+    "/respond/trade/confirm": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -260,8 +260,8 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/respond/msme/decline",
-      "dataRoute": "/respond/msme/decline.rsc",
+      "srcRoute": "/respond/trade/confirm",
+      "dataRoute": "/respond/trade/confirm.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
