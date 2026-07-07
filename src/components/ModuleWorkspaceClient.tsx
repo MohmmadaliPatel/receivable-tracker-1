@@ -153,6 +153,7 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
   const [showBulkFollowup, setShowBulkFollowup] = useState(false);
   const [showTradeBulkSend, setShowTradeBulkSend] = useState(false);
   const [invoiceLinesAnchorId, setInvoiceLinesAnchorId] = useState<string | null>(null);
+  const [tpHydrated, setTpHydrated] = useState(moduleKey !== 'trade_payable');
 
   const pageStats: TradeWorkspaceStats = {
     total: records.length,
@@ -166,6 +167,7 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
 
   const fetchRecords = useCallback(async () => {
     if (!fiscalReady || !fiscalYear || !fiscalQuarter) return;
+    if (moduleKey === 'trade_payable' && !tpHydrated) return;
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -220,6 +222,7 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
     isTrade,
     page,
     pageSize,
+    tpHydrated,
   ]);
 
   useEffect(() => {
@@ -278,20 +281,24 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
   }, [isMsme, apiSegment]);
 
   useEffect(() => {
-    if (moduleKey !== 'trade_payable') return;
+    if (moduleKey !== 'trade_payable') {
+      setTpHydrated(true);
+      return;
+    }
     let cancelled = false;
+    setTpHydrated(false);
     (async () => {
       try {
-        const res = await fetch(`/api/modules/${apiSegment}/hydrate-from-vendors`, { method: 'POST' });
-        if (!cancelled && res.ok) await fetchRecords();
+        await fetch(`/api/modules/${apiSegment}/hydrate-from-vendors`, { method: 'POST' });
       } catch {
         /* ignore */
+      } finally {
+        if (!cancelled) setTpHydrated(true);
       }
     })();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once when opening TP workspace
   }, [moduleKey, apiSegment]);
 
   const sortedRecords = [...records].sort((a, b) => {

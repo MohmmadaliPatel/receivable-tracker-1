@@ -729,6 +729,15 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
         });
         anchorIdIn = [...new Set(hits.map((h) => h.emailThreadAnchorId ?? h.id))];
         if (anchorIdIn.length === 0) {
+          const anchorWhere = { ...segment, emailThreadAnchorId: null } as Record<string, unknown>;
+          applyReportingFiscalToWhere(anchorWhere);
+          const anchorHits = await prisma.tradePayableConfirmation.findMany({
+            where: anchorWhere as Prisma.TradePayableConfirmationWhereInput,
+            select: { id: true },
+          });
+          anchorIdIn = anchorHits.map((h) => h.id);
+        }
+        if (anchorIdIn.length === 0) {
           const stats = buildWorkspaceStats([]);
           return { records: [], total: 0, stats };
         }
@@ -797,6 +806,15 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
         select: { id: true, emailThreadAnchorId: true },
       });
       anchorIdIn = [...new Set(hits.map((h) => h.emailThreadAnchorId ?? h.id))];
+      if (anchorIdIn.length === 0) {
+        const anchorWhere = { ...segment, emailThreadAnchorId: null } as Record<string, unknown>;
+        applyReportingFiscalToWhere(anchorWhere);
+        const anchorHits = await prisma.tradeReceivableConfirmation.findMany({
+          where: anchorWhere as Prisma.TradeReceivableConfirmationWhereInput,
+          select: { id: true },
+        });
+        anchorIdIn = anchorHits.map((h) => h.id);
+      }
       if (anchorIdIn.length === 0) {
         const stats = buildWorkspaceStats([]);
         return { records: [], total: 0, stats };
@@ -983,62 +1001,82 @@ export async function getDistinctReportingFiscalYears(module?: ModuleKey, userId
   return [...set].sort((x, y) => y - x);
 }
 
-/** Latest (year, quarter) pair that has data across TP/TR/MSME for the user. */
+/** Latest (year, quarter) pair that has data across TP/TR/MSME for the user (org-wide fallback). */
 export async function getLatestReportingFiscalPeriod(
   userId?: string
 ): Promise<{ year: number; quarter: number } | null> {
-  const uw = userId ? { userId } : {};
-  const pairs: Array<{ year: number; quarter: number }> = [];
+  async function collectForScope(scopeUserId?: string): Promise<Array<{ year: number; quarter: number }>> {
+    const uw = scopeUserId ? { userId: scopeUserId } : {};
+    const pairs: Array<{ year: number; quarter: number }> = [];
 
-  const collect = (rows: { reportingFiscalYear: number | null; reportingFiscalQuarter: number | null }[]) => {
-    for (const r of rows) {
-      if (r.reportingFiscalYear != null && r.reportingFiscalQuarter != null) {
-        pairs.push({ year: r.reportingFiscalYear, quarter: r.reportingFiscalQuarter });
+    const collect = (rows: { reportingFiscalYear: number | null; reportingFiscalQuarter: number | null }[]) => {
+      for (const r of rows) {
+        if (r.reportingFiscalYear != null && r.reportingFiscalQuarter != null) {
+          pairs.push({ year: r.reportingFiscalYear, quarter: r.reportingFiscalQuarter });
+        }
+      }
+    };
+
+    const [tp, tr, ms, uploads, orgUploads] = await Promise.all([
+      prisma.tradePayableConfirmation.findMany({
+        where: { ...uw, reportingFiscalYear: { not: null }, reportingFiscalQuarter: { not: null } },
+        select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
+        distinct: ['reportingFiscalYear', 'reportingFiscalQuarter'],
+      }),
+      prisma.tradeReceivableConfirmation.findMany({
+        where: { ...uw, reportingFiscalYear: { not: null }, reportingFiscalQuarter: { not: null } },
+        select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
+        distinct: ['reportingFiscalYear', 'reportingFiscalQuarter'],
+      }),
+      prisma.msmeConfirmation.findMany({
+        where: { ...uw, reportingFiscalYear: { not: null }, reportingFiscalQuarter: { not: null } },
+        select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
+        distinct: ['reportingFiscalYear', 'reportingFiscalQuarter'],
+      }),
+      scopeUserId
+        ? prisma.tradeListingUpload.findMany({
+            where: { userId: scopeUserId },
+            select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
+            distinct: ['reportingFiscalYear', 'reportingFiscalQuarter'],
+          })
+        : Promise.resolve([]),
+      prisma.tradeListingUpload.findMany({
+        select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
+        distinct: ['reportingFiscalYear', 'reportingFiscalQuarter'],
+        orderBy: { createdAt: 'desc' },
+        take: 8,
+      }),
+    ]);
+
+    collect(tp);
+    collect(tr);
+    collect(ms);
+    for (const u of uploads) {
+      if (u.reportingFiscalYear != null && u.reportingFiscalQuarter != null) {
+        pairs.push({ year: u.reportingFiscalYear, quarter: u.reportingFiscalQuarter });
       }
     }
-  };
-
-  const [tp, tr, ms, uploads] = await Promise.all([
-    prisma.tradePayableConfirmation.findMany({
-      where: { ...uw, reportingFiscalYear: { not: null }, reportingFiscalQuarter: { not: null } },
-      select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
-      distinct: ['reportingFiscalYear', 'reportingFiscalQuarter'],
-    }),
-    prisma.tradeReceivableConfirmation.findMany({
-      where: { ...uw, reportingFiscalYear: { not: null }, reportingFiscalQuarter: { not: null } },
-      select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
-      distinct: ['reportingFiscalYear', 'reportingFiscalQuarter'],
-    }),
-    prisma.msmeConfirmation.findMany({
-      where: { ...uw, reportingFiscalYear: { not: null }, reportingFiscalQuarter: { not: null } },
-      select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
-      distinct: ['reportingFiscalYear', 'reportingFiscalQuarter'],
-    }),
-    userId
-      ? prisma.tradeListingUpload.findMany({
-          where: { userId },
-          select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
-          distinct: ['reportingFiscalYear', 'reportingFiscalQuarter'],
-        })
-      : Promise.resolve([]),
-  ]);
-
-  collect(tp);
-  collect(tr);
-  collect(ms);
-  for (const u of uploads) {
-    if (u.reportingFiscalYear != null && u.reportingFiscalQuarter != null) {
-      pairs.push({ year: u.reportingFiscalYear, quarter: u.reportingFiscalQuarter });
+    for (const u of orgUploads) {
+      if (u.reportingFiscalYear != null && u.reportingFiscalQuarter != null) {
+        pairs.push({ year: u.reportingFiscalYear, quarter: u.reportingFiscalQuarter });
+      }
     }
+    return pairs;
   }
 
-  if (pairs.length === 0) return null;
+  function pickLatest(pairs: Array<{ year: number; quarter: number }>) {
+    if (pairs.length === 0) return null;
+    pairs.sort((a, b) => {
+      if (b.year !== a.year) return b.year - a.year;
+      return b.quarter - a.quarter;
+    });
+    return pairs[0]!;
+  }
 
-  pairs.sort((a, b) => {
-    if (b.year !== a.year) return b.year - a.year;
-    return b.quarter - a.quarter;
-  });
-  return pairs[0]!;
+  const scoped = pickLatest(await collectForScope(userId));
+  if (scoped) return scoped;
+  if (userId) return pickLatest(await collectForScope(undefined));
+  return null;
 }
 
 export async function getDistinctCompanyCodes(module?: ModuleKey, userId?: string): Promise<string[]> {

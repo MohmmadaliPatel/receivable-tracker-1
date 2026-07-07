@@ -9,6 +9,7 @@ import {
   parseTradeListingFile,
 } from '@/lib/trade-listing-import';
 import { maybeHydrateMsmeFromPartyMasters } from '@/lib/masters-msme-hook';
+import { provisionWorkspacesForAllEligibleUsers } from '@/lib/tp-workspace-provision';
 import { parseListingUploadFiscal } from '@/lib/listing-upload-fiscal';
 import { prisma } from '@/lib/prisma';
 import { auditActivity, moduleLabel } from '@/lib/audit-route';
@@ -125,6 +126,7 @@ export async function POST(request: NextRequest) {
   }
 
   const msmeHydrated = await maybeHydrateMsmeFromPartyMasters(user);
+  const provisioned = await provisionWorkspacesForAllEligibleUsers(user.userId, 'clone_listing');
 
   await auditActivity(request, user, 'LISTING_UPLOAD', {
     success: true,
@@ -140,6 +142,7 @@ export async function POST(request: NextRequest) {
       skipped: rows.length - mapped.length,
       listingUploadId: upload.id,
       msmeHydrated,
+      provisioned,
     },
   });
 
@@ -150,5 +153,6 @@ export async function POST(request: NextRequest) {
     skipped: rows.length - mapped.length,
     totalRows: rows.length,
     msmeHydrated,
+    provisioned,
   });
 }

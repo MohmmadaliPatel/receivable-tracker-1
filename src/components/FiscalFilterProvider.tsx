@@ -72,15 +72,32 @@ export function FiscalFilterProvider({ children }: { children: ReactNode }) {
         setAvailableYears(years);
 
         const stored = readStoredFilter();
-        if (stored) {
-          setFiscalYearState(stored.fiscalYear);
-          setFiscalQuarterState(stored.fiscalQuarter);
-        } else if (data.latestPeriod) {
-          setFiscalYearState(String(data.latestPeriod.year));
-          setFiscalQuarterState(String(data.latestPeriod.quarter));
-        } else if (data.fallback) {
-          setFiscalYearState(String(data.fallback.year));
-          setFiscalQuarterState(String(data.fallback.quarter));
+        const latest = data.latestPeriod;
+        const fallback = data.fallback;
+
+        const applyLatest = () => {
+          if (latest) {
+            setFiscalYearState(String(latest.year));
+            setFiscalQuarterState(String(latest.quarter));
+            return true;
+          }
+          return false;
+        };
+
+        if (stored?.fiscalYear && stored?.fiscalQuarter) {
+          const storedYear = parseInt(stored.fiscalYear, 10);
+          const storedMatchesData =
+            years.length === 0 || (Number.isFinite(storedYear) && years.includes(storedYear));
+          if (storedMatchesData) {
+            setFiscalYearState(stored.fiscalYear);
+            setFiscalQuarterState(stored.fiscalQuarter);
+          } else if (!applyLatest() && fallback) {
+            setFiscalYearState(String(fallback.year));
+            setFiscalQuarterState(String(fallback.quarter));
+          }
+        } else if (!applyLatest() && fallback) {
+          setFiscalYearState(String(fallback.year));
+          setFiscalQuarterState(String(fallback.quarter));
         }
       } catch {
         /* keep empty until user picks */
