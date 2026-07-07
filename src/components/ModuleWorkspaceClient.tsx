@@ -10,8 +10,8 @@ import type { TradeInvoiceLineRow, TradeInvoiceLinesSummary } from '@/app/api/mo
 import { parseInrAmountString, debitCreditLabel, formatInrAmount, drCrBadgeClassNames } from '@/lib/inr-amount';
 import { effectiveMsmeContactEmail } from '@/lib/msme-display-email';
 import FiscalFilterBar from '@/components/FiscalFilterBar';
+import FiscalPeriodSelects from '@/components/FiscalPeriodSelects';
 import {
-  fiscalYearSelectOptionsFromApi,
   formatFyOption,
   formatQuarterOption,
   useFiscalFilter,
@@ -52,23 +52,14 @@ const CONFIRMATION_KIND_OPTIONS: { value: string; label: string }[] = [
   { value: 'none', label: 'Pending' },
 ];
 
-const FISCAL_QUARTER_KEYS = ['1', '2', '3', '4'] as const;
-
-const BULK_FISCAL_HINT =
-  'Bulk operations require at least one financial year when a quarter is selected. Clear quarters or pick a FY.';
-
-function bulkFiscalSelectionInvalid(fiscalYears: string[], fiscalQuarters: string[]): boolean {
-  return fiscalQuarters.length > 0 && fiscalYears.length === 0;
-}
-
-function fiscalPayloadFromModal(years: string[], quarters: string[]): Record<string, number> {
+function fiscalPayloadFromSelection(fiscalYear: string, fiscalQuarter: string): Record<string, number> {
   const out: Record<string, number> = {};
-  if (years[0]) {
-    const y = parseInt(years[0], 10);
+  if (fiscalYear) {
+    const y = parseInt(fiscalYear, 10);
     if (Number.isFinite(y)) out.reportingFiscalYear = y;
   }
-  if (quarters[0]) {
-    const q = parseInt(quarters[0], 10);
+  if (fiscalQuarter) {
+    const q = parseInt(fiscalQuarter, 10);
     if (Number.isFinite(q)) out.reportingFiscalQuarter = q;
   }
   return out;
@@ -86,8 +77,8 @@ function buildBulkConfirmationsParams(
   moduleKey: ModuleKey,
   isTrade: boolean,
   workspace: BulkWorkspaceFilters,
-  fiscalYears: string[],
-  fiscalQuarters: string[],
+  fiscalYear: string,
+  fiscalQuarter: string,
   mode: 'workspace_status' | 'followup_eligible'
 ): URLSearchParams {
   const params = new URLSearchParams();
@@ -96,6 +87,8 @@ function buildBulkConfirmationsParams(
   if (mode === 'followup_eligible') {
     params.append('status', 'sent');
     params.append('status', 'followup_sent');
+    params.set('fiscalMatchMode', 'includeDerivedSent');
+    params.set('diagnostics', 'true');
   } else {
     workspace.selectedStatuses.forEach((s) => params.append('status', s));
     if (workspace.confirmationKindFilter !== 'all') {
@@ -103,8 +96,8 @@ function buildBulkConfirmationsParams(
     }
   }
   if (workspace.search) params.set('search', workspace.search);
-  fiscalYears.forEach((y) => params.append('reportingFiscalYear', y));
-  fiscalQuarters.forEach((q) => params.append('reportingFiscalQuarter', q));
+  if (fiscalYear) params.append('reportingFiscalYear', fiscalYear);
+  if (fiscalQuarter) params.append('reportingFiscalQuarter', fiscalQuarter);
   workspace.selectedCompanyCodes.forEach((c) => params.append('company', c));
   if (isTrade) {
     params.set('listMode', 'by_code');
@@ -129,8 +122,10 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
   const isTrade = moduleKey === 'trade_payable' || moduleKey === 'trade_receivable';
 
   const { fiscalYear, fiscalQuarter, availableYears, ready: fiscalReady } = useFiscalFilter();
-  const selectedFiscalYears = fiscalYear ? [fiscalYear] : [];
-  const selectedFiscalQuarters = fiscalQuarter ? [fiscalQuarter] : [];
+
+  useEffect(() => {
+    fetch('/api/fiscal-filter/backfill', { method: 'POST' }).catch(() => {});
+  }, []);
 
   const [records, setRecords] = useState<ConfirmationRecord[]>([]);
   const [entityNames, setEntityNames] = useState<string[]>([]);
@@ -168,15 +163,6 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
   };
 
   const stats = isTrade && tradeWorkspaceStats ? tradeWorkspaceStats : pageStats;
-
-  const fiscalYearSelectOptions = useMemo(
-    () => fiscalYearSelectOptionsFromApi(availableYears),
-    [availableYears]
-  );
-
-  const formatFyDropdownOption = useCallback((opt: string) => formatFyOption(opt), []);
-
-  const formatQuarterDropdownOption = useCallback((q: string) => formatQuarterOption(q), []);
 
   const fetchRecords = useCallback(async () => {
     if (!fiscalReady || !fiscalYear || !fiscalQuarter) return;
@@ -481,9 +467,12 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
         </div>
       </div>
 
-      <div className="bg-white border-b border-gray-100 px-6 py-4 flex-shrink-0 space-y-3">
-        <FiscalFilterBar />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+      <div className="bg-white border-b border-gray-100 px-6 py-4 flex-shrink-0">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+            <FiscalFilterBar inline className="lg:mr-2" />
+            <div className="hidden sm:block w-px h-10 bg-gray-200 self-end" aria-hidden />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end flex-1 min-w-0 w-full">
           <div className="lg:col-span-3 relative min-w-0">
             <label className="sr-only">Search</label>
             <svg
@@ -556,9 +545,11 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
               />
             </div>
           )}
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1 border-t border-gray-100">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-3 mt-1 border-t border-gray-100">
           <p className="text-[11px] text-neutral-500 order-2 sm:order-1">
             {fiscalSelectionIncomplete
               ? 'Select a financial year and quarter above to load records.'
@@ -680,11 +671,9 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
           moduleKey={moduleKey}
           isTrade={false}
           workspaceBulkFilters={workspaceBulkFilters}
-          initialFiscalYears={selectedFiscalYears}
-          initialFiscalQuarters={selectedFiscalQuarters}
-          fiscalYearSelectOptions={fiscalYearSelectOptions.map(String)}
-          formatFyDropdownOption={formatFyDropdownOption}
-          formatQuarterDropdownOption={formatQuarterDropdownOption}
+          fiscalYear={fiscalYear}
+          fiscalQuarter={fiscalQuarter}
+          availableYears={availableYears}
           onClose={() => setShowBulkSend(false)}
           onSuccess={() => {
             setShowBulkSend(false);
@@ -705,11 +694,9 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
               : undefined
           }
           workspaceBulkFilters={workspaceBulkFilters}
-          initialFiscalYears={selectedFiscalYears}
-          initialFiscalQuarters={selectedFiscalQuarters}
-          fiscalYearSelectOptions={fiscalYearSelectOptions.map(String)}
-          formatFyDropdownOption={formatFyDropdownOption}
-          formatQuarterDropdownOption={formatQuarterDropdownOption}
+          fiscalYear={fiscalYear}
+          fiscalQuarter={fiscalQuarter}
+          availableYears={availableYears}
           onClose={() => setShowBulkFollowup(false)}
           onSuccess={() => {
             setShowBulkFollowup(false);
@@ -727,11 +714,9 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
           heading="Bulk send"
           helperText="One email per company / party code cluster (not-sent anchors matching filters below)."
           workspaceBulkFilters={workspaceBulkFilters}
-          initialFiscalYears={selectedFiscalYears}
-          initialFiscalQuarters={selectedFiscalQuarters}
-          fiscalYearSelectOptions={fiscalYearSelectOptions.map(String)}
-          formatFyDropdownOption={formatFyDropdownOption}
-          formatQuarterDropdownOption={formatQuarterDropdownOption}
+          fiscalYear={fiscalYear}
+          fiscalQuarter={fiscalQuarter}
+          availableYears={availableYears}
           onClose={() => {
             setShowTradeBulkSend(false);
           }}
@@ -1107,11 +1092,9 @@ function MsmeBulkSendModal({
   heading = 'Bulk send',
   helperText,
   workspaceBulkFilters,
-  initialFiscalYears,
-  initialFiscalQuarters,
-  fiscalYearSelectOptions,
-  formatFyDropdownOption,
-  formatQuarterDropdownOption,
+  fiscalYear,
+  fiscalQuarter,
+  availableYears,
   onClose,
   onSuccess,
   onRefreshList,
@@ -1122,17 +1105,13 @@ function MsmeBulkSendModal({
   heading?: string;
   helperText?: string;
   workspaceBulkFilters: BulkWorkspaceFilters;
-  initialFiscalYears: string[];
-  initialFiscalQuarters: string[];
-  fiscalYearSelectOptions: string[];
-  formatFyDropdownOption: (s: string) => string;
-  formatQuarterDropdownOption: (s: string) => string;
+  fiscalYear: string;
+  fiscalQuarter: string;
+  availableYears: number[];
   onClose: () => void;
   onSuccess: () => void;
   onRefreshList: () => void;
 }) {
-  const [modalFiscalYears, setModalFiscalYears] = useState<string[]>(() => [...initialFiscalYears]);
-  const [modalFiscalQuarters, setModalFiscalQuarters] = useState<string[]>(() => [...initialFiscalQuarters]);
   const [records, setRecords] = useState<ConfirmationRecord[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -1148,10 +1127,11 @@ function MsmeBulkSendModal({
   const [templateChoicesLoading, setTemplateChoicesLoading] = useState(false);
   const [bulkTemplateId, setBulkTemplateId] = useState('');
 
-  useEffect(() => {
-    setModalFiscalYears([...initialFiscalYears]);
-    setModalFiscalQuarters([...initialFiscalQuarters]);
-  }, [initialFiscalYears, initialFiscalQuarters]);
+  const fiscalIncomplete = !fiscalYear || !fiscalQuarter;
+  const fiscalPayload = useMemo(
+    () => fiscalPayloadFromSelection(fiscalYear, fiscalQuarter),
+    [fiscalYear, fiscalQuarter]
+  );
 
   useEffect(() => {
     fetch('/api/confirmations/email-limit')
@@ -1175,6 +1155,11 @@ function MsmeBulkSendModal({
   }, [moduleKey]);
 
   useEffect(() => {
+    if (fiscalIncomplete) {
+      setListLoading(false);
+      setRecords([]);
+      return;
+    }
     let cancelled = false;
     setListLoading(true);
     setFetchError(null);
@@ -1182,8 +1167,8 @@ function MsmeBulkSendModal({
       moduleKey,
       isTrade,
       workspaceBulkFilters,
-      modalFiscalYears,
-      modalFiscalQuarters,
+      fiscalYear,
+      fiscalQuarter,
       'workspace_status'
     );
     fetch(`/api/confirmations?${params.toString()}`)
@@ -1202,10 +1187,9 @@ function MsmeBulkSendModal({
     return () => {
       cancelled = true;
     };
-  }, [moduleKey, isTrade, workspaceBulkFilters, modalFiscalYears, modalFiscalQuarters]);
+  }, [moduleKey, isTrade, workspaceBulkFilters, fiscalYear, fiscalQuarter, fiscalIncomplete]);
 
   const notSentRows = useMemo(() => records.filter((r) => r.status === 'not_sent'), [records]);
-  const fiscalInvalid = bulkFiscalSelectionInvalid(modalFiscalYears, modalFiscalQuarters);
 
   useEffect(() => {
     setSelectedIds(new Set(notSentRows.map((r) => r.id)));
@@ -1218,13 +1202,6 @@ function MsmeBulkSendModal({
       else n.add(id);
       return n;
     });
-  };
-
-  const toggleModalFy = (v: string) => {
-    setModalFiscalYears((arr) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]));
-  };
-  const toggleModalQ = (v: string) => {
-    setModalFiscalQuarters((arr) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]));
   };
 
   const dailyLine = `Daily limit (all modules): ${remainingDaily ?? '—'} remaining before this run.`;
@@ -1257,7 +1234,7 @@ function MsmeBulkSendModal({
         body: JSON.stringify({
           emailBody: overrides.emailBody || undefined,
           emailBodyTemplateId: overrides.emailBodyTemplateId || undefined,
-          ...fiscalPayloadFromModal(modalFiscalYears, modalFiscalQuarters),
+          ...fiscalPayload,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1270,8 +1247,8 @@ function MsmeBulkSendModal({
   };
 
   const handleSend = async () => {
-    if (fiscalInvalid) {
-      setError(BULK_FISCAL_HINT);
+    if (fiscalIncomplete) {
+      setError('Select a financial year and quarter in the filter bar above.');
       return;
     }
     if (selectedIds.size === 0) {
@@ -1288,7 +1265,7 @@ function MsmeBulkSendModal({
           recordIds: [...selectedIds],
           includeNotSentOnly: true,
           ...(bulkTemplateId.trim() ? { emailBodyTemplateId: bulkTemplateId.trim() } : {}),
-          ...fiscalPayloadFromModal(modalFiscalYears, modalFiscalQuarters),
+          ...fiscalPayload,
         }),
       });
       const data = await res.json();
@@ -1313,6 +1290,11 @@ function MsmeBulkSendModal({
     }
   };
 
+  const periodLabel =
+    fiscalYear && fiscalQuarter
+      ? `${formatFyOption(fiscalYear)} · ${formatQuarterOption(fiscalQuarter)}`
+      : '—';
+
   return (
     <>
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4">
@@ -1328,29 +1310,24 @@ function MsmeBulkSendModal({
           </div>
           <div className="px-6 py-4 flex-1 min-h-0 flex flex-col gap-3">
             <div className="rounded-xl border border-gray-200 bg-neutral-50/90 p-4 space-y-3">
-              <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Send scope</p>
-              <div className="grid sm:grid-cols-2 gap-3">
-                <FilterDropdown
-                  fullWidth
-                  label={modalFiscalYears.length ? `${modalFiscalYears.length} FY` : 'All FY'}
-                  options={fiscalYearSelectOptions}
-                  selected={modalFiscalYears}
-                  formatOption={formatFyDropdownOption}
-                  onToggle={toggleModalFy}
-                  onClear={() => setModalFiscalYears([])}
-                />
-                <FilterDropdown
-                  fullWidth
-                  label={modalFiscalQuarters.length ? `${modalFiscalQuarters.length} quarters` : 'All quarters'}
-                  options={[...FISCAL_QUARTER_KEYS]}
-                  selected={modalFiscalQuarters}
-                  formatOption={formatQuarterDropdownOption}
-                  onToggle={toggleModalQ}
-                  onClear={() => setModalFiscalQuarters([])}
-                />
-              </div>
-              {fiscalInvalid && <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2">{BULK_FISCAL_HINT}</p>}
-              <p className="text-[11px] text-gray-500">Adjust FY/quarter to match who receives mail. Main-page filters (entity, status, search) still apply.</p>
+              <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                Reporting period for this send
+              </p>
+              <FiscalPeriodSelects
+                readOnly
+                compact
+                fiscalYear={fiscalYear}
+                fiscalQuarter={fiscalQuarter}
+                availableYears={availableYears}
+              />
+              {fiscalIncomplete && (
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2">
+                  Select a financial year and quarter in the filter bar above.
+                </p>
+              )}
+              <p className="text-[11px] text-gray-500">
+                Period matches the workspace filter ({periodLabel}). Main-page filters (entity, status, search) still apply.
+              </p>
             </div>
 
             {listLoading && <p className="text-sm text-gray-500">Loading rows…</p>}
@@ -1433,7 +1410,7 @@ function MsmeBulkSendModal({
             </button>
             <button
               type="button"
-              disabled={sending || fiscalInvalid || listLoading || notSentRows.length === 0 || selectedIds.size === 0}
+              disabled={sending || fiscalIncomplete || listLoading || notSentRows.length === 0 || selectedIds.size === 0}
               onClick={handleSend}
               className="px-4 py-2 rounded-xl bg-neutral-900 text-white text-sm disabled:opacity-50"
             >
@@ -1461,11 +1438,9 @@ function MsmeBulkFollowupModal({
   isTrade,
   helperText,
   workspaceBulkFilters,
-  initialFiscalYears,
-  initialFiscalQuarters,
-  fiscalYearSelectOptions,
-  formatFyDropdownOption,
-  formatQuarterDropdownOption,
+  fiscalYear,
+  fiscalQuarter,
+  availableYears,
   onClose,
   onSuccess,
   onRefreshList,
@@ -1475,20 +1450,20 @@ function MsmeBulkFollowupModal({
   isTrade: boolean;
   helperText?: string;
   workspaceBulkFilters: BulkWorkspaceFilters;
-  initialFiscalYears: string[];
-  initialFiscalQuarters: string[];
-  fiscalYearSelectOptions: string[];
-  formatFyDropdownOption: (s: string) => string;
-  formatQuarterDropdownOption: (s: string) => string;
+  fiscalYear: string;
+  fiscalQuarter: string;
+  availableYears: number[];
   onClose: () => void;
   onSuccess: () => void;
   onRefreshList: () => void;
 }) {
-  const [modalFiscalYears, setModalFiscalYears] = useState<string[]>(() => [...initialFiscalYears]);
-  const [modalFiscalQuarters, setModalFiscalQuarters] = useState<string[]>(() => [...initialFiscalQuarters]);
   const [records, setRecords] = useState<ConfirmationRecord[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [diagnostics, setDiagnostics] = useState<{
+    sentWithoutFiscalStamp: number;
+    sentOtherPeriod: number;
+  } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [remainingDaily, setRemainingDaily] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
@@ -1501,10 +1476,11 @@ function MsmeBulkFollowupModal({
   const [templateChoicesLoading, setTemplateChoicesLoading] = useState(false);
   const [bulkTemplateId, setBulkTemplateId] = useState('');
 
-  useEffect(() => {
-    setModalFiscalYears([...initialFiscalYears]);
-    setModalFiscalQuarters([...initialFiscalQuarters]);
-  }, [initialFiscalYears, initialFiscalQuarters]);
+  const fiscalIncomplete = !fiscalYear || !fiscalQuarter;
+  const fiscalPayload = useMemo(
+    () => fiscalPayloadFromSelection(fiscalYear, fiscalQuarter),
+    [fiscalYear, fiscalQuarter]
+  );
 
   useEffect(() => {
     fetch('/api/confirmations/email-limit')
@@ -1527,41 +1503,53 @@ function MsmeBulkFollowupModal({
       .finally(() => setTemplateChoicesLoading(false));
   }, [moduleKey]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const refreshList = useCallback(() => {
+    if (fiscalIncomplete) {
+      setListLoading(false);
+      setRecords([]);
+      setDiagnostics(null);
+      return;
+    }
     setListLoading(true);
     setFetchError(null);
     const params = buildBulkConfirmationsParams(
       moduleKey,
       isTrade,
       workspaceBulkFilters,
-      modalFiscalYears,
-      modalFiscalQuarters,
+      fiscalYear,
+      fiscalQuarter,
       'followup_eligible'
     );
     fetch(`/api/confirmations?${params.toString()}`)
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error((data as { error?: string }).error || 'Could not load rows');
-        if (cancelled) return;
         setRecords((data.records || []) as ConfirmationRecord[]);
+        const diag = (data as { diagnostics?: { sentWithoutFiscalStamp?: number; sentOtherPeriod?: number } })
+          .diagnostics;
+        if (diag) {
+          setDiagnostics({
+            sentWithoutFiscalStamp: diag.sentWithoutFiscalStamp ?? 0,
+            sentOtherPeriod: diag.sentOtherPeriod ?? 0,
+          });
+        } else {
+          setDiagnostics(null);
+        }
       })
       .catch((e: unknown) => {
-        if (!cancelled) setFetchError(e instanceof Error ? e.message : 'Could not load rows');
+        setFetchError(e instanceof Error ? e.message : 'Could not load rows');
       })
-      .finally(() => {
-        if (!cancelled) setListLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [moduleKey, isTrade, workspaceBulkFilters, modalFiscalYears, modalFiscalQuarters]);
+      .finally(() => setListLoading(false));
+  }, [moduleKey, isTrade, workspaceBulkFilters, fiscalYear, fiscalQuarter, fiscalIncomplete]);
+
+  useEffect(() => {
+    refreshList();
+  }, [refreshList]);
 
   const eligibleRows = useMemo(
     () => records.filter((r) => r.status === 'sent' || r.status === 'followup_sent'),
     [records]
   );
-  const fiscalInvalid = bulkFiscalSelectionInvalid(modalFiscalYears, modalFiscalQuarters);
 
   useEffect(() => {
     setSelectedIds(new Set(eligibleRows.map((r) => r.id)));
@@ -1576,14 +1564,21 @@ function MsmeBulkFollowupModal({
     });
   };
 
-  const toggleModalFy = (v: string) => {
-    setModalFiscalYears((arr) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]));
-  };
-  const toggleModalQ = (v: string) => {
-    setModalFiscalQuarters((arr) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]));
-  };
-
   const dailyLine = `Daily limit (all modules): ${remainingDaily ?? '—'} remaining before this run.`;
+  const periodLabel =
+    fiscalYear && fiscalQuarter
+      ? `${formatFyOption(fiscalYear)} · ${formatQuarterOption(fiscalQuarter)}`
+      : '—';
+
+  const statusLabel = (status: string) =>
+    STATUS_OPTIONS.find((o) => o.value === status)?.label || status;
+
+  const formatRowFyQ = (r: ConfirmationRecord) => {
+    if (r.reportingFiscalYear != null && r.reportingFiscalQuarter != null) {
+      return `${formatFyOption(String(r.reportingFiscalYear))} ${formatQuarterOption(String(r.reportingFiscalQuarter))}`;
+    }
+    return '—';
+  };
 
   const handlePreviewFollowupConfirm = async (overrides: {
     emailTo: string;
@@ -1612,7 +1607,7 @@ function MsmeBulkFollowupModal({
         body: JSON.stringify({
           emailBody: overrides.emailBody || undefined,
           emailBodyTemplateId: overrides.emailBodyTemplateId || undefined,
-          ...fiscalPayloadFromModal(modalFiscalYears, modalFiscalQuarters),
+          ...fiscalPayload,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1625,8 +1620,8 @@ function MsmeBulkFollowupModal({
   };
 
   const handleSend = async () => {
-    if (fiscalInvalid) {
-      setError(BULK_FISCAL_HINT);
+    if (fiscalIncomplete) {
+      setError('Select a financial year and quarter in the filter bar above.');
       return;
     }
     if (selectedIds.size === 0) {
@@ -1642,7 +1637,7 @@ function MsmeBulkFollowupModal({
         body: JSON.stringify({
           recordIds: [...selectedIds],
           ...(bulkTemplateId.trim() ? { emailBodyTemplateId: bulkTemplateId.trim() } : {}),
-          ...fiscalPayloadFromModal(modalFiscalYears, modalFiscalQuarters),
+          ...fiscalPayload,
         }),
       });
       const data = await res.json();
@@ -1684,36 +1679,63 @@ function MsmeBulkFollowupModal({
           </div>
           <div className="px-6 py-4 flex-1 min-h-0 flex flex-col gap-3">
             <div className="rounded-xl border border-gray-200 bg-neutral-50/90 p-4 space-y-3">
-              <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">Scope</p>
-              <div className="grid sm:grid-cols-2 gap-3">
-                <FilterDropdown
-                  fullWidth
-                  label={modalFiscalYears.length ? `${modalFiscalYears.length} FY` : 'All FY'}
-                  options={fiscalYearSelectOptions}
-                  selected={modalFiscalYears}
-                  formatOption={formatFyDropdownOption}
-                  onToggle={toggleModalFy}
-                  onClear={() => setModalFiscalYears([])}
-                />
-                <FilterDropdown
-                  fullWidth
-                  label={modalFiscalQuarters.length ? `${modalFiscalQuarters.length} quarters` : 'All quarters'}
-                  options={[...FISCAL_QUARTER_KEYS]}
-                  selected={modalFiscalQuarters}
-                  formatOption={formatQuarterDropdownOption}
-                  onToggle={toggleModalQ}
-                  onClear={() => setModalFiscalQuarters([])}
-                />
-              </div>
-              {fiscalInvalid && <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2">{BULK_FISCAL_HINT}</p>}
-              <p className="text-[11px] text-gray-500">Main-page filters still apply. Follow-up list is limited to sent / follow-up sent.</p>
+              <p className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
+                Reporting period for follow-up list
+              </p>
+              <FiscalPeriodSelects
+                readOnly
+                compact
+                fiscalYear={fiscalYear}
+                fiscalQuarter={fiscalQuarter}
+                availableYears={availableYears}
+              />
+              {fiscalIncomplete && (
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-lg px-3 py-2">
+                  Select a financial year and quarter in the filter bar above.
+                </p>
+              )}
+              <p className="text-[11px] text-gray-500">
+                Period matches the workspace filter ({periodLabel}). Main-page filters still apply.
+              </p>
             </div>
 
             {listLoading && <p className="text-sm text-gray-500">Loading rows…</p>}
             {fetchError && <p className="text-sm text-red-600">{fetchError}</p>}
 
             {!listLoading && !fetchError && eligibleRows.length === 0 && (
-              <p className="text-sm text-gray-600">No rows eligible for follow-up in this scope.</p>
+              <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3 text-sm text-gray-700">
+                <p className="font-medium text-gray-900">
+                  No rows eligible for follow-up in {periodLabel}.
+                </p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Possible reasons</p>
+                <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
+                  {diagnostics && diagnostics.sentWithoutFiscalStamp > 0 && (
+                    <li>
+                      {diagnostics.sentWithoutFiscalStamp} sent row
+                      {diagnostics.sentWithoutFiscalStamp === 1 ? '' : 's'} exist but have no FY/quarter stamp (will be
+                      fixed automatically)
+                    </li>
+                  )}
+                  {diagnostics && diagnostics.sentOtherPeriod > 0 && (
+                    <li>
+                      {diagnostics.sentOtherPeriod} sent row
+                      {diagnostics.sentOtherPeriod === 1 ? '' : 's'} belong to a different period
+                    </li>
+                  )}
+                  <li>Main-page entity, search, or company filters are narrowing the list</li>
+                </ul>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => refreshList()}
+                    className="text-xs font-medium text-neutral-800 hover:underline"
+                  >
+                    Refresh list
+                  </button>
+                  <span className="text-gray-300">·</span>
+                  <span className="text-xs text-gray-500">Change period in the filter bar above</span>
+                </div>
+              </div>
             )}
 
             {!listLoading && !fetchError && eligibleRows.length > 0 && (
@@ -1762,30 +1784,35 @@ function MsmeBulkFollowupModal({
                       : r.entityName;
                     const emailDisplay = isMsmeModule ? effectiveMsmeContactEmail(r) : { text: r.emailTo || '', fromReply: false };
                     return (
-                    <div key={r.id} className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-gray-50/80">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(r.id)}
-                        onChange={() => toggle(r.id)}
-                        className="mt-1 rounded border-gray-300 text-neutral-700"
-                      />
-                      <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 sm:gap-4 sm:items-center">
-                        <div className="min-w-0">
-                          <div className="font-medium text-gray-900">{displayName}</div>
-                          <div className="text-xs text-gray-500 break-all">{emailDisplay.text || '—'}</div>
-                          {emailDisplay.fromReply && emailDisplay.text && (
-                            <p className="text-[10px] text-gray-400 mt-0.5">Vendor reply</p>
-                          )}
+                      <div key={r.id} className="flex items-start gap-3 px-4 py-3 text-sm hover:bg-gray-50/80">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(r.id)}
+                          onChange={() => toggle(r.id)}
+                          className="mt-1 rounded border-gray-300 text-neutral-700"
+                        />
+                        <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 sm:gap-4 sm:items-start">
+                          <div className="min-w-0 space-y-1">
+                            <div className="font-medium text-gray-900">{displayName}</div>
+                            <div className="text-xs text-gray-500 break-all">{emailDisplay.text || '—'}</div>
+                            {emailDisplay.fromReply && emailDisplay.text && (
+                              <p className="text-[10px] text-gray-400">Vendor reply</p>
+                            )}
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-gray-500 pt-0.5">
+                              <span>{statusLabel(r.status)}</span>
+                              <span>Follow-up #{r.followupCount ?? 0}</span>
+                              <span>{formatRowFyQ(r)}</span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewRecord(r)}
+                            className="text-xs font-medium text-neutral-800 hover:text-neutral-950 whitespace-nowrap self-start"
+                          >
+                            Preview follow-up
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setPreviewRecord(r)}
-                          className="text-xs font-medium text-neutral-800 hover:text-neutral-950 whitespace-nowrap self-start sm:self-center"
-                        >
-                          Preview follow-up
-                        </button>
                       </div>
-                    </div>
                     );
                   })}
                 </div>
@@ -1799,7 +1826,7 @@ function MsmeBulkFollowupModal({
             </button>
             <button
               type="button"
-              disabled={sending || fiscalInvalid || listLoading || eligibleRows.length === 0 || selectedIds.size === 0}
+              disabled={sending || fiscalIncomplete || listLoading || eligibleRows.length === 0 || selectedIds.size === 0}
               onClick={handleSend}
               className="px-4 py-2 rounded-xl bg-neutral-900 text-white text-sm disabled:opacity-50"
             >

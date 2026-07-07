@@ -1,65 +1,64 @@
 'use client';
 
-import {
-  fiscalYearSelectOptionsFromApi,
-  formatFyOption,
-  formatQuarterOption,
-  useFiscalFilter,
-} from '@/components/FiscalFilterProvider';
+import { useFiscalFilter } from '@/components/FiscalFilterProvider';
+import FiscalPeriodSelects from '@/components/FiscalPeriodSelects';
 
-const QUARTER_OPTIONS = ['1', '2', '3', '4'] as const;
+type FiscalFilterBarProps = {
+  className?: string;
+  /** Inline toolbar mode — no card border, fits beside other filters */
+  inline?: boolean;
+};
 
-export default function FiscalFilterBar({ className = '' }: { className?: string }) {
+export default function FiscalFilterBar({ className = '', inline = false }: FiscalFilterBarProps) {
   const { fiscalYear, fiscalQuarter, availableYears, ready, setFiscalYear, setFiscalQuarter } =
     useFiscalFilter();
 
-  const yearOptions = fiscalYearSelectOptionsFromApi(availableYears);
-
   if (!ready) {
     return (
-      <div className={`rounded-xl border border-neutral-200/80 bg-white px-4 py-3 text-sm text-neutral-500 ${className}`}>
-        Loading period filter…
+      <div
+        className={`text-sm text-neutral-500 ${inline ? 'h-10 flex items-center' : 'rounded-xl border border-neutral-200/80 bg-white px-4 py-3'} ${className}`}
+      >
+        Loading period…
+      </div>
+    );
+  }
+
+  if (inline) {
+    return (
+      <div className={`flex flex-wrap items-end gap-3 ${className}`}>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 self-center pb-2.5 shrink-0">
+          Period
+        </span>
+        <FiscalPeriodSelects
+          compact
+          fiscalYear={fiscalYear}
+          fiscalQuarter={fiscalQuarter}
+          availableYears={availableYears}
+          onChange={(fy, fq) => {
+            setFiscalYear(fy);
+            setFiscalQuarter(fq);
+          }}
+        />
       </div>
     );
   }
 
   return (
     <div
-      className={`flex flex-wrap items-end gap-4 rounded-xl border border-neutral-200/80 bg-white px-4 py-3 shadow-sm ${className}`}
+      className={`flex flex-wrap items-end gap-4 rounded-xl border border-neutral-200/80 bg-neutral-50/80 px-4 py-3 ${className}`}
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500 w-full sm:w-auto sm:mb-0 mb-1">
+      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500 w-full sm:w-auto sm:mb-0 mb-1 shrink-0">
         Reporting period
       </p>
-      <label className="flex flex-col gap-1 min-w-[140px]">
-        <span className="text-[11px] font-medium text-neutral-500">Financial year</span>
-        <select
-          value={fiscalYear}
-          onChange={(e) => setFiscalYear(e.target.value)}
-          className="h-10 border border-neutral-200 rounded-lg px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900/20"
-        >
-          <option value="">Select FY</option>
-          {yearOptions.map((y) => (
-            <option key={y} value={y}>
-              {formatFyOption(y)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="flex flex-col gap-1 min-w-[140px]">
-        <span className="text-[11px] font-medium text-neutral-500">Quarter</span>
-        <select
-          value={fiscalQuarter}
-          onChange={(e) => setFiscalQuarter(e.target.value)}
-          className="h-10 border border-neutral-200 rounded-lg px-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900/20"
-        >
-          <option value="">Select quarter</option>
-          {QUARTER_OPTIONS.map((q) => (
-            <option key={q} value={q}>
-              {formatQuarterOption(q)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <FiscalPeriodSelects
+        fiscalYear={fiscalYear}
+        fiscalQuarter={fiscalQuarter}
+        availableYears={availableYears}
+        onChange={(fy, fq) => {
+          setFiscalYear(fy);
+          setFiscalQuarter(fq);
+        }}
+      />
     </div>
   );
 }

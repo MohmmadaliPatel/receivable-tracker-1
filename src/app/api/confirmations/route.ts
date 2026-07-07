@@ -8,6 +8,7 @@ import {
   type ConfirmationKind,
   getDistinctReportingFiscalYears,
   getDistinctCompanyCodes,
+  getBulkListDiagnostics,
   normalizeSapCode,
 } from '@/lib/confirmation-repository';
 import { listConfirmationRecords, getEntityNames, CATEGORIES } from '@/lib/confirmation-service';
@@ -69,6 +70,10 @@ export async function GET(request: NextRequest) {
   const companyCode = companyParams.length ? companyParams : undefined;
   const omitTradeLines = searchParams.get('omitTradeLines') === 'true';
   const unpaged = searchParams.get('unpaged') === 'true';
+  const diagnostics = searchParams.get('diagnostics') === 'true';
+  const fiscalMatchModeRaw = searchParams.get('fiscalMatchMode');
+  const fiscalMatchMode =
+    fiscalMatchModeRaw === 'includeDerivedSent' ? ('includeDerivedSent' as const) : undefined;
   if (user.role !== 'admin') {
     if (!moduleParam || !isModuleKey(moduleParam)) {
       return NextResponse.json(
@@ -84,7 +89,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid module' }, { status: 400 });
   }
 
-  const result = await listConfirmationRecords({
+  const listFilter = {
     ...(user.role !== 'admin' ? { userId: user.userId } : {}),
     entityName: entityName.length ? entityName : undefined,
     category: category.length ? category : undefined,
@@ -100,7 +105,20 @@ export async function GET(request: NextRequest) {
     pageSize,
     unpaged: unpaged || undefined,
     omitTradeLines: omitTradeLines || undefined,
-  });
+    fiscalMatchMode,
+  };
+
+  const result = await listConfirmationRecords(listFilter);
+
+  if (diagnostics) {
+    const diagnosticsResult = await getBulkListDiagnostics(listFilter);
+    return NextResponse.json({
+      records: result.records,
+      total: result.total,
+      ...(result.stats != null ? { stats: result.stats } : {}),
+      diagnostics: diagnosticsResult,
+    });
+  }
 
   if (includeMetadata) {
     const entityNames = await getEntityNames(

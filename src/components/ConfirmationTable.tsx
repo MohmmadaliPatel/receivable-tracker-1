@@ -65,6 +65,8 @@ export interface ConfirmationRecord {
   vendorMasterPartyName?: string | null;
   vendorMasterSapCustomerCode?: string | null;
   vendorMasterSource?: string | null;
+  reportingFiscalYear?: number | null;
+  reportingFiscalQuarter?: number | null;
 }
 
 interface ConfirmationTableProps {

@@ -6,6 +6,8 @@ import type {
   TradeReceivableConfirmation,
   VendorMaster,
 } from '@prisma/client';
+import type { IndiaFiscalQuarter } from '@/lib/india-fiscal';
+import { dateInIndiaFiscalQuarter, indiaFiscalQuarterDateRange } from '@/lib/india-fiscal';
 import type { ModuleKey } from '@/lib/module-types';
 import { loadTradeGroupRows } from '@/lib/trade-email-group';
 import { normalizeTradeCustId, TRADE_COMPOSITE_SEP } from '@/lib/trade-composite-cust';
@@ -393,6 +395,8 @@ export type ListConfirmationFilter = {
   reportingFiscalYears?: number[];
   /** India fiscal quarters 1–4; OR semantics when multiple */
   reportingFiscalQuarters?: number[];
+  /** strict = DB fiscal match only; includeDerivedSent = also match sent rows via sentAt */
+  fiscalMatchMode?: 'strict' | 'includeDerivedSent';
   /** Filter by vendor/supplier master or parsed trade company code */
   companyCode?: string[];
   /** Trade module workspace: one row per custId code with nested lines */
@@ -542,6 +546,123 @@ function hasReportingFiscalFilter(filter: ListConfirmationFilter): boolean {
   );
 }
 
+function buildFiscalWhereClause(filter: ListConfirmationFilter): Record<string, unknown> | null {
+  const years = (filter.reportingFiscalYears ?? []).filter((y) => Number.isFinite(y));
+  const quarters = (filter.reportingFiscalQuarters ?? []).filter((q) => q >= 1 && q <= 4);
+  if (!years.length && !quarters.length) return null;
+
+  if (
+    filter.fiscalMatchMode === 'includeDerivedSent' &&
+    years.length === 1 &&
+    quarters.length === 1
+  ) {
+    const { start, end } = indiaFiscalQuarterDateRange(
+      years[0],
+      quarters[0] as IndiaFiscalQuarter
+    );
+    return {
+      OR: [
+        { reportingFiscalYear: years[0], reportingFiscalQuarter: quarters[0] },
+        {
+          AND: [
+            { reportingFiscalYear: null },
+            { status: { in: ['sent', 'followup_sent'] } },
+            {
+              OR: [
+                { sentAt: { gte: start, lte: end } },
+                { followupSentAt: { gte: start, lte: end } },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  const w: Record<string, unknown> = {};
+  if (years.length === 1) w.reportingFiscalYear = years[0];
+  else if (years.length > 1) w.reportingFiscalYear = { in: years };
+  if (quarters.length === 1) w.reportingFiscalQuarter = quarters[0];
+  else if (quarters.length > 1) w.reportingFiscalQuarter = { in: quarters };
+  return w;
+}
+
+function applyFiscalFilter(w: Record<string, unknown>, filter: ListConfirmationFilter): void {
+  const clause = buildFiscalWhereClause(filter);
+  if (!clause) return;
+  if (clause.OR) {
+    const existing = Array.isArray(w.AND) ? (w.AND as unknown[]) : [];
+    w.AND = [...existing, clause];
+  } else {
+    Object.assign(w, clause);
+  }
+}
+
+export type BulkListDiagnostics = {
+  eligible: number;
+  sentWithoutFiscalStamp: number;
+  sentOtherPeriod: number;
+};
+
+function recordInSelectedPeriod(
+  r: UnifiedConfirmationRecord,
+  fy: number,
+  fq: number
+): boolean {
+  if (r.reportingFiscalYear === fy && r.reportingFiscalQuarter === fq) return true;
+  const d = r.followupSentAt || r.sentAt;
+  if (!d) return false;
+  return dateInIndiaFiscalQuarter(new Date(d), fy, fq as IndiaFiscalQuarter);
+}
+
+/** Diagnostic counts for bulk follow-up empty states. */
+export async function getBulkListDiagnostics(
+  filter: ListConfirmationFilter
+): Promise<BulkListDiagnostics> {
+  const fy = filter.reportingFiscalYears?.[0];
+  const fq = filter.reportingFiscalQuarters?.[0];
+
+  const eligibleResult = await listUnifiedConfirmationRecords({
+    ...filter,
+    fiscalMatchMode: 'includeDerivedSent',
+    unpaged: true,
+  });
+
+  const allSentResult = await listUnifiedConfirmationRecords({
+    ...filter,
+    reportingFiscalYears: undefined,
+    reportingFiscalQuarters: undefined,
+    fiscalMatchMode: 'strict',
+    unpaged: true,
+  });
+
+  let sentWithoutFiscalStamp = 0;
+  let sentOtherPeriod = 0;
+
+  for (const r of allSentResult.records) {
+    if (r.status !== 'sent' && r.status !== 'followup_sent') continue;
+    const hasFiscal = r.reportingFiscalYear != null && r.reportingFiscalQuarter != null;
+    if (fy == null || fq == null) {
+      if (!hasFiscal) sentWithoutFiscalStamp++;
+      continue;
+    }
+    const inPeriod = recordInSelectedPeriod(r, fy, fq);
+    if (!hasFiscal && inPeriod) {
+      sentWithoutFiscalStamp++;
+    } else if (hasFiscal && (r.reportingFiscalYear !== fy || r.reportingFiscalQuarter !== fq)) {
+      sentOtherPeriod++;
+    } else if (!hasFiscal && !inPeriod) {
+      sentOtherPeriod++;
+    }
+  }
+
+  return {
+    eligible: eligibleResult.total,
+    sentWithoutFiscalStamp,
+    sentOtherPeriod,
+  };
+}
+
 export async function listUnifiedConfirmationRecords(filter: ListConfirmationFilter): Promise<ListUnifiedConfirmationResult> {
   const mods = filter.module
     ? Array.isArray(filter.module)
@@ -582,12 +703,7 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
   };
 
   const applyReportingFiscalToWhere = (w: Record<string, unknown>) => {
-    const years = (filter.reportingFiscalYears ?? []).filter((y) => Number.isFinite(y));
-    const quarters = (filter.reportingFiscalQuarters ?? []).filter((q) => q >= 1 && q <= 4);
-    if (years.length === 1) w.reportingFiscalYear = years[0];
-    else if (years.length > 1) w.reportingFiscalYear = { in: years };
-    if (quarters.length === 1) w.reportingFiscalQuarter = quarters[0];
-    else if (quarters.length > 1) w.reportingFiscalQuarter = { in: quarters };
+    applyFiscalFilter(w, filter);
   };
 
   /** Grouped by SAP code: one anchor per page with nested invoice lines */

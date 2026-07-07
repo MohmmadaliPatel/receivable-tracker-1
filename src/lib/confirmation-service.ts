@@ -26,7 +26,7 @@ import {
 } from '@/lib/confirmation-repository';
 import type { ModuleKey } from '@/lib/module-types';
 import { CATEGORY_TRADE_PAYABLES, CATEGORY_TRADE_RECEIVABLES } from '@/lib/module-types';
-import { fiscalStampPatch } from '@/lib/listing-upload-fiscal';
+import { fiscalStampPatch, resolveFiscalStampForSend } from '@/lib/listing-upload-fiscal';
 import {
   resolveTradeAnchorId,
   loadTradeGroupRows,
@@ -38,12 +38,44 @@ type ConfirmationSourceRow = TradePayableConfirmation | TradeReceivableConfirmat
 
 /** Record + module for reply-check batching (IDs are unique across tables). */
 type ConfirmationWithModule = { record: ConfirmationSourceRow; module: ModuleKey };
+
+type EmailPdfArchive = {
+  filePath: string | null;
+  relativePath: string | null;
+  filenameBase: string | null;
+};
+
+function resolveChromeExecutable(): string | undefined {
+  const fromEnv = process.env.PUPPETEER_EXECUTABLE_PATH?.trim();
+  if (fromEnv && fs.existsSync(fromEnv)) return fromEnv;
+
+  if (process.platform === 'win32') {
+    const candidates = [
+      path.join(process.env['ProgramFiles'] || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      path.join(
+        process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)',
+        'Google',
+        'Chrome',
+        'Application',
+        'chrome.exe'
+      ),
+      path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    ];
+    for (const c of candidates) {
+      if (c && fs.existsSync(c)) return c;
+    }
+  }
+  return undefined;
+}
+
 let _browser: Browser | null = null;
 async function getBrowser(): Promise<Browser> {
   if (!_browser || !_browser.connected) {
+    const executablePath = resolveChromeExecutable();
     _browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      ...(executablePath ? { executablePath } : {}),
     });
   }
   return _browser;
@@ -699,6 +731,27 @@ export async function saveEmailToSentFolder(
   return { filePath: fullPath, relativePath: path.join(threadRelative, filename), filenameBase: `${ts}_${label}` };
 }
 
+/** PDF archive for sent mail — failures must not fail Graph delivery. */
+async function trySaveSentEmailPdfArchive(
+  entityName: string,
+  category: string,
+  bankName: string,
+  subject: string,
+  htmlContent: string,
+  basePath: string = 'emails',
+  label: string = 'CONF'
+): Promise<EmailPdfArchive> {
+  try {
+    return await saveEmailToSentFolder(entityName, category, bankName, subject, htmlContent, basePath, label);
+  } catch (err) {
+    console.warn(
+      '[Confirmation] PDF archive skipped (email was still sent):',
+      err instanceof Error ? err.message : err
+    );
+    return { filePath: null, relativePath: null, filenameBase: null };
+  }
+}
+
 // Save a response as PDF — stored in the SAME folder as the sent email so connection is obvious.
 export async function saveEmailToResponsesFolder(
   entityName: string,
@@ -830,6 +883,7 @@ export async function listConfirmationRecords(filter: ConfirmationFilter): Promi
     page: filter.page,
     pageSize: filter.pageSize,
     unpaged: filter.unpaged,
+    fiscalMatchMode: filter.fiscalMatchMode,
     omitTradeLines: filter.omitTradeLines,
   });
 }
@@ -1105,8 +1159,8 @@ export async function sendConfirmation(
       sentMsg = await fetchSentMessage(config, subject, sendTime);
     }
 
-    // Save to folder with CONF prefix
-    const { filePath, filenameBase } = await saveEmailToSentFolder(
+    // Save confirmation PDF beside thread folder (best-effort — Graph send already succeeded)
+    const { filePath, filenameBase } = await trySaveSentEmailPdfArchive(
       record.entityName,
       record.category,
       record.bankName || 'email',
@@ -1116,7 +1170,9 @@ export async function sendConfirmation(
       'CONF'
     );
 
-    await trySaveEmlBesidePdf(config, sentMsg?.messageId, filePath, filenameBase);
+    if (filePath && filenameBase) {
+      await trySaveEmlBesidePdf(config, sentMsg?.messageId, filePath, filenameBase);
+    }
 
     // Thread folder path (single folder for all emails in this confirmation)
     const { threadRelative } = buildFolderPaths(
@@ -1133,10 +1189,16 @@ export async function sendConfirmation(
       ? `${sentMsg.messageId}::${sentMsg.conversationId}`
       : undefined;
 
-    const fiscalPatch = fiscalStampPatch({
-      reportingFiscalYear: options?.reportingFiscalYear,
-      reportingFiscalQuarter: options?.reportingFiscalQuarter,
-    });
+    const fiscalPatch = fiscalStampPatch(
+      resolveFiscalStampForSend(
+        {
+          reportingFiscalYear: options?.reportingFiscalYear,
+          reportingFiscalQuarter: options?.reportingFiscalQuarter,
+        },
+        record,
+        sendTime
+      )
+    );
 
     await patchConfirmationRaw(mod, jwtRecordId, {
       status: CONFIRMATION_STATUSES.SENT,
@@ -1155,7 +1217,7 @@ export async function sendConfirmation(
       const linePatchBase = {
         status: CONFIRMATION_STATUSES.SENT,
         sentAt: sendTime,
-        sentEmailFilePath: filePath,
+        ...(filePath ? { sentEmailFilePath: filePath } : {}),
         emailsSentFolderPath: threadRelative,
         responsesFolderPath: threadRelative,
         emailConfigId: config.id,
@@ -1397,7 +1459,7 @@ export async function sendFollowup(
     const newFollowupCount = (record.followupCount ?? 0) + 1;
     const fuLabel = `FU-${newFollowupCount}`;
 
-    const { filePath, filenameBase } = await saveEmailToSentFolder(
+    const { filePath, filenameBase } = await trySaveSentEmailPdfArchive(
       record.entityName,
       record.category,
       record.bankName || 'followup',
@@ -1407,7 +1469,9 @@ export async function sendFollowup(
       fuLabel
     );
 
-    await trySaveEmlBesidePdf(config, followupMsg?.messageId, filePath, filenameBase);
+    if (filePath && filenameBase) {
+      await trySaveEmlBesidePdf(config, followupMsg?.messageId, filePath, filenameBase);
+    }
 
     // Append to followupsJson history
     const existingHistory: Array<{ sentAt: string; messageId: string | null; filePath: string; subject: string; followupNumber: number }> =
@@ -1415,21 +1479,27 @@ export async function sendFollowup(
     existingHistory.push({
       sentAt: sendTime.toISOString(),
       messageId: followupMessageIdValue ?? null,
-      filePath,
+      filePath: filePath ?? '',
       subject: `Reminder ${newFollowupCount}: ${originalSubject}`,
       followupNumber: newFollowupCount,
     });
 
-    const fiscalPatch = fiscalStampPatch({
-      reportingFiscalYear: options?.reportingFiscalYear,
-      reportingFiscalQuarter: options?.reportingFiscalQuarter,
-    });
+    const fiscalPatch = fiscalStampPatch(
+      resolveFiscalStampForSend(
+        {
+          reportingFiscalYear: options?.reportingFiscalYear,
+          reportingFiscalQuarter: options?.reportingFiscalQuarter,
+        },
+        record,
+        sendTime
+      )
+    );
 
     await patchConfirmationRaw(mod, jwtRecordId, {
       status: CONFIRMATION_STATUSES.FOLLOWUP_SENT,
       followupSentAt: sendTime,
       followupMessageId: followupMessageIdValue,
-      followupEmailFilePath: filePath,
+      ...(filePath ? { followupEmailFilePath: filePath } : {}),
       followupCount: newFollowupCount,
       followupsJson: JSON.stringify(existingHistory),
       ...(nonceForSend ? { emailActionNonce: nonceForSend, emailActionConsumedAt: null } : {}),
@@ -1448,7 +1518,9 @@ export async function sendFollowup(
       }
     }
 
-    console.log(`[Confirmation] Reminder #${newFollowupCount} sent for "${record.entityName}" — file: ${path.basename(filePath)}`);
+    console.log(
+      `[Confirmation] Reminder #${newFollowupCount} sent for "${record.entityName}"${filePath ? ` — file: ${path.basename(filePath)}` : ' (PDF archive skipped)'}`
+    );
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || 'Failed to send reminder' };

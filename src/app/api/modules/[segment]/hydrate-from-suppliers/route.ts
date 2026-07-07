@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { getSession } from '@/lib/simple-auth';
 import { userCanAccessModule } from '@/lib/module-access';
 import { syncMsmeFromPartyMasters } from '@/lib/msme-sync-from-tr';
+import { backfillReportingFiscalForUser } from '@/lib/backfill-reporting-fiscal';
 
 async function auth() {
   const cookieStore = await cookies();
@@ -29,5 +30,6 @@ export async function POST(
   }
 
   const result = await syncMsmeFromPartyMasters(user.userId);
-  return NextResponse.json({ success: true, ...result });
+  const fiscalBackfill = await backfillReportingFiscalForUser(user.userId);
+  return NextResponse.json({ success: true, ...result, fiscalBackfill });
 }

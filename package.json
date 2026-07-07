@@ -10,6 +10,7 @@
     "db:truncate": "tsx scripts/truncate-data.ts",
     "db:fix-unique": "tsx scripts/remove-senderid-unique-constraint.ts",
     "db:backfill-fiscal": "tsx scripts/backfill-reporting-fiscal.ts",
+    "db:backfill-fiscal-all": "tsx scripts/backfill-reporting-fiscal.ts",
     "security:audit": "npm audit --audit-level=moderate",
     "docs:client-pdfs": "tsx scripts/generate-client-confirmation-pdfs.ts",
     "docs:security-dataflow-pdf": "tsx scripts/generate-security-dataflow-pdf.ts",

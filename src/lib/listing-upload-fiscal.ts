@@ -80,3 +80,43 @@ export function fiscalStampPatch(stamp: FiscalStamp): FiscalStamp {
   if (stamp.reportingFiscalQuarter != null) out.reportingFiscalQuarter = stamp.reportingFiscalQuarter;
   return out;
 }
+
+type FiscalSourceRow = {
+  reportingFiscalYear?: number | null;
+  reportingFiscalQuarter?: number | null;
+  sentAt?: Date | string | null;
+  followupSentAt?: Date | string | null;
+};
+
+/** Resolve FY+Q for send/follow-up: explicit options → existing row → activity date. */
+export function resolveFiscalStampForSend(
+  options: FiscalStamp | undefined,
+  record: FiscalSourceRow,
+  activityDate: Date
+): FiscalStamp {
+  const fromOptions = fiscalStampPatch({
+    reportingFiscalYear: options?.reportingFiscalYear,
+    reportingFiscalQuarter: options?.reportingFiscalQuarter,
+  });
+  if (fromOptions.reportingFiscalYear != null && fromOptions.reportingFiscalQuarter != null) {
+    return fromOptions;
+  }
+
+  if (record.reportingFiscalYear != null && record.reportingFiscalQuarter != null) {
+    return {
+      reportingFiscalYear: record.reportingFiscalYear,
+      reportingFiscalQuarter: record.reportingFiscalQuarter,
+    };
+  }
+
+  const anchor =
+    activityDate ||
+    (record.sentAt ? new Date(record.sentAt) : null) ||
+    (record.followupSentAt ? new Date(record.followupSentAt) : null) ||
+    new Date();
+  const derived = indiaFiscalYearAndQuarter(anchor);
+  return {
+    reportingFiscalYear: fromOptions.reportingFiscalYear ?? derived.reportingFiscalYear,
+    reportingFiscalQuarter: fromOptions.reportingFiscalQuarter ?? derived.reportingFiscalQuarter,
+  };
+}

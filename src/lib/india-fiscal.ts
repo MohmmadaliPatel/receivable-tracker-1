@@ -63,3 +63,32 @@ export function reportingFiscalFromDocumentDateString(
   if (!d) return null;
   return indiaFiscalYearAndQuarter(d);
 }
+
+/** Inclusive UTC date range for an India FY quarter (for sentAt filtering). */
+export function indiaFiscalQuarterDateRange(
+  reportingFiscalYear: number,
+  reportingFiscalQuarter: IndiaFiscalQuarter
+): { start: Date; end: Date } {
+  const y = reportingFiscalYear;
+  const q = reportingFiscalQuarter;
+  if (q === 1) {
+    return { start: new Date(Date.UTC(y, 3, 1)), end: new Date(Date.UTC(y, 5, 30, 23, 59, 59, 999)) };
+  }
+  if (q === 2) {
+    return { start: new Date(Date.UTC(y, 6, 1)), end: new Date(Date.UTC(y, 8, 30, 23, 59, 59, 999)) };
+  }
+  if (q === 3) {
+    return { start: new Date(Date.UTC(y, 9, 1)), end: new Date(Date.UTC(y, 11, 31, 23, 59, 59, 999)) };
+  }
+  return { start: new Date(Date.UTC(y + 1, 0, 1)), end: new Date(Date.UTC(y + 1, 2, 31, 23, 59, 59, 999)) };
+}
+
+export function dateInIndiaFiscalQuarter(
+  d: Date,
+  reportingFiscalYear: number,
+  reportingFiscalQuarter: IndiaFiscalQuarter
+): boolean {
+  const { start, end } = indiaFiscalQuarterDateRange(reportingFiscalYear, reportingFiscalQuarter);
+  const t = d.getTime();
+  return t >= start.getTime() && t <= end.getTime();
+}
