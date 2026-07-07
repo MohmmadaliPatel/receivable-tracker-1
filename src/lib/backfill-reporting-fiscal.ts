@@ -4,6 +4,7 @@ import {
   reportingFiscalFromDocumentDateString,
 } from '@/lib/india-fiscal';
 import { normalizeTradeCustId } from '@/lib/trade-composite-cust';
+import { resolveWorkspaceFiscalForUser } from '@/lib/listing-fiscal-context';
 
 export type BackfillReportingFiscalResult = {
   msmeFromSentAt: number;
@@ -54,6 +55,7 @@ export async function backfillReportingFiscalForUser(userId: string): Promise<Ba
   };
 
   const fiscalByCust = await buildTradeFiscalByCust(userId);
+  const listingFallback = await resolveWorkspaceFiscalForUser(userId, 'trade_payable');
 
   const msmeRows = await prisma.msmeConfirmation.findMany({
     where: {
@@ -74,14 +76,22 @@ export async function backfillReportingFiscalForUser(userId: string): Promise<Ba
       continue;
     }
     const raw = r.custId?.trim();
-    if (!raw) continue;
-    const k = normalizeTradeCustId(raw);
+    const k = raw ? normalizeTradeCustId(raw) : '';
     const hit = k ? fiscalByCust.get(k) : undefined;
-    if (!hit) continue;
-    await prisma.msmeConfirmation.update({
-      where: { id: r.id },
-      data: { reportingFiscalYear: hit.year, reportingFiscalQuarter: hit.quarter },
-    });
+    if (hit) {
+      await prisma.msmeConfirmation.update({
+        where: { id: r.id },
+        data: { reportingFiscalYear: hit.year, reportingFiscalQuarter: hit.quarter },
+      });
+    } else {
+      await prisma.msmeConfirmation.update({
+        where: { id: r.id },
+        data: {
+          reportingFiscalYear: listingFallback.reportingFiscalYear,
+          reportingFiscalQuarter: listingFallback.reportingFiscalQuarter,
+        },
+      });
+    }
     result.msmeFromTrade++;
   }
 

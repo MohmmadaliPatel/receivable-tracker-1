@@ -998,7 +998,7 @@ export async function getLatestReportingFiscalPeriod(
     }
   };
 
-  const [tp, tr, ms] = await Promise.all([
+  const [tp, tr, ms, uploads] = await Promise.all([
     prisma.tradePayableConfirmation.findMany({
       where: { ...uw, reportingFiscalYear: { not: null }, reportingFiscalQuarter: { not: null } },
       select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
@@ -1014,11 +1014,23 @@ export async function getLatestReportingFiscalPeriod(
       select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
       distinct: ['reportingFiscalYear', 'reportingFiscalQuarter'],
     }),
+    userId
+      ? prisma.tradeListingUpload.findMany({
+          where: { userId },
+          select: { reportingFiscalYear: true, reportingFiscalQuarter: true },
+          distinct: ['reportingFiscalYear', 'reportingFiscalQuarter'],
+        })
+      : Promise.resolve([]),
   ]);
 
   collect(tp);
   collect(tr);
   collect(ms);
+  for (const u of uploads) {
+    if (u.reportingFiscalYear != null && u.reportingFiscalQuarter != null) {
+      pairs.push({ year: u.reportingFiscalYear, quarter: u.reportingFiscalQuarter });
+    }
+  }
 
   if (pairs.length === 0) return null;
 

@@ -7,6 +7,7 @@ import { getSession } from '@/lib/simple-auth';
 import { userCanAccessModule } from '@/lib/module-access';
 import { syncRtIndiaContacts } from '@/lib/rt-india-ingest';
 import { maybeHydrateMsmeFromPartyMasters } from '@/lib/masters-msme-hook';
+import { maybeHydrateTpFromPartyMasters } from '@/lib/masters-tp-hook';
 
 async function auth() {
   const cookieStore = await cookies();
@@ -37,8 +38,9 @@ export async function POST(request: NextRequest) {
   fs.writeFileSync(tmp, buf);
   try {
     const result = await syncRtIndiaContacts(tmp, 'vendor_only');
+    const tpHydrated = await maybeHydrateTpFromPartyMasters(user);
     const msmeHydrated = await maybeHydrateMsmeFromPartyMasters(user);
-    return NextResponse.json({ success: true, ...result, msmeHydrated });
+    return NextResponse.json({ success: true, ...result, tpHydrated, msmeHydrated });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: msg }, { status: 400 });

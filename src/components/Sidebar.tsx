@@ -41,9 +41,9 @@ const iconClass = 'w-[18px] h-[18px] shrink-0 stroke-[1.75]';
 
 export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
-  const canTp = !user || user.role === 'admin' || (user.accessTradePayable ?? true);
-  const canTr = !user || user.role === 'admin' || (user.accessTradeReceivable ?? true);
-  const canMsme = !user || user.role === 'admin' || (user.accessConfirmMsme ?? true);
+  const canTp = !user || user.role === 'admin' || !!user.accessTradePayable;
+  const canTr = !user || user.role === 'admin' || !!user.accessTradeReceivable;
+  const canMsme = !user || user.role === 'admin' || !!user.accessConfirmMsme;
 
   const [mastersOpen, setMastersOpen] = useState(false);
 

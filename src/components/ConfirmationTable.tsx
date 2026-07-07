@@ -7,6 +7,7 @@ import SendConfirmModal from './SendConfirmModal';
 import EditRecordModal from './EditRecordModal';
 import { TRADE_COMPOSITE_SEP } from '@/lib/trade-composite-cust';
 import { effectiveMsmeContactEmail } from '@/lib/msme-display-email';
+import { isMsmeCertificateAttachment, parseAttachmentList } from '@/lib/msme-certificate';
 import { useFiscalFilter } from '@/components/FiscalFilterProvider';
 
 export interface ConfirmationRecord {
@@ -113,19 +114,18 @@ function msmeVendorTableParts(record: ConfirmationRecord) {
   };
 }
 
-function isMsmeCertificateAttachment(name: string, contentType?: string): boolean {
-  const lower = name.toLowerCase();
-  const ct = (contentType || '').toLowerCase();
-  if (lower.endsWith('.pdf') || ct.includes('pdf')) return true;
-  if (lower.match(/\.(jpg|jpeg|png|gif|webp)$/) || ct.startsWith('image/')) return true;
-  return false;
-}
-
-/** Web portal uploads + certificate attachments from inbox replies (for MSME grid links). */
 function msmeCertificateViewLinks(
   record: ConfirmationRecord
 ): Array<{ key: string; label: string; href: string }> {
   const out: Array<{ key: string; label: string; href: string }> = [];
+  const seen = new Set<string>();
+
+  const pushLink = (key: string, label: string, href: string) => {
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ key, label, href });
+  };
+
   try {
     const raw = record.msmeCertificateFilesJson?.trim();
     if (raw && raw !== '[]') {
@@ -133,11 +133,11 @@ function msmeCertificateViewLinks(
       if (Array.isArray(j)) {
         j.forEach((f, i) => {
           if (f.path) {
-            out.push({
-              key: `web-${i}-${f.path}`,
-              label: f.originalName || 'Certificate (web)',
-              href: `/api/uploads/local-file?relative=${encodeURIComponent(f.path)}`,
-            });
+            pushLink(
+              `web-${i}-${f.path}`,
+              f.originalName || 'Certificate (web)',
+              `/api/uploads/local-file?relative=${encodeURIComponent(f.path)}`
+            );
           }
         });
       }
@@ -145,37 +145,45 @@ function msmeCertificateViewLinks(
   } catch {
     /* ignore */
   }
-  if (!record.responsesJson?.trim()) return out;
-  try {
-    const responses = JSON.parse(record.responsesJson) as Array<{ attachmentsJson?: string | null }>;
-    if (!Array.isArray(responses)) return out;
-    responses.forEach((r, ri) => {
-      if (!r.attachmentsJson?.trim()) return;
-      let atts: Array<{ id: string; name: string; contentType?: string }> = [];
-      try {
-        atts = JSON.parse(r.attachmentsJson) as typeof atts;
-      } catch {
-        return;
-      }
-      if (!Array.isArray(atts)) return;
-      atts.forEach((a) => {
-        const name = a.name || '';
-        if (!isMsmeCertificateAttachment(name, a.contentType)) return;
-        const params = new URLSearchParams({
-          attachmentId: a.id,
-          responseIndex: String(ri),
-          inline: '1',
-        });
-        out.push({
-          key: `email-${ri}-${a.id}`,
-          label: a.name || 'Certificate (email)',
-          href: `/api/confirmations/${record.id}/response-attachment?${params.toString()}`,
-        });
+
+  const pushEmailAttachments = (atts: Array<{ id: string; name: string; contentType?: string }>, ri: number) => {
+    atts.forEach((a) => {
+      const name = a.name || '';
+      if (!isMsmeCertificateAttachment(name, a.contentType)) return;
+      const params = new URLSearchParams({
+        attachmentId: a.id,
+        responseIndex: String(ri),
+        inline: '1',
       });
+      pushLink(
+        `email-${ri}-${a.id}`,
+        a.name || 'Certificate (email)',
+        `/api/confirmations/${record.id}/response-attachment?${params.toString()}`
+      );
     });
-  } catch {
-    /* ignore */
+  };
+
+  if (record.responsesJson?.trim()) {
+    try {
+      const responses = JSON.parse(record.responsesJson) as Array<{ attachmentsJson?: string | null }>;
+      if (Array.isArray(responses)) {
+        responses.forEach((r, ri) => {
+          if (!r.attachmentsJson?.trim()) return;
+          pushEmailAttachments(parseAttachmentList(r.attachmentsJson) as Array<{ id: string; name: string; contentType?: string }>, ri);
+        });
+      }
+    } catch {
+      /* ignore */
+    }
   }
+
+  if (record.responseAttachmentsJson?.trim()) {
+    pushEmailAttachments(
+      parseAttachmentList(record.responseAttachmentsJson) as Array<{ id: string; name: string; contentType?: string }>,
+      -1
+    );
+  }
+
   return out;
 }
 
@@ -730,6 +738,7 @@ export default function ConfirmationTable({
                       const rq =
                         record.respondentQueryJson?.trim() &&
                         record.respondentQueryJson !== '[]';
+                      const links = msmeCertificateViewLinks(record);
                       const showView =
                         !!record.sentEmailFilePath ||
                         !!record.responseEmailFilePath ||
@@ -737,6 +746,7 @@ export default function ConfirmationTable({
                         !!record.responseBody ||
                         !!record.webConfirmedAt ||
                         !!rq ||
+                        links.length > 0 ||
                         !!(record.msmeCertificateFilesJson?.trim() && record.msmeCertificateFilesJson !== '[]') ||
                         record.msmeHasCertificate === true ||
                         record.msmeHasCertificate === false;

@@ -103,11 +103,11 @@ export default function UsersClient() {
                       <span className="text-gray-400">All</span>
                     ) : (
                       <span>
-                        {[u.accessTradePayable !== false ? 'Payables' : null,
-                          u.accessTradeReceivable !== false ? 'Receivables' : null,
-                          u.accessConfirmMsme !== false ? 'MSME' : null]
+                        {[u.accessTradePayable ? 'Payables' : null,
+                          u.accessTradeReceivable ? 'Receivables' : null,
+                          u.accessConfirmMsme ? 'MSME' : null]
                           .filter(Boolean)
-                          .join(' · ') || '—'}
+                          .join(' · ') || 'None'}
                       </span>
                     )}
                   </td>
@@ -170,17 +170,17 @@ function UserModal({
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [role, setRole] = useState(user?.role || 'user');
-  const [accessTp, setAccessTp] = useState(user?.accessTradePayable !== false);
-  const [accessTr, setAccessTr] = useState(user?.accessTradeReceivable !== false);
-  const [accessMsme, setAccessMsme] = useState(user?.accessConfirmMsme !== false);
+  const [accessTp, setAccessTp] = useState(user?.accessTradePayable ?? true);
+  const [accessTr, setAccessTr] = useState(user?.accessTradeReceivable ?? true);
+  const [accessMsme, setAccessMsme] = useState(user?.accessConfirmMsme ?? true);
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setAccessTp(user?.accessTradePayable !== false);
-    setAccessTr(user?.accessTradeReceivable !== false);
-    setAccessMsme(user?.accessConfirmMsme !== false);
+    setAccessTp(user?.accessTradePayable ?? true);
+    setAccessTr(user?.accessTradeReceivable ?? true);
+    setAccessMsme(user?.accessConfirmMsme ?? true);
     setRole(user?.role || 'user');
   }, [user]);
 

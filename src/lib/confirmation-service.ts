@@ -27,6 +27,7 @@ import {
 import type { ModuleKey } from '@/lib/module-types';
 import { CATEGORY_TRADE_PAYABLES, CATEGORY_TRADE_RECEIVABLES } from '@/lib/module-types';
 import { fiscalStampPatch, resolveFiscalStampForSend } from '@/lib/listing-upload-fiscal';
+import { attachmentsIncludeMsmeCertificate } from '@/lib/msme-certificate';
 import {
   resolveTradeAnchorId,
   loadTradeGroupRows,
@@ -1944,6 +1945,11 @@ async function checkRepliesForMailboxGroup(config: EmailConfig, pendingItems: Co
         responseHasAttachments: hasAttachments,
         responseAttachmentsJson: attachmentsJson,
         responsesJson: JSON.stringify(existingResponses),
+        ...(module === 'confirm_msme' &&
+        (attachmentsIncludeMsmeCertificate(attachmentsJson) ||
+          existingResponses.some((r) => attachmentsIncludeMsmeCertificate(String(r.attachmentsJson ?? ''))))
+          ? { msmeHasCertificate: true as const }
+          : {}),
       });
 
       repliesFound++;

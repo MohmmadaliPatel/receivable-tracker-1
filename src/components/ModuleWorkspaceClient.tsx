@@ -277,6 +277,23 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once when opening MSME workspace
   }, [isMsme, apiSegment]);
 
+  useEffect(() => {
+    if (moduleKey !== 'trade_payable') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/modules/${apiSegment}/hydrate-from-vendors`, { method: 'POST' });
+        if (!cancelled && res.ok) await fetchRecords();
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once when opening TP workspace
+  }, [moduleKey, apiSegment]);
+
   const sortedRecords = [...records].sort((a, b) => {
     const aVal = a[sortField] || '';
     const bVal = b[sortField] || '';

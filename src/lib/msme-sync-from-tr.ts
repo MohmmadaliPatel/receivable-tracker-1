@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { normalizeTradeCustId } from '@/lib/trade-composite-cust';
 import { normalizeSapCode } from '@/lib/confirmation-repository';
+import { resolveWorkspaceFiscalForUser } from '@/lib/listing-fiscal-context';
 
 type AnchorLike = {
   entityContactId: string | null;
@@ -216,6 +217,7 @@ export async function syncMsmeFromSupplierMaster(userId: string): Promise<{ upse
 
 /** Confirm MSME from VendorMaster; uses EntityContact when vendor row has no TO/CC. */
 export async function syncMsmeFromVendorMaster(userId: string): Promise<{ upserted: number }> {
+  const fiscal = await resolveWorkspaceFiscalForUser(userId, 'trade_payable');
   const vendors = await prisma.vendorMaster.findMany();
   const contacts = await prisma.entityContact.findMany({
     select: { id: true, sapCustomerCode: true, emailTo: true, emailCc: true },
@@ -263,6 +265,11 @@ export async function syncMsmeFromVendorMaster(userId: string): Promise<{ upsert
       where: { userId, OR: orClause },
     });
 
+    const fiscalData = {
+      reportingFiscalYear: fiscal.reportingFiscalYear,
+      reportingFiscalQuarter: fiscal.reportingFiscalQuarter,
+    };
+
     const data = {
       entityName,
       custId,
@@ -271,12 +278,29 @@ export async function syncMsmeFromVendorMaster(userId: string): Promise<{ upsert
       entityContactId: ec?.id ?? null,
       emailTo,
       emailCc,
+      ...fiscalData,
     };
 
     if (existing) {
+      const keepExistingFiscal =
+        existing.reportingFiscalYear != null && existing.reportingFiscalQuarter != null;
       await prisma.msmeConfirmation.update({
         where: { id: existing.id },
-        data,
+        data: {
+          entityName,
+          custId,
+          vendorMasterId: vm.id,
+          supplierMasterId: null,
+          entityContactId: ec?.id ?? null,
+          emailTo,
+          emailCc,
+          ...(keepExistingFiscal
+            ? {}
+            : {
+                reportingFiscalYear: fiscal.reportingFiscalYear,
+                reportingFiscalQuarter: fiscal.reportingFiscalQuarter,
+              }),
+        },
       });
     } else {
       await prisma.msmeConfirmation.create({
