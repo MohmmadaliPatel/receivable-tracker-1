@@ -30,30 +30,6 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/supplier-master": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/supplier-master",
-      "dataRoute": "/supplier-master.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
     "/_not-found": {
       "initialStatus": 404,
       "experimentalBypassFor": [
@@ -70,30 +46,6 @@
       "initialRevalidateSeconds": false,
       "srcRoute": "/_not-found",
       "dataRoute": "/_not-found.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
-    "/vendor-master": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/vendor-master",
-      "dataRoute": "/vendor-master.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -127,7 +79,7 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/bulk-email": {
+    "/vendor-master": {
       "experimentalBypassFor": [
         {
           "type": "header",
@@ -140,8 +92,32 @@
         }
       ],
       "initialRevalidateSeconds": false,
-      "srcRoute": "/bulk-email",
-      "dataRoute": "/bulk-email.rsc",
+      "srcRoute": "/vendor-master",
+      "dataRoute": "/vendor-master.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/supplier-master": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/supplier-master",
+      "dataRoute": "/supplier-master.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -199,30 +175,6 @@
         "x-next-revalidate-tag-token"
       ]
     },
-    "/respond/msme/decline": {
-      "experimentalBypassFor": [
-        {
-          "type": "header",
-          "key": "next-action"
-        },
-        {
-          "type": "header",
-          "key": "content-type",
-          "value": "multipart/form-data;.*"
-        }
-      ],
-      "initialRevalidateSeconds": false,
-      "srcRoute": "/respond/msme/decline",
-      "dataRoute": "/respond/msme/decline.rsc",
-      "allowHeader": [
-        "host",
-        "x-matched-path",
-        "x-prerender-revalidate",
-        "x-prerender-revalidate-if-generated",
-        "x-next-revalidated-tags",
-        "x-next-revalidate-tag-token"
-      ]
-    },
     "/respond/msme/upload": {
       "experimentalBypassFor": [
         {
@@ -247,6 +199,30 @@
         "x-next-revalidate-tag-token"
       ]
     },
+    "/respond/msme/decline": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/respond/msme/decline",
+      "dataRoute": "/respond/msme/decline.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
     "/respond/trade/confirm": {
       "experimentalBypassFor": [
         {
@@ -262,6 +238,30 @@
       "initialRevalidateSeconds": false,
       "srcRoute": "/respond/trade/confirm",
       "dataRoute": "/respond/trade/confirm.rsc",
+      "allowHeader": [
+        "host",
+        "x-matched-path",
+        "x-prerender-revalidate",
+        "x-prerender-revalidate-if-generated",
+        "x-next-revalidated-tags",
+        "x-next-revalidate-tag-token"
+      ]
+    },
+    "/bulk-email": {
+      "experimentalBypassFor": [
+        {
+          "type": "header",
+          "key": "next-action"
+        },
+        {
+          "type": "header",
+          "key": "content-type",
+          "value": "multipart/form-data;.*"
+        }
+      ],
+      "initialRevalidateSeconds": false,
+      "srcRoute": "/bulk-email",
+      "dataRoute": "/bulk-email.rsc",
       "allowHeader": [
         "host",
         "x-matched-path",
@@ -299,8 +299,8 @@
   "dynamicRoutes": {},
   "notFoundRoutes": [],
   "preview": {
-    "previewModeId": "993525988f30e967feef5d626c793dca",
-    "previewModeSigningKey": "5a84d538bebc6b3de6c552d190357955b41823a30d21a4727ae58b2f6000ef8d",
-    "previewModeEncryptionKey": "4cb1086c0e28c031fa76d419e70c5e8dd1df87e1ec36430b462b066194ce8bcf"
+    "previewModeId": "56a77d2d20e976cb9feb27fd6104325f",
+    "previewModeSigningKey": "f81dba6fa149d01b35afc63a19ad359f980483fdf03b5d5d08eba36b1bdc678d",
+    "previewModeEncryptionKey": "d54d3230f35f4ee7d764e404fe0ac559e22116ff4a8005a59d2183c567f622ad"
   }
 }
