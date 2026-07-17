@@ -18,9 +18,19 @@ function UploadBody() {
       return;
     }
     if (!files?.length) {
-      setMessage('Choose at least one file.');
+      setMessage('Choose at least one PDF file.');
       setStatus('error');
       return;
+    }
+    for (let i = 0; i < files.length; i++) {
+      const f = files.item(i)!;
+      const name = (f.name || '').toLowerCase();
+      const isPdf = name.endsWith('.pdf') || f.type === 'application/pdf';
+      if (!isPdf) {
+        setMessage('Only PDF files are allowed for MSME certificates.');
+        setStatus('error');
+        return;
+      }
     }
     setStatus('sending');
     const form = new FormData();
@@ -56,12 +66,13 @@ function UploadBody() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-lg border border-slate-200 p-8">
         <h1 className="text-xl font-semibold text-slate-900 mb-2">MSME certificate</h1>
-        <p className="text-sm text-slate-600 mb-6">Upload one or more MSME certificate files.</p>
+        <p className="text-sm text-slate-600 mb-6">Upload one or more MSME certificate PDFs.</p>
         {status !== 'done' && status !== 'already' ? (
           <form onSubmit={submit} className="space-y-4">
             <input
               type="file"
               multiple
+              accept="application/pdf,.pdf"
               onChange={(e) => setFiles(e.target.files)}
               className="text-sm w-full"
             />

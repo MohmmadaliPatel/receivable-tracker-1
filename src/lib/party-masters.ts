@@ -222,6 +222,24 @@ export async function upsertPartyMastersFromRtRow(
         ...(emailCc !== undefined ? { emailCc } : {}),
       },
     });
+    // Push RT emails onto listing twins (composite company||party keys) that still lack TO.
+    if (emailTo) {
+      await prisma.vendorMaster.updateMany({
+        where: {
+          emailTo: '',
+          OR: [
+            { sapCustomerCode: normCode },
+            { normalizedKey: { startsWith: `${normCode}${TRADE_COMPOSITE_SEP}` } },
+            { custId: { startsWith: `${normCode}${TRADE_COMPOSITE_SEP}` } },
+          ],
+        },
+        data: {
+          emailTo,
+          ...(emailCc ? { emailCc } : {}),
+          sapCustomerCode: normCode,
+        },
+      });
+    }
   }
 
   if (updateSupplier) {
@@ -239,5 +257,22 @@ export async function upsertPartyMastersFromRtRow(
         ...(emailCc !== undefined ? { emailCc } : {}),
       },
     });
+    if (emailTo) {
+      await prisma.supplierMaster.updateMany({
+        where: {
+          emailTo: '',
+          OR: [
+            { sapCustomerCode: normCode },
+            { normalizedKey: { startsWith: `${normCode}${TRADE_COMPOSITE_SEP}` } },
+            { custId: { startsWith: `${normCode}${TRADE_COMPOSITE_SEP}` } },
+          ],
+        },
+        data: {
+          emailTo,
+          ...(emailCc ? { emailCc } : {}),
+          sapCustomerCode: normCode,
+        },
+      });
+    }
   }
 }

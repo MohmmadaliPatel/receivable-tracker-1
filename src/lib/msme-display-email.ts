@@ -8,6 +8,7 @@ export type MsmeEmailDisplayInfo = {
 
 export function effectiveMsmeContactEmail(record: {
   emailTo?: string | null;
+  emailCc?: string | null;
   responseFromEmail?: string | null;
   responsesJson?: string | null;
 }): MsmeEmailDisplayInfo {
@@ -29,4 +30,9 @@ export function effectiveMsmeContactEmail(record: {
     }
   }
   return { text: '', fromReply: false };
+}
+
+/** EMAIL CC column: confirmation CC, else empty (vendor overlay happens in applyVendorMasterToUnified). */
+export function effectiveMsmeContactCc(record: { emailCc?: string | null }): string {
+  return record.emailCc?.trim() || '';
 }

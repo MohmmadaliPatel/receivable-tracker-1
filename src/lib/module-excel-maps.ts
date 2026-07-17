@@ -121,6 +121,9 @@ export function mapTradePayableExcelRow(r: Record<string, string>) {
       'Amount in document currency',
       'Loc.curr.amount',
     ]) || '';
+  const emailTo =
+    cellFromRowFlexible(r, ['Email TO', 'Email To', 'email to', 'Email', 'E-Mail']) || '';
+  const emailCc = cellFromRowFlexible(r, ['Email CC', 'email cc', 'E-Mail CC']) || '';
   return {
     entityName,
     bankName: bankName || undefined,
@@ -129,8 +132,8 @@ export function mapTradePayableExcelRow(r: Record<string, string>) {
     documentDate: documentDate || undefined,
     documentNumber: documentNumber || undefined,
     currencyValue: currencyValue || undefined,
-    emailTo: '',
-    emailCc: '' as string | undefined,
+    emailTo,
+    emailCc: emailCc || (undefined as string | undefined),
   };
 }
 
@@ -155,6 +158,9 @@ export function mapTradeReceivableExcelRow(r: Record<string, string>) {
       'Amount in document currency',
       'Loc.curr.amount',
     ]) || '';
+  const emailTo =
+    cellFromRowFlexible(r, ['Email TO', 'Email To', 'email to', 'Email', 'E-Mail']) || '';
+  const emailCc = cellFromRowFlexible(r, ['Email CC', 'email cc', 'E-Mail CC']) || '';
   return {
     entityName,
     bankName: bankName || undefined,
@@ -163,8 +169,8 @@ export function mapTradeReceivableExcelRow(r: Record<string, string>) {
     documentDate: documentDate || undefined,
     documentNumber: documentNumber || undefined,
     currencyValue: currencyValue || undefined,
-    emailTo: '',
-    emailCc: '' as string | undefined,
+    emailTo,
+    emailCc: emailCc || (undefined as string | undefined),
   };
 }
 

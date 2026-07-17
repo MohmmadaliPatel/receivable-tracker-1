@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { normalizeTradeCustId } from '@/lib/trade-composite-cust';
+import { normalizeTradeCustId, TRADE_COMPOSITE_SEP } from '@/lib/trade-composite-cust';
 import { normalizeSapCode } from '@/lib/confirmation-repository';
 import { resolveWorkspaceFiscalForUser } from '@/lib/listing-fiscal-context';
 
@@ -215,28 +215,97 @@ export async function syncMsmeFromSupplierMaster(userId: string): Promise<{ upse
   return { upserted };
 }
 
-/** Confirm MSME from VendorMaster; uses EntityContact when vendor row has no TO/CC. */
+function normalizePartyNameKey(raw: string | null | undefined): string {
+  return String(raw ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+/** Confirm MSME from VendorMaster; fills TO/CC from RT twin / EntityContact; never blanks existing emails. */
 export async function syncMsmeFromVendorMaster(userId: string): Promise<{ upserted: number }> {
   const fiscal = await resolveWorkspaceFiscalForUser(userId, 'trade_payable');
   const vendors = await prisma.vendorMaster.findMany();
   const contacts = await prisma.entityContact.findMany({
-    select: { id: true, sapCustomerCode: true, emailTo: true, emailCc: true },
+    select: { id: true, sapCustomerCode: true, payeeName: true, emailTo: true, emailCc: true },
   });
   const idBySap = new Map(
     contacts
       .filter((c): c is typeof c & { sapCustomerCode: string } => !!c.sapCustomerCode?.trim())
-      .map((c) => [c.sapCustomerCode, c])
+      .map((c) => [normalizeSapCode(c.sapCustomerCode) || c.sapCustomerCode.trim(), c])
   );
+  const contactByPayee = new Map<string, (typeof contacts)[0]>();
+  for (const c of contacts) {
+    if (!c.emailTo?.trim()) continue;
+    const nk = normalizePartyNameKey(c.payeeName);
+    if (nk && !contactByPayee.has(nk)) contactByPayee.set(nk, c);
+  }
+
+  /** RT / email-bearing vendors keyed by SAP code (not org company code composites). */
+  const emailVendorBySap = new Map<string, (typeof vendors)[0]>();
+  const emailVendorByParty = new Map<string, (typeof vendors)[0]>();
+  for (const v of vendors) {
+    if (!v.emailTo?.trim()) continue;
+    if (v.sapCustomerCode?.trim()) {
+      const sap = normalizeSapCode(v.sapCustomerCode) || v.sapCustomerCode.trim();
+      emailVendorBySap.set(sap, v);
+    }
+    // SAP-only master rows use normalizedKey === sap code (no composite separator).
+    const nk = normalizeTradeCustId(v.normalizedKey);
+    if (nk && !nk.includes(TRADE_COMPOSITE_SEP)) {
+      emailVendorBySap.set(nk, v);
+    }
+    const party = normalizePartyNameKey(v.partyName);
+    if (party && !emailVendorByParty.has(party)) emailVendorByParty.set(party, v);
+  }
+
+  /** TP anchors that already have TO — recover emails wiped by earlier blank syncs. */
+  const tpAnchors = await prisma.tradePayableConfirmation.findMany({
+    where: { userId, emailThreadAnchorId: null, NOT: { emailTo: '' } },
+    select: { vendorMasterId: true, custId: true, emailTo: true, emailCc: true },
+  });
+  const tpEmailByVendorId = new Map<string, { emailTo: string; emailCc: string | null }>();
+  const tpEmailByCust = new Map<string, { emailTo: string; emailCc: string | null }>();
+  for (const t of tpAnchors) {
+    const payload = { emailTo: t.emailTo.trim(), emailCc: t.emailCc?.trim() || null };
+    if (t.vendorMasterId && !tpEmailByVendorId.has(t.vendorMasterId)) {
+      tpEmailByVendorId.set(t.vendorMasterId, payload);
+    }
+    if (t.custId) {
+      const ck = normalizeTradeCustId(t.custId);
+      if (ck && !tpEmailByCust.has(ck)) tpEmailByCust.set(ck, payload);
+    }
+  }
 
   function contactForVendor(vm: (typeof vendors)[0]) {
     if (vm.sapCustomerCode?.trim()) {
-      const hit = idBySap.get(vm.sapCustomerCode.trim());
+      const sap = normalizeSapCode(vm.sapCustomerCode) || vm.sapCustomerCode.trim();
+      const hit = idBySap.get(sap);
       if (hit) return hit;
     }
-    const code = normalizeSapCode(vm.companyCode);
-    if (code) {
-      const hit = idBySap.get(code);
-      if (hit) return hit;
+    // SAP-only vendor rows: companyCode is the account code.
+    if (!vm.partyName?.trim()) {
+      const code = normalizeSapCode(vm.companyCode);
+      if (code) {
+        const hit = idBySap.get(code);
+        if (hit) return hit;
+      }
+    }
+    const byName = normalizePartyNameKey(vm.partyName);
+    if (byName) return contactByPayee.get(byName) ?? null;
+    return null;
+  }
+
+  function twinVendorWithEmail(vm: (typeof vendors)[0]): (typeof vendors)[0] | null {
+    if (vm.sapCustomerCode?.trim()) {
+      const sap = normalizeSapCode(vm.sapCustomerCode) || vm.sapCustomerCode.trim();
+      const hit = emailVendorBySap.get(sap);
+      if (hit && hit.id !== vm.id) return hit;
+    }
+    const party = normalizePartyNameKey(vm.partyName);
+    if (party) {
+      const hit = emailVendorByParty.get(party);
+      if (hit && hit.id !== vm.id) return hit;
     }
     return null;
   }
@@ -244,8 +313,42 @@ export async function syncMsmeFromVendorMaster(userId: string): Promise<{ upsert
   let upserted = 0;
   for (const vm of vendors) {
     const ec = contactForVendor(vm);
-    const emailTo = (vm.emailTo?.trim() || ec?.emailTo?.trim() || '').trim();
-    const emailCc = vm.emailCc?.trim() ? vm.emailCc.trim() : ec?.emailCc ?? null;
+    const twin = !vm.emailTo?.trim() ? twinVendorWithEmail(vm) : null;
+    const tpHit =
+      tpEmailByVendorId.get(vm.id) ||
+      (vm.custId ? tpEmailByCust.get(normalizeTradeCustId(vm.custId)) : undefined) ||
+      (vm.normalizedKey ? tpEmailByCust.get(normalizeTradeCustId(vm.normalizedKey)) : undefined);
+
+    let emailTo = (
+      vm.emailTo?.trim() ||
+      twin?.emailTo?.trim() ||
+      ec?.emailTo?.trim() ||
+      tpHit?.emailTo ||
+      ''
+    ).trim();
+    let emailCc =
+      (vm.emailCc?.trim() ||
+        twin?.emailCc?.trim() ||
+        ec?.emailCc?.trim() ||
+        tpHit?.emailCc ||
+        '') || null;
+
+    // Backfill listing vendor so masters and future syncs keep the resolved email.
+    if (emailTo && !vm.emailTo?.trim()) {
+      await prisma.vendorMaster.update({
+        where: { id: vm.id },
+        data: {
+          emailTo,
+          ...(emailCc ? { emailCc } : {}),
+          ...(twin?.sapCustomerCode && !vm.sapCustomerCode
+            ? { sapCustomerCode: twin.sapCustomerCode }
+            : {}),
+          ...(ec?.sapCustomerCode && !vm.sapCustomerCode
+            ? { sapCustomerCode: ec.sapCustomerCode }
+            : {}),
+        },
+      });
+    }
 
     const entityName = vm.partyName?.trim()
       ? `${vm.companyCode} · ${vm.partyName}`.trim()
@@ -264,6 +367,12 @@ export async function syncMsmeFromVendorMaster(userId: string): Promise<{ upsert
     const existing = await prisma.msmeConfirmation.findFirst({
       where: { userId, OR: orClause },
     });
+
+    // Never wipe a previously saved TO/CC with blanks from a blank listing/hydrate pass.
+    if (existing) {
+      if (!emailTo && existing.emailTo?.trim()) emailTo = existing.emailTo.trim();
+      if (!emailCc && existing.emailCc?.trim()) emailCc = existing.emailCc.trim();
+    }
 
     const fiscalData = {
       reportingFiscalYear: fiscal.reportingFiscalYear,
@@ -291,7 +400,7 @@ export async function syncMsmeFromVendorMaster(userId: string): Promise<{ upsert
           custId,
           vendorMasterId: vm.id,
           supplierMasterId: null,
-          entityContactId: ec?.id ?? null,
+          entityContactId: ec?.id ?? existing.entityContactId ?? null,
           emailTo,
           emailCc,
           ...(keepExistingFiscal

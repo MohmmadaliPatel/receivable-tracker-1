@@ -36,7 +36,19 @@ export async function POST(request: NextRequest) {
 
   const files = form.getAll('files').filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) {
-    return NextResponse.json({ error: 'Add at least one file' }, { status: 400 });
+    return NextResponse.json({ error: 'Add at least one PDF file' }, { status: 400 });
+  }
+
+  for (const file of files) {
+    const name = (file.name || '').toLowerCase();
+    const type = (file.type || '').toLowerCase();
+    const isPdf = name.endsWith('.pdf') || type === 'application/pdf';
+    if (!isPdf) {
+      return NextResponse.json(
+        { error: 'Only PDF files are allowed for MSME certificates' },
+        { status: 400 }
+      );
+    }
   }
 
   const dir = path.join(process.cwd(), 'uploads', 'msme', record.id);
@@ -45,14 +57,21 @@ export async function POST(request: NextRequest) {
   const saved: Array<{ path: string; originalName: string; uploadedAt: string }> = [];
   for (const file of files) {
     const buf = Buffer.from(await file.arrayBuffer());
-    const base = safeSegment(file.name || 'upload.bin');
-    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}-${base}`;
+    // Reject non-PDF magic bytes even if extension/type was spoofed.
+    if (buf.length < 5 || buf.subarray(0, 5).toString('ascii') !== '%PDF-') {
+      return NextResponse.json(
+        { error: 'Only PDF files are allowed for MSME certificates' },
+        { status: 400 }
+      );
+    }
+    const base = safeSegment(file.name || 'certificate.pdf');
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}-${base.endsWith('.pdf') ? base : `${base}.pdf`}`;
     const full = path.join(dir, unique);
     fs.writeFileSync(full, buf);
     const rel = path.join('uploads', 'msme', record.id, unique);
     saved.push({
       path: rel.replace(/\\/g, '/'),
-      originalName: file.name || 'file',
+      originalName: file.name || 'certificate.pdf',
       uploadedAt: new Date().toISOString(),
     });
   }

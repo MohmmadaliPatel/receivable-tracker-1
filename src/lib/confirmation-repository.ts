@@ -93,8 +93,12 @@ function applyVendorMasterToUnified(
   vm: VendorMaster | null | undefined
 ): UnifiedConfirmationRecord {
   if (!vm) return u;
+  const emailTo = u.emailTo?.trim() ? u.emailTo : vm.emailTo?.trim() || u.emailTo;
+  const emailCc = u.emailCc?.trim() ? u.emailCc : vm.emailCc?.trim() || u.emailCc;
   return {
     ...u,
+    emailTo: emailTo ?? u.emailTo,
+    emailCc: emailCc ?? u.emailCc,
     vendorMasterNormalizedKey: vm.normalizedKey,
     vendorMasterCompanyCode: vm.companyCode,
     vendorMasterPartyName: vm.partyName,
