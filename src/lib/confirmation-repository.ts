@@ -789,7 +789,13 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
           out.push({ ...asJson(anchor, mod), tradeInvoiceLines: [] });
           continue;
         }
-        const rawLines = await loadTradeGroupRows(anchor.id, 'trade_payable');
+        const lineFiscal = hasReportingFiscalFilter(filter)
+          ? {
+              reportingFiscalYears: filter.reportingFiscalYears,
+              reportingFiscalQuarters: filter.reportingFiscalQuarters,
+            }
+          : null;
+        const rawLines = await loadTradeGroupRows(anchor.id, 'trade_payable', lineFiscal);
         const lines = rawLines.map((r) => asJson(r, mod));
         out.push({ ...asJson(anchor, mod), tradeInvoiceLines: lines });
       }
@@ -867,7 +873,13 @@ export async function listUnifiedConfirmationRecords(filter: ListConfirmationFil
         out.push({ ...asJson(anchor, mod), tradeInvoiceLines: [] });
         continue;
       }
-      const rawLines = await loadTradeGroupRows(anchor.id, 'trade_receivable');
+      const lineFiscal = hasReportingFiscalFilter(filter)
+        ? {
+            reportingFiscalYears: filter.reportingFiscalYears,
+            reportingFiscalQuarters: filter.reportingFiscalQuarters,
+          }
+        : null;
+      const rawLines = await loadTradeGroupRows(anchor.id, 'trade_receivable', lineFiscal);
       const lines = rawLines.map((r) => asJson(r, mod));
       out.push({ ...asJson(anchor, mod), tradeInvoiceLines: lines });
     }

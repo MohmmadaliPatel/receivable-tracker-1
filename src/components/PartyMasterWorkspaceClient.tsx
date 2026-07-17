@@ -47,7 +47,7 @@ export default function PartyMasterWorkspaceClient({
   const [rows, setRows] = useState<MasterRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [listingMode, setListingMode] = useState<'append' | 'replace'>('append');
+  const [listingMode, setListingMode] = useState<'append' | 'replace'>('replace');
   const fiscalYearChoices = useMemo(() => listingUploadYearOptions(), []);
   const fiscalDefaults = useMemo(() => defaultListingFiscalSelection(), []);
   const [listingFiscalYear, setListingFiscalYear] = useState(() => fiscalDefaults.reportingFiscalYear);
@@ -191,7 +191,9 @@ export default function PartyMasterWorkspaceClient({
             />
             <span className="font-medium capitalize">{m}</span>
             <span className="text-xs text-gray-500">
-              {m === 'append' ? 'Add rows' : 'Replace your existing rows in this module'}
+              {m === 'append'
+                ? 'Add rows'
+                : 'Replace existing rows for the selected FY + quarter in this module'}
             </span>
           </label>
         ))}

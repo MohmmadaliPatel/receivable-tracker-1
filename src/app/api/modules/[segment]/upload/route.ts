@@ -13,7 +13,10 @@ import {
   parseTradeListingFile,
 } from '@/lib/trade-listing-import';
 import { maybeHydrateMsmeFromPartyMasters } from '@/lib/masters-msme-hook';
-import { provisionWorkspacesForAllEligibleUsers } from '@/lib/tp-workspace-provision';
+import {
+  provisionWorkspacesForAllEligibleUsers,
+  provisionTradeReceivableWorkspacesForAllEligibleUsers,
+} from '@/lib/tp-workspace-provision';
 import { parseListingUploadFiscal } from '@/lib/listing-upload-fiscal';
 import { prisma } from '@/lib/prisma';
 import { auditActivity, moduleLabel } from '@/lib/audit-route';
@@ -146,9 +149,12 @@ export async function POST(
 
   let msmeHydrated: { upserted: number; fromVendors: number } | null = null;
   let provisioned = null;
+  let trProvisioned = null;
   if (key === 'trade_payable') {
     msmeHydrated = await maybeHydrateMsmeFromPartyMasters(user);
     provisioned = await provisionWorkspacesForAllEligibleUsers(user.userId, 'clone_listing');
+  } else if (key === 'trade_receivable') {
+    trProvisioned = await provisionTradeReceivableWorkspacesForAllEligibleUsers(user.userId);
   }
 
   await auditActivity(request, user, 'LISTING_UPLOAD', {
@@ -167,6 +173,7 @@ export async function POST(
       reportingFiscalQuarter: fiscalParsed.reportingFiscalQuarter,
       ...(msmeHydrated ? { msmeHydrated } : {}),
       ...(provisioned ? { provisioned } : {}),
+      ...(trProvisioned ? { trProvisioned } : {}),
     },
   });
 
@@ -178,5 +185,6 @@ export async function POST(
     skipped: rows.length - mapped.length,
     ...(msmeHydrated ? { msmeHydrated } : {}),
     ...(provisioned ? { provisioned } : {}),
+    ...(trProvisioned ? { trProvisioned } : {}),
   });
 }

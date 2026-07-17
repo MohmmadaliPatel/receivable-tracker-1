@@ -91,9 +91,15 @@ export async function resolveTradeAnchorId(recordId: string, mod: TradeModule): 
   return r.emailThreadAnchorId ?? r.id;
 }
 
+export type TradeGroupFiscalFilter = {
+  reportingFiscalYears?: number[];
+  reportingFiscalQuarters?: number[];
+};
+
 export async function loadTradeGroupRows(
   recordIdOrAnchorId: string,
-  mod: TradeModule
+  mod: TradeModule,
+  fiscal?: TradeGroupFiscalFilter | null
 ): Promise<Array<TradePayableConfirmation | TradeReceivableConfirmation>> {
   const row =
     mod === 'trade_payable'
@@ -108,11 +114,23 @@ export async function loadTradeGroupRows(
       : await prisma.tradeReceivableConfirmation.findUnique({ where: { id: resolvedAnchorId } });
   if (!anchor) return [];
 
+  const years = (fiscal?.reportingFiscalYears ?? []).filter((y) => Number.isFinite(y));
+  const quarters = (fiscal?.reportingFiscalQuarters ?? []).filter((q) => q >= 1 && q <= 4);
+  const fiscalWhere: {
+    reportingFiscalYear?: number | { in: number[] };
+    reportingFiscalQuarter?: number | { in: number[] };
+  } = {};
+  if (years.length === 1) fiscalWhere.reportingFiscalYear = years[0];
+  else if (years.length > 1) fiscalWhere.reportingFiscalYear = { in: years };
+  if (quarters.length === 1) fiscalWhere.reportingFiscalQuarter = quarters[0];
+  else if (quarters.length > 1) fiscalWhere.reportingFiscalQuarter = { in: quarters };
+
   if (mod === 'trade_payable') {
     return prisma.tradePayableConfirmation.findMany({
       where: {
         OR: [{ id: resolvedAnchorId }, { emailThreadAnchorId: resolvedAnchorId }],
         userId: anchor.userId,
+        ...fiscalWhere,
       },
       orderBy: [{ createdAt: 'asc' }],
     });
@@ -121,6 +139,7 @@ export async function loadTradeGroupRows(
     where: {
       OR: [{ id: resolvedAnchorId }, { emailThreadAnchorId: resolvedAnchorId }],
       userId: anchor.userId,
+      ...fiscalWhere,
     },
     orderBy: [{ createdAt: 'asc' }],
   });

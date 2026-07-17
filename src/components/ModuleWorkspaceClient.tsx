@@ -153,7 +153,9 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
   const [showBulkFollowup, setShowBulkFollowup] = useState(false);
   const [showTradeBulkSend, setShowTradeBulkSend] = useState(false);
   const [invoiceLinesAnchorId, setInvoiceLinesAnchorId] = useState<string | null>(null);
-  const [tpHydrated, setTpHydrated] = useState(moduleKey !== 'trade_payable');
+  const [tpHydrated, setTpHydrated] = useState(
+    moduleKey !== 'trade_payable' && moduleKey !== 'trade_receivable'
+  );
 
   const pageStats: TradeWorkspaceStats = {
     total: records.length,
@@ -167,7 +169,7 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
 
   const fetchRecords = useCallback(async () => {
     if (!fiscalReady || !fiscalYear || !fiscalQuarter) return;
-    if (moduleKey === 'trade_payable' && !tpHydrated) return;
+    if ((moduleKey === 'trade_payable' || moduleKey === 'trade_receivable') && !tpHydrated) return;
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -281,7 +283,7 @@ export default function ModuleWorkspaceClient({ moduleKey, title, subtitle }: Mo
   }, [isMsme, apiSegment]);
 
   useEffect(() => {
-    if (moduleKey !== 'trade_payable') {
+    if (moduleKey !== 'trade_payable' && moduleKey !== 'trade_receivable') {
       setTpHydrated(true);
       return;
     }
@@ -981,7 +983,7 @@ function ModuleListingUploadModal({
   onSuccess: () => void;
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [mode, setMode] = useState<'append' | 'replace'>('append');
+  const [mode, setMode] = useState<'append' | 'replace'>(variant === 'sap' ? 'replace' : 'append');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fiscalYearChoices = useMemo(() => listingUploadYearOptions(), []);
@@ -1079,14 +1081,29 @@ function ModuleListingUploadModal({
                 <input type="radio" className="sr-only" checked={mode === m} onChange={() => setMode(m)} />
                 <div className={`p-3 rounded-xl border-2 ${mode === m ? 'border-neutral-900 bg-neutral-50' : 'border-gray-200'}`}>
                   <p className="text-sm font-medium capitalize">{m}</p>
-                  <p className="text-xs text-gray-500">{m === 'replace' ? 'Remove existing rows in this module only' : 'Add new rows'}</p>
+                  <p className="text-xs text-gray-500">
+                    {m === 'replace'
+                      ? variant === 'sap'
+                        ? 'Replace existing rows for the selected FY + quarter in this module'
+                        : 'Remove existing rows in this module only'
+                      : 'Add new rows'}
+                  </p>
                 </div>
               </label>
             ))}
           </div>
           {mode === 'replace' && (
             <p className="text-xs text-neutral-800 bg-neutral-50 border border-neutral-200 rounded-lg p-3">
-              Replace deletes only <strong>{moduleLabel}</strong> records, not the other module.
+              {variant === 'sap' ? (
+                <>
+                  Replace deletes existing <strong>{moduleLabel}</strong> rows for the selected FY +
+                  quarter only (other periods stay). Does not affect the other module.
+                </>
+              ) : (
+                <>
+                  Replace deletes only <strong>{moduleLabel}</strong> records, not the other module.
+                </>
+              )}
             </p>
           )}
           {error && <p className="text-sm text-red-600">{error}</p>}

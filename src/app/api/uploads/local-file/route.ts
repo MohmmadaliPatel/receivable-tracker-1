@@ -13,45 +13,60 @@ function contentTypeForExt(ext: string): string {
   return 'application/octet-stream';
 }
 
-// GET /api/uploads/local-file?relative= uploads/msme/xyz/file.pdf
+/** RFC 5987-safe Content-Disposition for inline/attachment downloads. */
+function contentDispositionHeader(disposition: 'inline' | 'attachment', filename: string): string {
+  const ascii = filename.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '') || 'file';
+  const encoded = encodeURIComponent(filename);
+  return `${disposition}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}
+
+// GET /api/uploads/local-file?relative=uploads/msme/xyz/file.pdf
 export async function GET(request: NextRequest) {
-  const cookieStore = await cookies();
-  const sessionToken = cookieStore.get('session_token')?.value;
-  const session = sessionToken ? await getSession(sessionToken) : null;
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
   const rel = request.nextUrl.searchParams.get('relative')?.trim().replace(/^\/+/, '') ?? '';
-  if (!rel || rel.includes('..')) {
-    return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
-  }
-
-  const absolute = path.resolve(process.cwd(), rel);
-  const rootWithSep = path.normalize(UPLOAD_ROOT + path.sep);
-  const normalizedFile = path.normalize(absolute);
-
-  if (!normalizedFile.startsWith(rootWithSep)) {
-    return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
-  }
 
   try {
+    const cookieStore = await cookies();
+    const sessionToken = cookieStore.get('session_token')?.value;
+    const session = sessionToken ? await getSession(sessionToken) : null;
+    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    if (!rel || rel.includes('..')) {
+      return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
+    }
+
+    const absolute = path.resolve(process.cwd(), rel);
+    const rootWithSep = path.normalize(UPLOAD_ROOT + path.sep);
+    const normalizedFile = path.normalize(absolute);
+
+    if (!normalizedFile.startsWith(rootWithSep)) {
+      return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
+    }
+
     if (!fs.existsSync(normalizedFile)) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Certificate file not found on server' },
+        { status: 404 }
+      );
     }
     const stat = fs.statSync(normalizedFile);
     if (stat.isDirectory()) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Certificate file not found on server' },
+        { status: 404 }
+      );
     }
 
     const buf = fs.readFileSync(normalizedFile);
     const ext = path.extname(normalizedFile).toLowerCase();
     const ct = contentTypeForExt(ext);
     const filename = path.basename(normalizedFile);
+    const body = new Uint8Array(buf);
 
-    return new NextResponse(buf, {
+    return new NextResponse(body, {
       headers: {
         'Content-Type': ct,
-        'Content-Disposition': `inline; filename="${filename.replace(/"/g, '')}"`,
-        'Content-Length': String(buf.length),
+        'Content-Disposition': contentDispositionHeader('inline', filename),
+        'Content-Length': String(body.byteLength),
       },
     });
   } catch (err: unknown) {

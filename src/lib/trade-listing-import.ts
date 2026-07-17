@@ -49,10 +49,16 @@ export async function importTradeListingFromMapped(args: {
   const { moduleKey, userId, mapped, mode, fkMap, listingFiscal } = args;
 
   if (mode === 'replace') {
+    const fy = listingFiscal?.reportingFiscalYear;
+    const fq = listingFiscal?.reportingFiscalQuarter;
+    const scoped =
+      fy != null && fq != null
+        ? { userId, reportingFiscalYear: fy, reportingFiscalQuarter: fq }
+        : { userId };
     if (moduleKey === 'trade_payable') {
-      await prisma.tradePayableConfirmation.deleteMany({ where: { userId } });
+      await prisma.tradePayableConfirmation.deleteMany({ where: scoped });
     } else {
-      await prisma.tradeReceivableConfirmation.deleteMany({ where: { userId } });
+      await prisma.tradeReceivableConfirmation.deleteMany({ where: scoped });
     }
   }
 
