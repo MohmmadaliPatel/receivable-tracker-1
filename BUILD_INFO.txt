@@ -1,5 +1,5 @@
 Taxteck Email Auto — client release package
-Built: 2026-07-17T08:56:38Z
+Built: 2026-07-17T09:02:04Z
 Build-time NEXT_PUBLIC_APP_BASE_URL=https://confirm.example.com
 Set APP_BASE_URL in .env on the client server (runtime) for email magic links — no rebuild required.
 Node: v22.14.0
